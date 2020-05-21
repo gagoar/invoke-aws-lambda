@@ -1,4 +1,6 @@
 name: "invoke-aws-lambda"
+icon: arrow-up-right
+color: orange
 description: "Invoke AWS Lambda function"
 inputs:
   AWS_ACCESS_KEY_ID:

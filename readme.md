@@ -17,11 +17,12 @@ the response from the lambda invocation
 ## Example usage
 
 ```yaml
-uses: gagoar/invoke-aws-lambda@v1
+uses: gagoar/invoke-aws-lambda@v2
 with:
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   FunctionName: SomeFunction
+  LogType: None
   Payload: '{"someInput": "value"}'
   Qualifier: someAlias
 ```
