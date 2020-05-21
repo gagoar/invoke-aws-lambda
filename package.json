@@ -88,10 +88,10 @@
   "author": "Gago <xeroice@gmail.com>",
   "dependencies": {
     "@actions/core": "^1.2.4",
-    "@actions/github": "^2.2.0",
     "aws-sdk": "^2.681.0"
   },
   "devDependencies": {
+    "ws": ">=3.3.1",
     "@types/jest": "25.2.3",
     "@types/node": "13.13.8",
     "@typescript-eslint/eslint-plugin": "2.34.0",

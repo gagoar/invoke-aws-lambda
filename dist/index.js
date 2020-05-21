@@ -12636,7 +12636,7 @@ const main = async () => {
     try {
         setAWSCredentials();
         const params = getParams();
-        const lambda = new aws_sdk_clients_lambda__WEBPACK_IMPORTED_MODULE_1___default.a({ apiVersion });
+        const lambda = new aws_sdk_clients_lambda__WEBPACK_IMPORTED_MODULE_1___default.a({ apiVersion, region: Object(_actions_core__WEBPACK_IMPORTED_MODULE_2__.getInput)('REGION') });
         const response = await lambda.invoke(params).promise();
         Object(_actions_core__WEBPACK_IMPORTED_MODULE_2__.setOutput)('response', response);
     }
