@@ -1,7 +1,8 @@
 name: "invoke-aws-lambda"
-icon: arrow-up-right
-color: orange
 description: "Invoke AWS Lambda function"
+branding:
+  icon: arrow-up-right
+  color: orange
 inputs:
   AWS_ACCESS_KEY_ID:
     description: "AWS_ACCESS_KEY_ID"
