@@ -21,9 +21,7 @@ uses: gagoar/invoke-aws-lambda@v1
 with:
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  FunctionName: "SomeFunction"
-  Payload: ${{ toJson({"key": value})}}
-    description: "The JSON that you want to provide to your Lambda function as input. (Buffer, Typed Array, Blob, String)"
-    required: false
-  Qualifier: 'someAlias'
+  FunctionName: SomeFunction
+  Payload: '{"someInput": "value"}'
+  Qualifier: someAlias
 ```

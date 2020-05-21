@@ -41,7 +41,7 @@ const main = async () => {
 
     const params = getParams();
 
-    const lambda = new Lambda({ apiVersion });
+    const lambda = new Lambda({ apiVersion, region: getInput('REGION') });
 
     const response = await lambda.invoke(params).promise();
 
