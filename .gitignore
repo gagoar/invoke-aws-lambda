@@ -1,0 +1,4 @@
+node_modules
+.vscode/
+# ignore codecoverage output
+coverage/
