@@ -4,13 +4,13 @@ import { getInput, setOutput, setFailed } from '@actions/core';
 
 const apiVersion = '2015-03-31';
 
-enum Credentials {
+export enum Credentials {
   AWS_ACCESS_KEY_ID = 'AWS_ACCESS_KEY_ID',
   AWS_SECRET_ACCESS_KEY = 'AWS_SECRET_ACCESS_KEY',
   AWS_SESSION_TOKEN = 'AWS_SESSION_TOKEN'
 };
 
-enum Props {
+export enum Props {
   FunctionName = 'FunctionName',
   InvocationType = 'InvocationType',
   LogType = 'LogType',
@@ -34,7 +34,7 @@ const getParams = () => {
   }, {} as Lambda.InvocationRequest);
 };
 
-const main = async () => {
+export const main = async () => {
   try {
 
     setAWSCredentials();
@@ -52,5 +52,6 @@ const main = async () => {
   }
 };
 
-
-main();
+if (require.main === module) {
+  main();
+}
