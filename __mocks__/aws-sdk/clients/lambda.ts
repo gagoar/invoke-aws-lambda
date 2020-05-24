@@ -21,7 +21,6 @@ const dispatch: Dispatch = (response, callback?: Function) => {
 }
 
 const baseHandler = async <T>(method: Methods, props: T): Promise<Record<string, any>> => {
-  debugger
   if (method in lambdaMocks) {
     const handler = lambdaMocks[method];
     return handler && handler(props);
