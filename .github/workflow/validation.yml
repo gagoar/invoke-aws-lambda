@@ -1,6 +1,6 @@
 name: validation
 
-on: push
+on: [push]
 
 jobs:
   lint:
