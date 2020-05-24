@@ -1,6 +1,7 @@
-name: Validation
+name: validation
 
 on: push
+
 jobs:
   lint:
     name: Linting
@@ -35,7 +36,6 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: unittests
-
   build:
     name: Run build
     runs-on: ubuntu-latest
