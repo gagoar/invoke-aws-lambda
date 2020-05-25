@@ -35,23 +35,23 @@ This action allows you to synchronously invoke a Lambda function and get the res
 
 ### Credentials
 
-| Key                     | Type     | Required | Default     | Description                                                                                                                                                                                                              |
-| ----------------------- | -------- | -------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `AWS_ACCESS_KEY_ID`     | `string` | Yes      | -           | Access Key ID (must be used with `AWS_SECRET_ACCESS_KEY`) - [AWS Security Credentials](https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html#access-keys-and-secret-access-keys) reference               |
-| `AWS_SECRET_ACCESS_KEY` | `string` | Yes      | -           | Secret Access Key (must be used with `AWS_ACCESS_KEY_ID`) - [AWS Security Credentials](https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html#access-keys-and-secret-access-keys) reference               |
-| `AWS_SESSION_TOKEN`     | `string` | No       | -           | Session Token (can be used in place of `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`) - [AWS Temporary Credentials](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_use-resources.html) reference |
-| `REGION`                | `string` | No       | `us-east-1` | Region where the Lambda function has been created                                                                                                                                                                        |
+| Key                     |   Type   | Required | Description                                                                                                                                                                                                               |
+| ----------------------- | :------: | :------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AWS_ACCESS_KEY_ID`     | `string` |   Yes    | Access Key ID (must be used with `AWS_SECRET_ACCESS_KEY`) - [AWS Security Credentials](https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html#access-keys-and-secret-access-keys) reference.               |
+| `AWS_SECRET_ACCESS_KEY` | `string` |   Yes    | Secret Access Key (must be used with `AWS_ACCESS_KEY_ID`) - [AWS Security Credentials](https://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html#access-keys-and-secret-access-keys) reference.               |
+| `AWS_SESSION_TOKEN`     | `string` |    No    | Session Token (can be used in place of `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`) - [AWS Temporary Credentials](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_use-resources.html) reference. |
+| `REGION`                | `string` |    No    | Default `us-east-1`. Region where the Lambda function has been created.                                                                                                                                                   |
 
 ### Invocation
 
-| Key              | Type                                 | Required | Default           | Description                                                                                                                          |
-| ---------------- | ------------------------------------ | -------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `FunctionName`   | `string`                             | Yes      | -                 | Name of the Lambda function to be invoked                                                                                            |
-| `InvocationType` | `RequestResponse \| Event \| DryRun` | No       | `RequestResponse` | See the [AWS Javascript SDK docs](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/Lambda.html#invoke-property) for more info |
-| `LogType`        | `Tail \| None`                       | No       | `None`            | Set to `Tail` to include the execution log in the response                                                                           |
-| `Payload`        | `string`                             | No       | -                 | JSON that you want to provide to your Lambda function as input                                                                       |
-| `Qualifier`      | `string`                             | No       | -                 | Version or alias of the function to be invoked                                                                                       |
-| `ClientContext`  | `string`                             | No       | -                 | Base64-encoded data about the invoking client to pass to the function                                                                |
+| Key              |                      Type                      | Required | Description                                                                                                                                                      |
+| ---------------- | :--------------------------------------------: | :------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FunctionName`   |                    `string`                    |   Yes    | Name of the Lambda function to be invoked.                                                                                                                       |
+| `InvocationType` | `RequestResponse\|`<br>`Event\|`<br>`DryRun` |    No    | Default `RequestResponse`. See the [AWS Javascript SDK docs](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/Lambda.html#invoke-property) for more info. |
+| `LogType`        |                 `Tail\|None`                 |    No    | Default `None`. Set to `Tail` to include the execution log in the response.                                                                                      |
+| `Payload`        |                    `string`                    |    No    | JSON that you want to provide to your Lambda function as input.                                                                                                  |
+| `Qualifier`      |                    `string`                    |    No    | Version or alias of the function to be invoked.                                                                                                                  |
+| `ClientContext`  |                    `string`                    |    No    | Base64-encoded data about the invoking client to pass to the function.                                                                                           |
 
 For more details on the parameters accepted by `Lambda.invoke()`, see the [AWS Javascript SDK](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/Lambda.html#invoke-property) docs
 
