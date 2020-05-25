@@ -46,8 +46,8 @@ This action allows you to synchronously invoke a Lambda function and get the res
 | Key              | Type/Possible Values               | Description                                                                                                                          |
 | ---------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `FunctionName`   | `string`                           | Name of the Lambda function to be invoked                                                                                            |
-| `InvocationType` | `RequestResponse | Event | DryRun` | See the [AWS Javascript SDK docs](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/Lambda.html#invoke-property) for more info |
-| `LogType`        | `Tail | None`                      | Set to `Tail` to include the execution log in the response                                                                           |
+| `InvocationType` | `RequestResponse \| Event \| DryRun` | See the [AWS Javascript SDK docs](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/Lambda.html#invoke-property) for more info |
+| `LogType`        | `Tail \| None`                      | Set to `Tail` to include the execution log in the response                                                                           |
 | `Payload`        | `string`                           | JSON that you want to provide to your Lambda function as input                                                                       |
 | `Qualifier`      | `string`                           | Version or alias of the function to be invoked                                                                                       |
 | `ClientContext`  | `string`                           | Base64-encoded data about the invoking client to pass to the function                                                                |
@@ -68,7 +68,8 @@ This step will store the JSON response from the Lambda function invocation in `o
 | `LogResult`       | `string`  | Base64-encoded last 4KB of execution log, if `LogType` was set to `Tail`            |
 | `FunctionError`   | `string`  | If present, indicates that an error has occured, with more information in `Payload` |
 
-Note that you will have to parse the output using the `fromJSON` [function](https://help.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions#functions) before accessing individual properties. See the [Using Output](#Using-Output) example for more details.
+Note that you will have to parse the output using the `fromJSON` [function](https://help.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions#functions) before accessing individual properties.  
+See the [Using Output](#Using-Output) example for more details.
 
 <hr>
 
