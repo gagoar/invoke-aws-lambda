@@ -35,14 +35,12 @@ module.exports =
 /******/ 	}
 /******/
 /******/
-/******/ 	// expose the module cache
-/******/ 	__webpack_require__.c = installedModules;
 /******/ 	__webpack_require__.ab = __dirname + "/";
 /******/
 /******/ 	// the startup function
 /******/ 	function startup() {
 /******/ 		// Load entry module and return exports
-/******/ 		return __webpack_require__(__webpack_require__.s = 731);
+/******/ 		return __webpack_require__(614);
 /******/ 	};
 /******/ 	// initialize runtime
 /******/ 	runtime(__webpack_require__);
@@ -9121,9 +9119,74 @@ module.exports = AWS.SequentialExecutor;
 /***/ }),
 
 /***/ 614:
-/***/ (function(module) {
+/***/ (function(__unusedmodule, __webpack_exports__, __webpack_require__) {
 
-module.exports = require("events");
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+
+// EXTERNAL MODULE: ./node_modules/aws-sdk/global.js
+var global = __webpack_require__(361);
+var global_default = /*#__PURE__*/__webpack_require__.n(global);
+
+// EXTERNAL MODULE: ./node_modules/aws-sdk/clients/lambda.js
+var clients_lambda = __webpack_require__(725);
+var lambda_default = /*#__PURE__*/__webpack_require__.n(clients_lambda);
+
+// EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
+var core = __webpack_require__(470);
+
+// CONCATENATED MODULE: ./src/index.ts
+
+
+
+const apiVersion = '2015-03-31';
+var Credentials;
+(function (Credentials) {
+    Credentials["AWS_ACCESS_KEY_ID"] = "AWS_ACCESS_KEY_ID";
+    Credentials["AWS_SECRET_ACCESS_KEY"] = "AWS_SECRET_ACCESS_KEY";
+    Credentials["AWS_SESSION_TOKEN"] = "AWS_SESSION_TOKEN";
+})(Credentials || (Credentials = {}));
+;
+var Props;
+(function (Props) {
+    Props["FunctionName"] = "FunctionName";
+    Props["InvocationType"] = "InvocationType";
+    Props["LogType"] = "LogType";
+    Props["ClientContext"] = "ClientContext";
+    Props["Payload"] = "Payload";
+    Props["Qualifier"] = "Qualifier";
+})(Props || (Props = {}));
+;
+const setAWSCredentials = () => {
+    global_default.a.config.credentials = {
+        accessKeyId: Object(core.getInput)(Credentials.AWS_ACCESS_KEY_ID),
+        secretAccessKey: Object(core.getInput)(Credentials.AWS_SECRET_ACCESS_KEY),
+        sessionToken: Object(core.getInput)(Credentials.AWS_SESSION_TOKEN)
+    };
+};
+const getParams = () => {
+    return Object.keys(Props).reduce((memo, prop) => {
+        const value = Object(core.getInput)(prop);
+        return value ? Object.assign(Object.assign({}, memo), { [prop]: value }) : memo;
+    }, {});
+};
+const main = async () => {
+    try {
+        setAWSCredentials();
+        const params = getParams();
+        const lambda = new lambda_default.a({ apiVersion, region: Object(core.getInput)('REGION') });
+        const response = await lambda.invoke(params).promise();
+        Object(core.setOutput)('response', response);
+    }
+    catch (error) {
+        Object(core.setFailed)(error.message);
+    }
+};
+
+// CONCATENATED MODULE: ./index.ts
+
+main();
+
 
 /***/ }),
 
@@ -12589,74 +12652,6 @@ module.exports = AWS.Lambda;
 
 /***/ }),
 
-/***/ 731:
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "Credentials", function() { return Credentials; });
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "Props", function() { return Props; });
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "main", function() { return main; });
-/* harmony import */ var aws_sdk_global__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(361);
-/* harmony import */ var aws_sdk_global__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(aws_sdk_global__WEBPACK_IMPORTED_MODULE_0__);
-/* harmony import */ var aws_sdk_clients_lambda__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(725);
-/* harmony import */ var aws_sdk_clients_lambda__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(aws_sdk_clients_lambda__WEBPACK_IMPORTED_MODULE_1__);
-/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(470);
-/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(_actions_core__WEBPACK_IMPORTED_MODULE_2__);
-/* module decorator */ module = __webpack_require__.hmd(module);
-
-
-
-const apiVersion = '2015-03-31';
-var Credentials;
-(function (Credentials) {
-    Credentials["AWS_ACCESS_KEY_ID"] = "AWS_ACCESS_KEY_ID";
-    Credentials["AWS_SECRET_ACCESS_KEY"] = "AWS_SECRET_ACCESS_KEY";
-    Credentials["AWS_SESSION_TOKEN"] = "AWS_SESSION_TOKEN";
-})(Credentials || (Credentials = {}));
-;
-var Props;
-(function (Props) {
-    Props["FunctionName"] = "FunctionName";
-    Props["InvocationType"] = "InvocationType";
-    Props["LogType"] = "LogType";
-    Props["ClientContext"] = "ClientContext";
-    Props["Payload"] = "Payload";
-    Props["Qualifier"] = "Qualifier";
-})(Props || (Props = {}));
-;
-const setAWSCredentials = () => {
-    aws_sdk_global__WEBPACK_IMPORTED_MODULE_0___default.a.config.credentials = {
-        accessKeyId: Object(_actions_core__WEBPACK_IMPORTED_MODULE_2__.getInput)(Credentials.AWS_ACCESS_KEY_ID),
-        secretAccessKey: Object(_actions_core__WEBPACK_IMPORTED_MODULE_2__.getInput)(Credentials.AWS_SECRET_ACCESS_KEY),
-        sessionToken: Object(_actions_core__WEBPACK_IMPORTED_MODULE_2__.getInput)(Credentials.AWS_SESSION_TOKEN)
-    };
-};
-const getParams = () => {
-    return Object.keys(Props).reduce((memo, prop) => {
-        const value = Object(_actions_core__WEBPACK_IMPORTED_MODULE_2__.getInput)(prop);
-        return value ? Object.assign(Object.assign({}, memo), { [prop]: value }) : memo;
-    }, {});
-};
-const main = async () => {
-    try {
-        setAWSCredentials();
-        const params = getParams();
-        const lambda = new aws_sdk_clients_lambda__WEBPACK_IMPORTED_MODULE_1___default.a({ apiVersion, region: Object(_actions_core__WEBPACK_IMPORTED_MODULE_2__.getInput)('REGION') });
-        const response = await lambda.invoke(params).promise();
-        Object(_actions_core__WEBPACK_IMPORTED_MODULE_2__.setOutput)('response', response);
-    }
-    catch (error) {
-        Object(_actions_core__WEBPACK_IMPORTED_MODULE_2__.setFailed)(error.message);
-    }
-};
-if (__webpack_require__.c[__webpack_require__.s] === module) {
-    main();
-}
-
-
-/***/ }),
-
 /***/ 733:
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -13738,6 +13733,13 @@ module.exports = AWS.Signers.V4;
 
 }).call(this);
 
+
+/***/ }),
+
+/***/ 759:
+/***/ (function(module) {
+
+module.exports = require("events");
 
 /***/ }),
 
@@ -18161,7 +18163,7 @@ module.exports = require("http");
 
   sax = __webpack_require__(645);
 
-  events = __webpack_require__(614);
+  events = __webpack_require__(759);
 
   bom = __webpack_require__(210);
 
@@ -21031,18 +21033,6 @@ module.exports = {
 /******/ 		};
 /******/ 	}();
 /******/ 	
-/******/ 	/* webpack/runtime/compat get default export */
-/******/ 	!function() {
-/******/ 		// getDefaultExport function for compatibility with non-harmony modules
-/******/ 		__webpack_require__.n = function(module) {
-/******/ 			var getter = module && module.__esModule ?
-/******/ 				function getDefault() { return module['default']; } :
-/******/ 				function getModuleExports() { return module; };
-/******/ 			__webpack_require__.d(getter, 'a', getter);
-/******/ 			return getter;
-/******/ 		};
-/******/ 	}();
-/******/ 	
 /******/ 	/* webpack/runtime/define property getter */
 /******/ 	!function() {
 /******/ 		// define getter function for harmony exports
@@ -21054,26 +21044,34 @@ module.exports = {
 /******/ 		};
 /******/ 	}();
 /******/ 	
-/******/ 	/* webpack/runtime/harmony module decorator */
+/******/ 	/* webpack/runtime/create fake namespace object */
 /******/ 	!function() {
-/******/ 		__webpack_require__.hmd = function(module) {
-/******/ 			module = Object.create(module);
-/******/ 			if (!module.children) module.children = [];
-/******/ 			Object.defineProperty(module, 'loaded', {
-/******/ 				enumerable: true,
-/******/ 				get: function () { return module.l; }
-/******/ 			});
-/******/ 			Object.defineProperty(module, 'id', {
-/******/ 				enumerable: true,
-/******/ 				get: function () { return module.i; }
-/******/ 			});
-/******/ 			Object.defineProperty(module, 'exports', {
-/******/ 				enumerable: true,
-/******/ 				set: function () {
-/******/ 					throw new Error('ES Modules may not assign module.exports or exports.*, Use ESM export syntax, instead: ' + module.id);
-/******/ 				}
-/******/ 			});
-/******/ 			return module;
+/******/ 		// create a fake namespace object
+/******/ 		// mode & 1: value is a module id, require it
+/******/ 		// mode & 2: merge all properties of value into the ns
+/******/ 		// mode & 4: return value when already ns object
+/******/ 		// mode & 8|1: behave like require
+/******/ 		__webpack_require__.t = function(value, mode) {
+/******/ 			if(mode & 1) value = this(value);
+/******/ 			if(mode & 8) return value;
+/******/ 			if((mode & 4) && typeof value === 'object' && value && value.__esModule) return value;
+/******/ 			var ns = Object.create(null);
+/******/ 			__webpack_require__.r(ns);
+/******/ 			Object.defineProperty(ns, 'default', { enumerable: true, value: value });
+/******/ 			if(mode & 2 && typeof value != 'string') for(var key in value) __webpack_require__.d(ns, key, function(key) { return value[key]; }.bind(null, key));
+/******/ 			return ns;
+/******/ 		};
+/******/ 	}();
+/******/ 	
+/******/ 	/* webpack/runtime/compat get default export */
+/******/ 	!function() {
+/******/ 		// getDefaultExport function for compatibility with non-harmony modules
+/******/ 		__webpack_require__.n = function(module) {
+/******/ 			var getter = module && module.__esModule ?
+/******/ 				function getDefault() { return module['default']; } :
+/******/ 				function getModuleExports() { return module; };
+/******/ 			__webpack_require__.d(getter, 'a', getter);
+/******/ 			return getter;
 /******/ 		};
 /******/ 	}();
 /******/ 	

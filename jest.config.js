@@ -16,6 +16,6 @@ module.exports = {
   transformIgnorePatterns: ['[/\\\\]node_modules[/\\\\].+\\.(js|jsx)$'],
   testMatch: ['**/*.spec.ts'],
   collectCoverage: true,
-  collectCoverageFrom: ['*.ts'],
+  collectCoverageFrom: ['src/*.ts', '!./index.ts'],
   coverageDirectory: './coverage/'
 };
