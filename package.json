@@ -6,7 +6,7 @@
   "description": "Invoke AWS Lambda",
   "main": "index.ts",
   "scripts": {
-    "precommit": "lint-staged",
+    "pre-commit": "lint-staged",
     "test": "jest",
     "build": "ncc build index.ts",
     "lint": "eslint index.ts"
