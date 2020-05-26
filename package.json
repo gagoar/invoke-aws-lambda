@@ -25,11 +25,12 @@
     "action"
   ],
   "lint-staged": {
+    "*": [
+      "pretty-quick --staged"
+    ],
     "*.ts": [
-      "pretty-quick --staged",
       "eslint --fix",
-      "npm run build",
-      "git add"
+      "npm run build"
     ]
   },
   "eslintConfig": {
