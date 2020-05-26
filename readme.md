@@ -19,15 +19,15 @@ This action allows you to synchronously invoke a Lambda function and get the res
 
 ## Table of contents
 
-  - [Input parameters](#input-parameters)
-    - [Credentials](#credentials)
-    - [Invocation](#invocation)
-  - [Output](#output)
-  - [Examples](#examples)
-    - [Basic example](#basic-example)
-    - [Using output](#using-output)
-    - [Specifying alias/version](#specifying-aliasversion)
-    - [Handling logs](#handling-logs)
+- [Input parameters](#input-parameters)
+  - [Credentials](#credentials)
+  - [Invocation](#invocation)
+- [Output](#output)
+- [Examples](#examples)
+  - [Basic example](#basic-example)
+  - [Using output](#using-output)
+  - [Specifying alias/version](#specifying-aliasversion)
+  - [Handling logs](#handling-logs)
 
 <hr>
 
@@ -85,7 +85,7 @@ This step invokes a Lambda function without regard for the invocation output:
 
 ```yaml
 - name: Invoke foobarFunction Lambda
-  uses: gagoar/invoke-aws-lambda@master
+  uses: gagoar/invoke-aws-lambda@master # or the latest version.
   with:
     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -100,7 +100,7 @@ These steps process the response payload by using step outputs:
 ```yaml
 - name: Invoke foobarFunction Lambda
   id: foobar
-  uses: gagoar/invoke-aws-lambda@master
+  uses: gagoar/invoke-aws-lambda@master # or the latest version.
   with:
     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -119,7 +119,7 @@ This step invokes a Lambda function with the `someAlias` alias:
 
 ```yaml
 - name: Invoke foobarFunction Lambda
-  uses: gagoar/invoke-aws-lambda@master
+  uses: gagoar/invoke-aws-lambda@master # or the latest version.
   with:
     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -144,7 +144,7 @@ These steps process logs returned from the invocation:
 ```yaml
 - name: Invoke foobarFunction Lambda
   id: foobar
-  uses: gagoar/invoke-aws-lambda@master
+  uses: gagoar/invoke-aws-lambda@master # or the latest version.
   with:
     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
