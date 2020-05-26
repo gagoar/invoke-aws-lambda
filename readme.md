@@ -85,7 +85,7 @@ This step invokes a Lambda function without regard for the invocation output:
 
 ```yaml
 - name: Invoke foobarFunction Lambda
-  uses: gagoar/invoke-aws-lambda@v3
+  uses: gagoar/invoke-aws-lambda@master
   with:
     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -100,14 +100,14 @@ These steps process the response payload by using step outputs:
 ```yaml
 - name: Invoke foobarFunction Lambda
   id: foobar
-  uses: gagoar/invoke-aws-lambda@v3
+  uses: gagoar/invoke-aws-lambda@master
   with:
     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     FunctionName: foobarFunction
     Payload: '{ "myParameter": false }'
 - name: Store response payload to file
-  run: echo "${{ fromJSON(steps.foobar.outputs.response).Payload }}" > invocation-response.json
+  run: echo '${{ fromJSON(steps.foobar.outputs.response).Payload }}' > invocation-response.json
 ```
 
 Notice the addition of the `id` field to the invocation step.  
@@ -119,7 +119,7 @@ This step invokes a Lambda function with the `someAlias` alias:
 
 ```yaml
 - name: Invoke foobarFunction Lambda
-  uses: gagoar/invoke-aws-lambda@v3
+  uses: gagoar/invoke-aws-lambda@master
   with:
     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -144,7 +144,7 @@ These steps process logs returned from the invocation:
 ```yaml
 - name: Invoke foobarFunction Lambda
   id: foobar
-  uses: gagoar/invoke-aws-lambda@v3
+  uses: gagoar/invoke-aws-lambda@master
   with:
     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
