@@ -21,7 +21,7 @@
     "action"
   ],
   "lint-staged": {
-    "*.+(js|ts)": [
+    "*.ts": [
       "pretty-quick --staged",
       "eslint --fix",
       "npm run build",
