@@ -1,4 +1,4 @@
-import { main, Props, Credentials } from '../';
+import { main, Props, Credentials } from '../src';
 import { setFailed, getInput, setOutput } from '../__mocks__/@actions/core';
 import Lambda, { constructorMock } from '../__mocks__/aws-sdk/clients/lambda';
 
