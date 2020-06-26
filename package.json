@@ -31,7 +31,7 @@
     "*.ts": [
       "eslint --fix",
       "bash -c \"npm run build\"",
-      "git add"
+      "git add ."
     ]
   },
   "eslintConfig": {

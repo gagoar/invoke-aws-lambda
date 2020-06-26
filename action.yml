@@ -37,6 +37,9 @@ inputs:
   Qualifier:
     description: "Specify a version or alias to invoke a published version of the function."
     required: false
+  HTTP_TIMEOUT:
+    description: http timeout for the request
+    required: false
 outputs:
   response: # id of output
     description: "response from lambda invocation"
