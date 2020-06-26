@@ -9140,13 +9140,17 @@ var core = __webpack_require__(470);
 
 
 const apiVersion = '2015-03-31';
+var ExtraOptions;
+(function (ExtraOptions) {
+    ExtraOptions["HTTP_TIMEOUT"] = "HTTP_TIMEOUT";
+    ExtraOptions["MAX_RETRIES"] = "MAX_RETRIES";
+})(ExtraOptions || (ExtraOptions = {}));
 var Credentials;
 (function (Credentials) {
     Credentials["AWS_ACCESS_KEY_ID"] = "AWS_ACCESS_KEY_ID";
     Credentials["AWS_SECRET_ACCESS_KEY"] = "AWS_SECRET_ACCESS_KEY";
     Credentials["AWS_SESSION_TOKEN"] = "AWS_SESSION_TOKEN";
 })(Credentials || (Credentials = {}));
-;
 var Props;
 (function (Props) {
     Props["FunctionName"] = "FunctionName";
@@ -9156,12 +9160,11 @@ var Props;
     Props["Payload"] = "Payload";
     Props["Qualifier"] = "Qualifier";
 })(Props || (Props = {}));
-;
 const setAWSCredentials = () => {
     global_default.a.config.credentials = {
         accessKeyId: Object(core.getInput)(Credentials.AWS_ACCESS_KEY_ID),
         secretAccessKey: Object(core.getInput)(Credentials.AWS_SECRET_ACCESS_KEY),
-        sessionToken: Object(core.getInput)(Credentials.AWS_SESSION_TOKEN)
+        sessionToken: Object(core.getInput)(Credentials.AWS_SESSION_TOKEN),
     };
 };
 const getParams = () => {
@@ -9170,9 +9173,20 @@ const getParams = () => {
         return value ? Object.assign(Object.assign({}, memo), { [prop]: value }) : memo;
     }, {});
 };
+const setAWSConfigOptions = () => {
+    const httpTimeout = Object(core.getInput)(ExtraOptions.HTTP_TIMEOUT);
+    if (httpTimeout) {
+        global_default.a.config.httpOptions = { timeout: parseInt(httpTimeout, 10) };
+    }
+    const maxRetries = Object(core.getInput)(ExtraOptions.MAX_RETRIES);
+    if (maxRetries) {
+        global_default.a.config.maxRetries = parseInt(maxRetries, 10);
+    }
+};
 const main = async () => {
     try {
         setAWSCredentials();
+        setAWSConfigOptions();
         const params = getParams();
         const lambda = new lambda_default.a({ apiVersion, region: Object(core.getInput)('REGION') });
         const response = await lambda.invoke(params).promise();
