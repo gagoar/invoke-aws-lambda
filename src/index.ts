@@ -5,7 +5,7 @@ import { getInput, setOutput, setFailed } from '@actions/core';
 const apiVersion = '2015-03-31';
 
 export enum ExtraOptions {
-  timeout = 'timeout',
+  HTTP_TIMEOUT = 'HTTP_TIMEOUT',
 }
 
 export enum Credentials {

@@ -19,15 +19,15 @@ This action allows you to synchronously invoke a Lambda function and get the res
 
 ## Table of contents
 
-  - [Input parameters](#input-parameters)
-    - [Credentials](#credentials)
-    - [Invocation](#invocation)
-  - [Output](#output)
-  - [Examples](#examples)
-    - [Basic example](#basic-example)
-    - [Using output](#using-output)
-    - [Specifying alias/version](#specifying-aliasversion)
-    - [Handling logs](#handling-logs)
+- [Input parameters](#input-parameters)
+  - [Credentials](#credentials)
+  - [Invocation](#invocation)
+- [Output](#output)
+- [Examples](#examples)
+  - [Basic example](#basic-example)
+  - [Using output](#using-output)
+  - [Specifying alias/version](#specifying-aliasversion)
+  - [Handling logs](#handling-logs)
 
 <hr>
 
@@ -55,6 +55,7 @@ This action allows you to synchronously invoke a Lambda function and get the res
 | `Payload`        |                   `string`                   |    No    | JSON that you want to provide to your Lambda function as input.                                                                                                  |
 | `Qualifier`      |                   `string`                   |    No    | Version or alias of the function to be invoked.                                                                                                                  |
 | `ClientContext`  |                   `string`                   |    No    | Base64-encoded data about the invoking client to pass to the function.                                                                                           |
+| `HTTP_TIMEOUT`   |                   `number`                   |    No    | http timeout for the request. See the [AWS Javascript SDK docs](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/Config.html)                             |
 
 For more details on the parameters accepted by `Lambda.invoke()`, see the [AWS Javascript SDK](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/Lambda.html#invoke-property) docs
 

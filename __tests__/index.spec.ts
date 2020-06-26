@@ -9,12 +9,11 @@ describe('invoke-aws-lambda', () => {
     [Props.LogType]: 'None',
     [Props.Payload]: '{"input": {value: "1"}',
     [Props.Qualifier]: 'production',
-    [ExtraOptions.timeout]: '20000',
+    [ExtraOptions.HTTP_TIMEOUT]: '220000',
     [Credentials.AWS_ACCESS_KEY_ID]: 'someAccessKey',
     [Credentials.AWS_SECRET_ACCESS_KEY]: 'someSecretKey',
     REGION: 'us-west-2',
   };
-
   getInput.mockImplementation(
     (key: Partial<Props & Credentials & 'REGION'>) => {
       return mockedInput[key];
@@ -35,6 +34,11 @@ describe('invoke-aws-lambda', () => {
     await main();
     expect(getInput).toHaveBeenCalledTimes(11);
     expect(setFailed).not.toHaveBeenCalled();
+    expect(AWS.config.httpOptions).toMatchInlineSnapshot(`
+      Object {
+        "timeout": 220000,
+      }
+    `);
     expect(constructorMock.mock.calls).toMatchInlineSnapshot(`
       Array [
         Array [
@@ -79,7 +83,7 @@ describe('invoke-aws-lambda', () => {
     expect(getInput).toHaveBeenCalledTimes(11);
     expect(AWS.config.httpOptions).toMatchInlineSnapshot(`
       Object {
-        "timeout": 120000,
+        "timeout": 220000,
       }
     `);
     expect(setFailed).toHaveBeenCalled();

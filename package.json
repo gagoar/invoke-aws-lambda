@@ -30,7 +30,8 @@
     ],
     "*.ts": [
       "eslint --fix",
-      "bash -c \"npm run build\""
+      "bash -c \"npm run build\"",
+      "git add"
     ]
   },
   "eslintConfig": {
