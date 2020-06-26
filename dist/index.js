@@ -9143,6 +9143,7 @@ const apiVersion = '2015-03-31';
 var ExtraOptions;
 (function (ExtraOptions) {
     ExtraOptions["HTTP_TIMEOUT"] = "HTTP_TIMEOUT";
+    ExtraOptions["MAX_RETRIES"] = "MAX_RETRIES";
 })(ExtraOptions || (ExtraOptions = {}));
 var Credentials;
 (function (Credentials) {
@@ -9172,13 +9173,20 @@ const getParams = () => {
         return value ? Object.assign(Object.assign({}, memo), { [prop]: value }) : memo;
     }, {});
 };
+const setAWSConfigOptions = () => {
+    const httpTimeout = Object(core.getInput)(ExtraOptions.HTTP_TIMEOUT);
+    if (httpTimeout) {
+        global_default.a.config.httpOptions = { timeout: parseInt(httpTimeout, 10) };
+    }
+    const maxRetries = Object(core.getInput)(ExtraOptions.MAX_RETRIES);
+    if (maxRetries) {
+        global_default.a.config.maxRetries = parseInt(maxRetries, 10);
+    }
+};
 const main = async () => {
     try {
         setAWSCredentials();
-        const httpTimeout = Object(core.getInput)('HTTP_TIMEOUT');
-        if (httpTimeout) {
-            global_default.a.config.httpOptions = { timeout: parseInt(httpTimeout, 10) };
-        }
+        setAWSConfigOptions();
         const params = getParams();
         const lambda = new lambda_default.a({ apiVersion, region: Object(core.getInput)('REGION') });
         const response = await lambda.invoke(params).promise();

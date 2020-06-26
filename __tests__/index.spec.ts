@@ -10,6 +10,7 @@ describe('invoke-aws-lambda', () => {
     [Props.Payload]: '{"input": {value: "1"}',
     [Props.Qualifier]: 'production',
     [ExtraOptions.HTTP_TIMEOUT]: '220000',
+    [ExtraOptions.MAX_RETRIES]: '3',
     [Credentials.AWS_ACCESS_KEY_ID]: 'someAccessKey',
     [Credentials.AWS_SECRET_ACCESS_KEY]: 'someSecretKey',
     REGION: 'us-west-2',
@@ -32,7 +33,7 @@ describe('invoke-aws-lambda', () => {
     Lambda.__setResponseForMethods({ invoke: handler });
 
     await main();
-    expect(getInput).toHaveBeenCalledTimes(11);
+    expect(getInput).toHaveBeenCalledTimes(12);
     expect(setFailed).not.toHaveBeenCalled();
     expect(AWS.config.httpOptions).toMatchInlineSnapshot(`
       Object {
@@ -77,10 +78,12 @@ describe('invoke-aws-lambda', () => {
     const handler = jest.fn(() => {
       throw new Error('something went horribly wrong');
     });
+
     Lambda.__setResponseForMethods({ invoke: handler });
 
     await main();
-    expect(getInput).toHaveBeenCalledTimes(11);
+
+    expect(getInput).toHaveBeenCalledTimes(12);
     expect(AWS.config.httpOptions).toMatchInlineSnapshot(`
       Object {
         "timeout": 220000,

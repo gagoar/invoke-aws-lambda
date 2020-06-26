@@ -38,7 +38,7 @@ inputs:
     description: "Specify a version or alias to invoke a published version of the function."
     required: false
   HTTP_TIMEOUT:
-    description: http timeout for the request
+    description: Sets the socket to timeout after timeout milliseconds of inactivity on the socket. Defaults to two minutes (120000)
     required: false
 outputs:
   response: # id of output

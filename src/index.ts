@@ -6,6 +6,7 @@ const apiVersion = '2015-03-31';
 
 export enum ExtraOptions {
   HTTP_TIMEOUT = 'HTTP_TIMEOUT',
+  MAX_RETRIES = 'MAX_RETRIES',
 }
 
 export enum Credentials {
@@ -38,15 +39,24 @@ const getParams = () => {
   }, {} as Lambda.InvocationRequest);
 };
 
+const setAWSConfigOptions = () => {
+  const httpTimeout = getInput(ExtraOptions.HTTP_TIMEOUT);
+
+  if (httpTimeout) {
+    AWS.config.httpOptions = { timeout: parseInt(httpTimeout, 10) };
+  }
+
+  const maxRetries = getInput(ExtraOptions.MAX_RETRIES);
+
+  if (maxRetries) {
+    AWS.config.maxRetries = parseInt(maxRetries, 10);
+  }
+};
 export const main = async () => {
   try {
     setAWSCredentials();
 
-    const httpTimeout = getInput('HTTP_TIMEOUT');
-
-    if (httpTimeout) {
-      AWS.config.httpOptions = { timeout: parseInt(httpTimeout, 10) };
-    }
+    setAWSConfigOptions();
 
     const params = getParams();
 
