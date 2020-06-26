@@ -5,6 +5,7 @@
     "index.ts",
     "__mocks__/**/*.ts",
     "__tests__/**/*.ts",
-    "jest.config.js"
+    "jest.config.js",
+    "!dist/"
   ]
 }
