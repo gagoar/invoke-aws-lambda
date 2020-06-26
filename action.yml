@@ -40,6 +40,9 @@ inputs:
   HTTP_TIMEOUT:
     description: Sets the socket to timeout after timeout milliseconds of inactivity on the socket. Defaults to two minutes (120000)
     required: false
+  MAX_RETRIES:
+    description: Returns the maximum amount of retries to perform for a service request. By default this value is calculated by the specific service object that the request is being made to.
+    required: false
 outputs:
   response: # id of output
     description: "response from lambda invocation"
