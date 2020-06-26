@@ -9142,7 +9142,7 @@ var core = __webpack_require__(470);
 const apiVersion = '2015-03-31';
 var ExtraOptions;
 (function (ExtraOptions) {
-    ExtraOptions["timeout"] = "timeout";
+    ExtraOptions["HTTP_TIMEOUT"] = "HTTP_TIMEOUT";
 })(ExtraOptions || (ExtraOptions = {}));
 var Credentials;
 (function (Credentials) {

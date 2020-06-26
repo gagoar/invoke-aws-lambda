@@ -1,5 +1,5 @@
 export declare enum ExtraOptions {
-    timeout = "timeout"
+    HTTP_TIMEOUT = "HTTP_TIMEOUT"
 }
 export declare enum Credentials {
     AWS_ACCESS_KEY_ID = "AWS_ACCESS_KEY_ID",
