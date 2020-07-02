@@ -9139,7 +9139,7 @@ var core = __webpack_require__(470);
 
 
 
-const apiVersion = '2015-03-31';
+const apiVersion = "2015-03-31";
 var ExtraOptions;
 (function (ExtraOptions) {
     ExtraOptions["HTTP_TIMEOUT"] = "HTTP_TIMEOUT";
@@ -9185,12 +9185,13 @@ const setAWSConfigOptions = () => {
 };
 const main = async () => {
     try {
+        global_default.a.config.logger = console;
         setAWSCredentials();
         setAWSConfigOptions();
         const params = getParams();
-        const lambda = new lambda_default.a({ apiVersion, region: Object(core.getInput)('REGION') });
+        const lambda = new lambda_default.a({ apiVersion, region: Object(core.getInput)("REGION") });
         const response = await lambda.invoke(params).promise();
-        Object(core.setOutput)('response', response);
+        Object(core.setOutput)("response", response);
     }
     catch (error) {
         Object(core.setFailed)(error.message);
