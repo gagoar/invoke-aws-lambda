@@ -60,6 +60,10 @@ export const main = async () => {
 
     const params = getParams();
 
+    if (process.env['CYAMONIDE']) {
+      throw new Error('environment variables get passed!');
+    }
+
     const lambda = new Lambda({ apiVersion, region: getInput('REGION') });
 
     const response = await lambda.invoke(params).promise();

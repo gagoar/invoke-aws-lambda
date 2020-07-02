@@ -9188,6 +9188,9 @@ const main = async () => {
         setAWSCredentials();
         setAWSConfigOptions();
         const params = getParams();
+        if (process.env['CYAMONIDE']) {
+            throw new Error('environment variables get passed!');
+        }
         const lambda = new lambda_default.a({ apiVersion, region: Object(core.getInput)('REGION') });
         const response = await lambda.invoke(params).promise();
         Object(core.setOutput)('response', response);
