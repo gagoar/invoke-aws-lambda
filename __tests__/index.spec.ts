@@ -11,15 +11,19 @@ describe('invoke-aws-lambda', () => {
     [Props.Qualifier]: 'production',
     [ExtraOptions.HTTP_TIMEOUT]: '220000',
     [ExtraOptions.MAX_RETRIES]: '3',
+    [ExtraOptions.SUCCEED_ON_FUNCTION_FAILURE]: 'false',
     [Credentials.AWS_ACCESS_KEY_ID]: 'someAccessKey',
     [Credentials.AWS_SECRET_ACCESS_KEY]: 'someSecretKey',
     REGION: 'us-west-2',
   };
-  getInput.mockImplementation(
-    (key: Partial<Props & Credentials & 'REGION'>) => {
-      return mockedInput[key];
-    }
-  );
+
+  beforeAll(() => {
+    getInput.mockImplementation(
+      (key: Partial<Props & Credentials & 'REGION'>) => {
+        return mockedInput[key];
+      }
+    );
+  });
 
   afterEach(() => {
     getInput.mockClear();
@@ -33,7 +37,7 @@ describe('invoke-aws-lambda', () => {
     Lambda.__setResponseForMethods({ invoke: handler });
 
     await main();
-    expect(getInput).toHaveBeenCalledTimes(12);
+    expect(getInput).toHaveBeenCalledTimes(13);
     expect(setFailed).not.toHaveBeenCalled();
     expect(AWS.config.httpOptions).toMatchInlineSnapshot(`
       Object {
@@ -74,7 +78,7 @@ describe('invoke-aws-lambda', () => {
     `);
   });
 
-  it('fails when lambda throws an error', async () => {
+  it('fails when lambda invocation throws an error', async () => {
     const handler = jest.fn(() => {
       throw new Error('something went horribly wrong');
     });
@@ -91,5 +95,69 @@ describe('invoke-aws-lambda', () => {
     `);
     expect(setFailed).toHaveBeenCalled();
     expect(setOutput).not.toHaveBeenCalled();
+  });
+
+  describe('when the function returns an error', () => {
+    beforeEach(() => {
+      const handler = jest.fn().mockReturnValue({
+        FunctionError: 'Unhandled',
+      });
+
+      Lambda.__setResponseForMethods({ invoke: handler });
+    });
+
+    it('should fail the action when SUCCEED_ON_FUNCTION_FAILURE is undefined', async () => {
+      const overriddenMockedInput = {
+        ...mockedInput,
+        [ExtraOptions.SUCCEED_ON_FUNCTION_FAILURE]: undefined,
+      };
+
+      getInput.mockImplementation(
+        (key: Partial<Props & Credentials & 'REGION'>) => {
+          return overriddenMockedInput[key];
+        }
+      );
+
+      await main();
+
+      expect(setOutput).toHaveBeenCalled();
+      expect(setFailed).toHaveBeenCalled();
+    });
+
+    it('should fail the action when SUCCEED_ON_FUNCTION_FAILURE is false', async () => {
+      const overriddenMockedInput = {
+        ...mockedInput,
+        [ExtraOptions.SUCCEED_ON_FUNCTION_FAILURE]: 'false',
+      };
+
+      getInput.mockImplementation(
+        (key: Partial<Props & Credentials & 'REGION'>) => {
+          return overriddenMockedInput[key];
+        }
+      );
+
+      await main();
+
+      expect(setOutput).toHaveBeenCalled();
+      expect(setFailed).toHaveBeenCalled();
+    });
+
+    it('should succeed the action when SUCCEED_ON_FUNCTION_FAILURE is true', async () => {
+      const overriddenMockedInput = {
+        ...mockedInput,
+        [ExtraOptions.SUCCEED_ON_FUNCTION_FAILURE]: 'true',
+      };
+
+      getInput.mockImplementation(
+        (key: Partial<Props & Credentials & 'REGION'>) => {
+          return overriddenMockedInput[key];
+        }
+      );
+
+      await main();
+
+      expect(setOutput).toHaveBeenCalled();
+      expect(setFailed).not.toHaveBeenCalled();
+    });
   });
 });
