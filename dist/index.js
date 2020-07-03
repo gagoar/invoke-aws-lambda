@@ -9194,6 +9194,7 @@ const main = async () => {
             .invoke(params, (err, data) => {
             console.log(err);
             console.log(data);
+            throw data;
         })
             .promise();
         Object(core.setOutput)('response', response);
