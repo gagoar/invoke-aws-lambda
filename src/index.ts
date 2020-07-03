@@ -69,7 +69,7 @@ export const main = async () => {
     setOutput('response', response);
 
     const succeedOnFailure =
-      getInput(ExtraOptions.SUCCEED_ON_FUNCTION_FAILURE).toLocaleLowerCase() ===
+      getInput(ExtraOptions.SUCCEED_ON_FUNCTION_FAILURE).toLowerCase() ===
       'true';
     if ('FunctionError' in response && !succeedOnFailure) {
       throw new Error(

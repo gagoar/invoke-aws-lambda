@@ -9192,7 +9192,7 @@ const main = async () => {
         const lambda = new lambda_default.a({ apiVersion, region: Object(core.getInput)('REGION') });
         const response = await lambda.invoke(params).promise();
         Object(core.setOutput)('response', response);
-        const succeedOnFailure = Object(core.getInput)(ExtraOptions.SUCCEED_ON_FUNCTION_FAILURE).toLocaleLowerCase() ===
+        const succeedOnFailure = Object(core.getInput)(ExtraOptions.SUCCEED_ON_FUNCTION_FAILURE).toLowerCase() ===
             'true';
         if ('FunctionError' in response && !succeedOnFailure) {
             throw new Error('Lambda invocation failed! See outputs.response for more information.');
