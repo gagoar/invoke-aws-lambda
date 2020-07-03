@@ -9144,6 +9144,7 @@ var ExtraOptions;
 (function (ExtraOptions) {
     ExtraOptions["HTTP_TIMEOUT"] = "HTTP_TIMEOUT";
     ExtraOptions["MAX_RETRIES"] = "MAX_RETRIES";
+    ExtraOptions["SUCCEED_ON_FUNCTION_FAILURE"] = "SUCCEED_ON_FUNCTION_FAILURE";
 })(ExtraOptions || (ExtraOptions = {}));
 var Credentials;
 (function (Credentials) {
@@ -9191,8 +9192,9 @@ const main = async () => {
         const lambda = new lambda_default.a({ apiVersion, region: Object(core.getInput)('REGION') });
         const response = await lambda.invoke(params).promise();
         Object(core.setOutput)('response', response);
-        if ('FunctionError' in response)
-            throw new Error('Lambda invocation failed! See response for more information');
+        if ('FunctionError' in response &&
+            !Object(core.getInput)(ExtraOptions.SUCCEED_ON_FUNCTION_FAILURE))
+            throw new Error('Lambda invocation failed! See outputs.response for more information.');
     }
     catch (error) {
         Object(core.setFailed)(error.message);
