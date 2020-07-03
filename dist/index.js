@@ -9191,7 +9191,7 @@ const main = async () => {
         const lambda = new lambda_default.a({ apiVersion, region: Object(core.getInput)('REGION') });
         const response = await lambda.invoke(params).promise();
         Object(core.setOutput)('response', response);
-        if (response.FunctionError)
+        if ('FunctionError' in response)
             throw new Error('Lambda invocation failed! See response for more information');
     }
     catch (error) {

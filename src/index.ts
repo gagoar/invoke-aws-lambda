@@ -66,7 +66,7 @@ export const main = async () => {
 
     setOutput('response', response);
 
-    if (response.FunctionError)
+    if ('FunctionError' in response)
       throw new Error(
         'Lambda invocation failed! See response for more information'
       );
