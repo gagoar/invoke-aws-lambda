@@ -62,11 +62,13 @@ export const main = async () => {
 
     const lambda = new Lambda({ apiVersion, region: getInput('REGION') });
 
-    const response = lambda
+    const response = await lambda
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      .invoke(params, (_err, data) => {
-        if (data) throw data;
-      });
+      .invoke(params, (err, data) => {
+        console.log(err);
+        console.log(data);
+      })
+      .promise();
 
     setOutput('response', response);
   } catch (error) {
