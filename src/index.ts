@@ -64,11 +64,12 @@ export const main = async () => {
 
     const response = await lambda.invoke(params).promise();
 
-    console.log(response);
-
-    if (response.FunctionError) throw response;
-
     setOutput('response', response);
+
+    if (response.FunctionError)
+      throw new Error(
+        'Lambda invocation failed! See response for more information'
+      );
   } catch (error) {
     setFailed(error.message);
   }

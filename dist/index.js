@@ -9190,10 +9190,9 @@ const main = async () => {
         const params = getParams();
         const lambda = new lambda_default.a({ apiVersion, region: Object(core.getInput)('REGION') });
         const response = await lambda.invoke(params).promise();
-        console.log(response);
-        if (response.FunctionError)
-            throw response;
         Object(core.setOutput)('response', response);
+        if (response.FunctionError)
+            throw new Error('Lambda invocation failed! See response for more information');
     }
     catch (error) {
         Object(core.setFailed)(error.message);
