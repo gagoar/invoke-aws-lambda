@@ -9189,14 +9189,8 @@ const main = async () => {
         setAWSConfigOptions();
         const params = getParams();
         const lambda = new lambda_default.a({ apiVersion, region: Object(core.getInput)('REGION') });
-        const response = await lambda
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            .invoke(params, (err, data) => {
-            console.log(err);
-            console.log(data);
-            throw data;
-        })
-            .promise();
+        const response = await lambda.invoke(params).promise();
+        console.log(response);
         Object(core.setOutput)('response', response);
     }
     catch (error) {
