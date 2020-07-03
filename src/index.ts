@@ -64,8 +64,8 @@ export const main = async () => {
 
     const response = await lambda
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      .invoke(params, (err, _data) => {
-        if (err) throw err;
+      .invoke(params, (_err, data) => {
+        if (data) throw data;
       })
       .promise();
 

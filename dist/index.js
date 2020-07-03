@@ -9191,9 +9191,9 @@ const main = async () => {
         const lambda = new lambda_default.a({ apiVersion, region: Object(core.getInput)('REGION') });
         const response = await lambda
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            .invoke(params, (err, _data) => {
-            if (err)
-                throw err;
+            .invoke(params, (_err, data) => {
+            if (data)
+                throw data;
         })
             .promise();
         Object(core.setOutput)('response', response);
