@@ -63,8 +63,7 @@ export const main = async () => {
     const lambda = new Lambda({ apiVersion, region: getInput('REGION') });
 
     const response = await lambda.invoke(params).promise();
-
-    console.log(response);
+    if (response.FunctionError) throw response;
 
     setOutput('response', response);
   } catch (error) {
