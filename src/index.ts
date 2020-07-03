@@ -68,13 +68,14 @@ export const main = async () => {
 
     setOutput('response', response);
 
-    if (
-      'FunctionError' in response &&
-      !getInput(ExtraOptions.SUCCEED_ON_FUNCTION_FAILURE)
-    )
+    const succeedOnFailure =
+      getInput(ExtraOptions.SUCCEED_ON_FUNCTION_FAILURE).toLocaleLowerCase() ===
+      'true';
+    if ('FunctionError' in response && !succeedOnFailure) {
       throw new Error(
         'Lambda invocation failed! See outputs.response for more information.'
       );
+    }
   } catch (error) {
     setFailed(error.message);
   }
