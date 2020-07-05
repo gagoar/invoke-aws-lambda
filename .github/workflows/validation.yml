@@ -3,7 +3,6 @@ name: validation
 on: pull_request
 
 jobs:
-  message:
   lint:
     name: Linting
     runs-on: ubuntu-latest
