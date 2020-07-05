@@ -21,10 +21,7 @@ jobs:
       - name: ESLint
         run: npm run lint
       - name: createCommitMessage
-        id: message
         run: echo ::set-output name::commitMessage::$(git log -1 --pretty=format:"%s")
-      - name: echoMessage
-        run: echo ${{ steps.message.outputs.commitMessage }}
   test:
     name: Run unit tests
     runs-on: ubuntu-latest
