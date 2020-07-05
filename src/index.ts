@@ -7,6 +7,7 @@ const apiVersion = '2015-03-31';
 export enum ExtraOptions {
   HTTP_TIMEOUT = 'HTTP_TIMEOUT',
   MAX_RETRIES = 'MAX_RETRIES',
+  SUCCEED_ON_FUNCTION_FAILURE = 'SUCCEED_ON_FUNCTION_FAILURE',
 }
 
 export enum Credentials {
@@ -52,6 +53,7 @@ const setAWSConfigOptions = () => {
     AWS.config.maxRetries = parseInt(maxRetries, 10);
   }
 };
+
 export const main = async () => {
   try {
     setAWSCredentials();
@@ -65,6 +67,15 @@ export const main = async () => {
     const response = await lambda.invoke(params).promise();
 
     setOutput('response', response);
+
+    const succeedOnFailure =
+      getInput(ExtraOptions.SUCCEED_ON_FUNCTION_FAILURE).toLowerCase() ===
+      'true';
+    if ('FunctionError' in response && !succeedOnFailure) {
+      throw new Error(
+        'Lambda invocation failed! See outputs.response for more information.'
+      );
+    }
   } catch (error) {
     setFailed(error.message);
   }

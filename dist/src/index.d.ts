@@ -1,6 +1,7 @@
 export declare enum ExtraOptions {
     HTTP_TIMEOUT = "HTTP_TIMEOUT",
-    MAX_RETRIES = "MAX_RETRIES"
+    MAX_RETRIES = "MAX_RETRIES",
+    SUCCEED_ON_FUNCTION_FAILURE = "SUCCEED_ON_FUNCTION_FAILURE"
 }
 export declare enum Credentials {
     AWS_ACCESS_KEY_ID = "AWS_ACCESS_KEY_ID",
