@@ -23,7 +23,7 @@ jobs:
         run: |
           ::set-output name=commitMessage::$(git log -1 --pretty=format:"%s")
       - name: using output
-        run: echo '${{jobs.steps.message.outputs.commitMessage}}'
+        run: echo '${{steps.message.outputs.commitMessage}}'
   test:
     name: Run unit tests
     runs-on: ubuntu-latest
