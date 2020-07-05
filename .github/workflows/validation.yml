@@ -14,14 +14,15 @@ jobs:
         id: message
         with:
           node-version: 12.x
+        output:
+          commitMessage:
       - name: Install dependencies
         run: |
           npm install
       - name: ESLint
         run: npm run lint
-      - name: Message
-        output:
-          commitMessage: git log -1 --pretty=format:"%s"
+      - name: createCommitMessage
+        run: echo "::set-output::commitMessage::$(git log -1 --pretty=format:"%s")"
       - name: using output
         run: echo ${{steps.message.outputs.commitMessage}}
   test:
