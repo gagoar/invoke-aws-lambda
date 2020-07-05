@@ -18,12 +18,12 @@ jobs:
           npm install
       - name: ESLint
         run: npm run lint
-      - name: ESLint
+      - name: Message
         id: message
-        run: |
-          ::set-output name=commitMessage::$(git log -1 --pretty=format:"%s")
+        output:
+          commitMessage: git log -1 --pretty=format:"%s"
       - name: using output
-        run: echo '${{steps.message.outputs.commitMessage}}'
+        run: echo ${{steps.message.outputs.commitMessage}}
   test:
     name: Run unit tests
     runs-on: ubuntu-latest
