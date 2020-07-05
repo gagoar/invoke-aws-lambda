@@ -11,6 +11,7 @@ jobs:
       - uses: actions/checkout@master
       - name: Use Node.js 12.x
         uses: actions/setup-node@v1
+        id: message
         with:
           node-version: 12.x
       - name: Install dependencies
@@ -19,7 +20,6 @@ jobs:
       - name: ESLint
         run: npm run lint
       - name: Message
-        id: message
         output:
           commitMessage: git log -1 --pretty=format:"%s"
       - name: using output
