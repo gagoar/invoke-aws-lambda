@@ -92,7 +92,7 @@
   },
   "author": "Gago <xeroice@gmail.com>",
   "dependencies": {
-    "@actions/core": "^1.2.4",
+    "@actions/core": "^1.2.6",
     "aws-sdk": "^2.681.0"
   },
   "devDependencies": {
