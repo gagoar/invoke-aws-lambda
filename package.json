@@ -102,7 +102,7 @@
     "@typescript-eslint/parser": "4.6.0",
     "@zeit/ncc": "0.22.3",
     "ajv-keywords": "3.5.2",
-    "bufferutil": "4.0.1",
+    "bufferutil": "4.0.2",
     "canvas": "2.6.1",
     "eslint": "7.12.1",
     "eslint-config-prettier": "6.15.0",
