@@ -98,8 +98,8 @@
   "devDependencies": {
     "@types/jest": "26.0.15",
     "@types/node": "13.13.30",
-    "@typescript-eslint/eslint-plugin": "4.6.1",
-    "@typescript-eslint/parser": "4.6.1",
+    "@typescript-eslint/eslint-plugin": "4.7.0",
+    "@typescript-eslint/parser": "4.7.0",
     "@zeit/ncc": "0.22.3",
     "ajv-keywords": "3.5.2",
     "bufferutil": "4.0.2",
