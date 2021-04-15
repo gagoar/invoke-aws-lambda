@@ -101,7 +101,7 @@
     "@typescript-eslint/eslint-plugin": "4.16.1",
     "@typescript-eslint/parser": "4.16.1",
     "@zeit/ncc": "0.22.3",
-    "ajv-keywords": "4.0.0",
+    "ajv-keywords": "5.0.0",
     "bufferutil": "4.0.3",
     "canvas": "2.6.1",
     "eslint": "7.17.0",
