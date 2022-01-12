@@ -12,8 +12,8 @@
   },
   "scripts": {
     "test": "jest",
-    "build": "ncc build index.ts",
-    "lint": "eslint index.ts"
+    "build": "esbuild --bundle ./index.ts --platform=node --target=node12 --main-fields=main --outdir=dist && pretty-quick dist/index.js",
+    "lint": "eslint src/* --ext .ts"
   },
   "engines": {
     "node": ">12.0.0"
@@ -34,17 +34,17 @@
       "git add ."
     ]
   },
+  "prettier": {
+    "singleQuote": true,
+    "semi": true,
+    "printWidth": 120
+  },
   "eslintConfig": {
-    "ignorePatterns": "dist/",
     "extends": [
       "plugin:@typescript-eslint/recommended",
-      "prettier",
-      "prettier/@typescript-eslint"
+      "plugin:prettier/recommended"
     ],
     "parser": "@typescript-eslint/parser",
-    "parserOptions": {
-      "project": "./tsconfig.eslint.json"
-    },
     "rules": {
       "quotes": [
         2,
@@ -96,26 +96,24 @@
     "aws-sdk": "^2.681.0"
   },
   "devDependencies": {
-    "@types/jest": "26.0.20",
+    "@types/jest": "^27.4.0",
     "@types/node": "13.13.38",
-    "@typescript-eslint/eslint-plugin": "4.16.1",
-    "@typescript-eslint/parser": "4.16.1",
-    "@zeit/ncc": "0.22.3",
+    "@typescript-eslint/eslint-plugin": "5.9.1",
+    "@typescript-eslint/parser": "5.9.1",
     "ajv-keywords": "4.0.0",
     "bufferutil": "4.0.3",
-    "canvas": "2.6.1",
-    "eslint": "7.17.0",
-    "eslint-config-prettier": "7.1.0",
+    "esbuild": "^0.14.11",
+    "eslint": "7.32.0",
+    "eslint-config-prettier": "8.3.0",
+    "eslint-plugin-prettier": "4.0.0",
     "husky": "4.3.7",
-    "jest": "26.6.3",
-    "jest-mock-process": "1.4.0",
+    "jest": "^27.4.7",
     "lint-staged": "10.5.3",
-    "ncc": "0.3.6",
-    "prettier": "2.2.1",
-    "prettier-eslint": "12.0.0",
-    "prettier-eslint-cli": "5.0.0",
-    "pretty-quick": "3.1.0",
-    "ts-jest": "26.5.3",
+    "prettier": "2.5.1",
+    "prettier-eslint": "^8.2.2",
+    "prettier-eslint-cli": "^4.2.1",
+    "pretty-quick": "3.1.2",
+    "ts-jest": "^27.1.2",
     "ts-node": "9.1.1",
     "tslib": "2.0.3",
     "typescript": "4.1.3",
