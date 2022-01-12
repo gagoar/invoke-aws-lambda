@@ -1,6 +1,11 @@
 {
   "extends": ["config:base", "schedule:earlyMondays"],
-  "matchPackagePrefixes": ["@typescript-eslint/", "eslint"],
+  "packageRules": [
+    {
+      "matchPackagePatterns": ["^eslint"],
+      "groupName": "eslint packages"
+    }
+  ],
   "npm": {
     "stabilityDays": 3
   }
