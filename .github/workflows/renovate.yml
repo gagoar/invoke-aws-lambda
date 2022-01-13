@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       TOKEN: ${{ steps.auth.outputs.token }}
+      type: string
     steps:
       - id: auth
         uses: jnwng/github-app-installation-token-action@v2
