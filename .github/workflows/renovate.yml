@@ -19,7 +19,7 @@ jobs:
           installationId: ${{ secrets.UHA_INSTALLATION_ID }}
           privateKey: ${{ secrets.UHA_APP_PRIVATE_KEY }}
       - name: bla
-      - run: |
+        run: |
           echo "$TOKEN"
           echo ::set-output name=value::"$TOKEN"
         env:
