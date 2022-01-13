@@ -13,6 +13,8 @@ jobs:
 
   getToken:
     runs-on: ubuntu-latest
+    outputs:
+      TOKEN: ${{ steps.auth.outputs.token }}
     steps:
       - id: auth
         uses: jnwng/github-app-installation-token-action@v2
@@ -22,8 +24,8 @@ jobs:
           privateKey: ${{ secrets.UHA_INSTALLATION_ID }}
 
   runCommitPush:
-    needs: auth
+    needs: getToken
     uses: gagoar/ts-node-template/.github/workflows/run_hook_commit_and_push.yml@gg/run-commit-push
     with:
       hook_to_run: npm i && npm run build
-      token: ${{ needs.auth.outputs.token }}
+      token: ${{ needs.getToken.outputs.TOKEN }}
