@@ -10,7 +10,7 @@ jobs:
   getToken:
     runs-on: ubuntu-latest
     outputs:
-      TOKEN: ${{ steps.auth.outputs.token }}
+      TOKEN: $(echo "${{ steps.auth.outputs.token }}")
     steps:
       - id: auth
         uses: jnwng/github-app-installation-token-action@v2
