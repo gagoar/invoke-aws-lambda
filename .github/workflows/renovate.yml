@@ -3,7 +3,6 @@ on:
     branches:
       - renovate/*
       - gg/test-workflow
-    # Sequence of patterns matched against refs/tags
 
 name: rebuild dist/ + commit for renovate
 
