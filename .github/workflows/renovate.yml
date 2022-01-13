@@ -8,25 +8,19 @@ on:
 name: rebuild dist/ + commit for renovate
 
 jobs:
-  #   getNodeVersion:
-  #     uses: gagoar/ts-node-template/.github/workflows/get_node_version.yml@main
-
-  getToken:
+  build:
     runs-on: ubuntu-latest
-    outputs:
-      TOKEN: ${{ steps.auth.outputs.token }}
-      type: string
     steps:
       - id: auth
         uses: jnwng/github-app-installation-token-action@v2
         with:
           appId: ${{ secrets.UHA_APP_ID }}
-          installationId: ${{ secrets.UHA_APP_PRIVATE_KEY }}
-          privateKey: ${{ secrets.UHA_INSTALLATION_ID }}
+          installationId: ${{ secrets.UHA_INSTALLATION_ID }}
+          privateKey: ${{ secrets.UHA_APP_PRIVATE_KEY }}
 
-  # runCommitPush:
-  #   needs: getToken
-  #   uses: gagoar/ts-node-template/.github/workflows/run_hook_commit_and_push.yml@gg/run-commit-push
-  #   with:
-  #     hook_to_run: npm i && npm run build
-  #     token: ${{ needs.getToken.outputs.TOKEN }}
+  runCommitPush:
+    needs: getToken
+    uses: gagoar/ts-node-template/.github/workflows/run_hook_commit_and_push.yml@gg/run-commit-push
+    with:
+      hook_to_run: npm i && npm run build
+      token: ${{ needs.getToken.outputs.TOKEN }}
