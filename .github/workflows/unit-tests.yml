@@ -8,7 +8,7 @@ on:
 
 jobs:
   getNodeVersion:
-    uses: gagoar/github-app-installation-token/.github/workflows/node_version.yml@main
+    uses: gagoar/ts-node-template/.github/workflows/get_node_version.yml@main
 
   unit-test:
     runs-on: ubuntu-latest
