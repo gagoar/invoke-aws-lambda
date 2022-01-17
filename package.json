@@ -100,7 +100,7 @@
     "@types/node": "16.11.19",
     "@typescript-eslint/eslint-plugin": "5.9.1",
     "@typescript-eslint/parser": "5.9.1",
-    "ajv-keywords": "4.0.0",
+    "ajv-keywords": "4.0.1",
     "bufferutil": "4.0.6",
     "esbuild": "0.14.11",
     "eslint": "7.32.0",
