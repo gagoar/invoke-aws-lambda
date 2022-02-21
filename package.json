@@ -104,7 +104,7 @@
     "bufferutil": "4.0.6",
     "esbuild": "0.14.11",
     "eslint": "7.32.0",
-    "eslint-config-prettier": "8.3.0",
+    "eslint-config-prettier": "8.4.0",
     "eslint-plugin-prettier": "4.0.0",
     "husky": "4.3.8",
     "jest": "27.4.7",
