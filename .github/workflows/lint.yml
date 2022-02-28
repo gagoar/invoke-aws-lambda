@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@main
       - name: Setting node version to ${{ needs.getNodeVersion.outputs.node_version }}
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
           node-version: '${{ needs.getNodeVersion.outputs.node_version }}'
       - run: npm install
