@@ -1,6 +1,6 @@
 import AWS from 'aws-sdk/global';
 import { main, Props, Credentials, ExtraOptions } from '../src';
-import { setFailed, getInput, setOutput } from '../__mocks__/@actions/core';
+import { setFailed, getInput, setOutput, setSecret } from '../__mocks__/@actions/core';
 import Lambda, { constructorMock } from '../__mocks__/aws-sdk/clients/lambda';
 
 describe('invoke-aws-lambda', () => {
@@ -29,6 +29,7 @@ describe('invoke-aws-lambda', () => {
     getInput.mockClear();
     setFailed.mockClear();
     setOutput.mockClear();
+    setSecret.mockClear();
   });
 
   it('runs when provided the correct input', async () => {
@@ -39,6 +40,7 @@ describe('invoke-aws-lambda', () => {
     await main();
     expect(getInput).toHaveBeenCalledTimes(13);
     expect(setFailed).not.toHaveBeenCalled();
+    expect(setSecret).toHaveBeenCalledTimes(2);
     expect(AWS.config.httpOptions).toMatchInlineSnapshot(`
       Object {
         "timeout": 220000,
@@ -95,6 +97,7 @@ describe('invoke-aws-lambda', () => {
     `);
     expect(setFailed).toHaveBeenCalled();
     expect(setOutput).not.toHaveBeenCalled();
+    expect(setSecret).toHaveBeenCalledTimes(2);
   });
 
   describe('when the function returns an error', () => {
@@ -122,6 +125,7 @@ describe('invoke-aws-lambda', () => {
 
       expect(setOutput).toHaveBeenCalled();
       expect(setFailed).toHaveBeenCalled();
+      expect(setSecret).toHaveBeenCalledTimes(2);
     });
 
     it('should fail the action when SUCCEED_ON_FUNCTION_FAILURE is false', async () => {
@@ -140,6 +144,7 @@ describe('invoke-aws-lambda', () => {
 
       expect(setOutput).toHaveBeenCalled();
       expect(setFailed).toHaveBeenCalled();
+      expect(setSecret).toHaveBeenCalledTimes(2);
     });
 
     it('should succeed the action when SUCCEED_ON_FUNCTION_FAILURE is true', async () => {
@@ -158,6 +163,7 @@ describe('invoke-aws-lambda', () => {
 
       expect(setOutput).toHaveBeenCalled();
       expect(setFailed).not.toHaveBeenCalled();
+      expect(setSecret).toHaveBeenCalledTimes(2);
     });
   });
 });
