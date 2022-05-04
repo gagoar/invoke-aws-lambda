@@ -13,7 +13,8 @@
   "scripts": {
     "test": "jest",
     "build": "esbuild --bundle ./index.ts --platform=node --target=node12 --main-fields=main --outdir=dist && pretty-quick dist/index.js",
-    "lint": "eslint src/* --ext .ts"
+    "lint": "eslint src/* --ext .ts",
+    "prepare": "husky install"
   },
   "engines": {
     "node": ">12.0.0"
@@ -106,7 +107,7 @@
     "eslint": "8.12.0",
     "eslint-config-prettier": "8.5.0",
     "eslint-plugin-prettier": "4.0.0",
-    "husky": "7.0.4",
+    "husky": "^7.0.0",
     "jest": "27.5.1",
     "lint-staged": "10.5.3",
     "prettier": "2.6.2",
