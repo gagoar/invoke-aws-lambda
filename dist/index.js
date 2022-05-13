@@ -19868,10 +19868,10 @@ var require_core2 = __commonJS({
       }
     }
     exports.exportVariable = exportVariable;
-    function setSecret(secret) {
+    function setSecret2(secret) {
       command_1.issueCommand('add-mask', {}, secret);
     }
-    exports.setSecret = setSecret;
+    exports.setSecret = setSecret2;
     function addPath(inputPath) {
       const filePath = process.env['GITHUB_PATH'] || '';
       if (filePath) {
@@ -19970,10 +19970,18 @@ var Props = /* @__PURE__ */ ((Props2) => {
   return Props2;
 })(Props || {});
 var setAWSCredentials = () => {
+  const accessKeyId = (0, import_core.getInput)('AWS_ACCESS_KEY_ID' /* AWS_ACCESS_KEY_ID */);
+  (0, import_core.setSecret)(accessKeyId);
+  const secretAccessKey = (0, import_core.getInput)('AWS_SECRET_ACCESS_KEY' /* AWS_SECRET_ACCESS_KEY */);
+  (0, import_core.setSecret)(secretAccessKey);
+  const sessionToken = (0, import_core.getInput)('AWS_SESSION_TOKEN' /* AWS_SESSION_TOKEN */);
+  if (sessionToken) {
+    (0, import_core.setSecret)(sessionToken);
+  }
   import_global.default.config.credentials = {
-    accessKeyId: (0, import_core.getInput)('AWS_ACCESS_KEY_ID' /* AWS_ACCESS_KEY_ID */),
-    secretAccessKey: (0, import_core.getInput)('AWS_SECRET_ACCESS_KEY' /* AWS_SECRET_ACCESS_KEY */),
-    sessionToken: (0, import_core.getInput)('AWS_SESSION_TOKEN' /* AWS_SESSION_TOKEN */),
+    accessKeyId,
+    secretAccessKey,
+    sessionToken,
   };
 };
 var getParams = () => {
