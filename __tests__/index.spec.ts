@@ -165,5 +165,28 @@ describe('invoke-aws-lambda', () => {
       expect(setFailed).not.toHaveBeenCalled();
       expect(setSecret).toHaveBeenCalledTimes(2);
     });
+
+    it("should call setSecret on AWS_SESSION_TOKEN when it's provided", async () => {
+      const overriddenMockedInput = {
+        ...mockedInput,
+        [Credentials.AWS_SESSION_TOKEN]: 'someSessionToken',
+      };
+
+      getInput.mockImplementation(
+        (key: Partial<Props & Credentials & 'REGION'>) => {
+          return overriddenMockedInput[key];
+        }
+      );
+
+      const handler = jest.fn(() => ({ response: 'ok' }));
+
+      Lambda.__setResponseForMethods({ invoke: handler });
+
+      await main();
+
+      expect(getInput).toHaveBeenCalledTimes(13);
+      expect(setFailed).not.toHaveBeenCalled();
+      expect(setSecret).toHaveBeenCalledTimes(3);
+    });
   });
 });
