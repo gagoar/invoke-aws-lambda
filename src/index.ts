@@ -1,6 +1,6 @@
 import AWS from 'aws-sdk/global';
 import Lambda from 'aws-sdk/clients/lambda';
-import { getInput, setOutput, setFailed } from '@actions/core';
+import { getInput, setOutput, setFailed, setSecret } from '@actions/core';
 
 const apiVersion = '2015-03-31';
 
@@ -26,10 +26,22 @@ export enum Props {
 }
 
 const setAWSCredentials = () => {
+  const accessKeyId = getInput(Credentials.AWS_ACCESS_KEY_ID);
+  setSecret(accessKeyId);
+
+  const secretAccessKey = getInput(Credentials.AWS_SECRET_ACCESS_KEY);
+  setSecret(secretAccessKey);
+
+  const sessionToken = getInput(Credentials.AWS_SESSION_TOKEN);
+  // Make sure we only mask if specified
+  if (sessionToken) {
+    setSecret(sessionToken);
+  }
+
   AWS.config.credentials = {
-    accessKeyId: getInput(Credentials.AWS_ACCESS_KEY_ID),
-    secretAccessKey: getInput(Credentials.AWS_SECRET_ACCESS_KEY),
-    sessionToken: getInput(Credentials.AWS_SESSION_TOKEN),
+    accessKeyId,
+    secretAccessKey,
+    sessionToken,
   };
 };
 
