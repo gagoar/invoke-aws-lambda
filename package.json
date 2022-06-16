@@ -97,7 +97,7 @@
     "aws-sdk": "^2.681.0"
   },
   "devDependencies": {
-    "@types/jest": "27.5.0",
+    "@types/jest": "27.5.2",
     "@types/node": "16.11.39",
     "@typescript-eslint/eslint-plugin": "5.23.0",
     "@typescript-eslint/parser": "5.23.0",
@@ -108,7 +108,7 @@
     "eslint-config-prettier": "8.5.0",
     "eslint-plugin-prettier": "4.0.0",
     "husky": "7.0.4",
-    "jest": "28.1.0",
+    "jest": "28.1.1",
     "lint-staged": "10.5.3",
     "prettier": "2.6.2",
     "prettier-eslint": "13.0.0",
