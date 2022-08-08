@@ -98,7 +98,7 @@
   },
   "devDependencies": {
     "@types/jest": "27.5.2",
-    "@types/node": "16.11.39",
+    "@types/node": "16.11.47",
     "@typescript-eslint/eslint-plugin": "5.23.0",
     "@typescript-eslint/parser": "5.23.0",
     "ajv-keywords": "5.1.0",
