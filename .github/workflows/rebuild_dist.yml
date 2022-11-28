@@ -3,7 +3,6 @@ name: rebuild dist/ if needed
 on: 
   pull_request:
     
-name: rebuild dist/ + commit for renovate
 jobs:
   build:
     runs-on: ubuntu-latest
