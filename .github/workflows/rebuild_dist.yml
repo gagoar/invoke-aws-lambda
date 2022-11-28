@@ -28,12 +28,8 @@ jobs:
       - name: Commit dist/ files
         if: contains(steps.gitStatus.outputs.status, 'modified')
         run: |
+          git config --global url."https://x-access-token:${{steps.auth.outputs.token}}@github.com/gagoar/".insteadOf  "git@github.com:gagoar/"
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git commit -m "rebuild dist/" -a
-      - name: Push changes
-        if: contains(steps.gitStatus.outputs.status, 'modified')
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ github.ref }}
+          git push 
