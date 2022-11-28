@@ -102,7 +102,7 @@
     "@typescript-eslint/eslint-plugin": "5.23.0",
     "@typescript-eslint/parser": "5.23.0",
     "ajv-keywords": "5.1.0",
-    "bufferutil": "4.0.6",
+    "bufferutil": "4.0.7",
     "esbuild": "0.14.44",
     "eslint": "8.23.0",
     "eslint-config-prettier": "8.5.0",
