@@ -1,24 +1,18 @@
 name: rebuild dist/ if needed
 
-on: 
+on:
   pull_request:
-    
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - id: auth
-        uses: jnwng/github-app-installation-token-action@v2
+      - uses: actions/checkout@v3
         with:
-          appId: ${{ secrets.COMMIT_BUILD_TO_PR_APP_ID }}
-          installationId: ${{ secrets.COMMIT_BUILD_TO_PR_INSTALLATION_ID }}
-          privateKey: ${{ secrets.COMMIT_BUILD_TO_PR_PRIVATE_KEY }}
-      - uses: actions/checkout@master
-        with:
+          ref: ${{github.head_ref}}
           persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal token
           fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
-      - name: Install packages
-        run: npm install
+      - run: npm install
       - name: build dist/
         run: npm run build
       - run: |
@@ -31,12 +25,20 @@ jobs:
       - name: Commit dist/ files
         if: contains(steps.gitStatus.outputs.status, 'modified')
         run: |
+          set -x
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git commit -m "rebuild dist/" -a
+      - id: auth
+        if: contains(steps.gitStatus.outputs.status, 'modified')
+        uses: jnwng/github-app-installation-token-action@v2
+        with:
+          appId: ${{ secrets.COMMIT_BUILD_TO_PR_APP_ID }}
+          installationId: ${{ secrets.COMMIT_BUILD_TO_PR_INSTALLATION_ID }}
+          privateKey: ${{ secrets.COMMIT_BUILD_TO_PR_PRIVATE_KEY }}
       - name: Push changes
         if: contains(steps.gitStatus.outputs.status, 'modified')
         uses: ad-m/github-push-action@master
         with:
           github_token: ${{ steps.auth.outputs.token }}
-          branch: ${{ github.ref }}
+          branch: ${{github.head_ref}}
