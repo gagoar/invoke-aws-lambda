@@ -10,13 +10,9 @@ jobs:
       - id: auth
         uses: jnwng/github-app-installation-token-action@v2
         with:
-          appId: ${{ secrets.COMMIT_BUILD_TO_PR_APP_ID }}
-          installationId: ${{ secrets.COMMIT_BUILD_TO_PR_INSTALLATION_ID }}
-          privateKey: ${{ secrets.COMMIT_BUILD_TO_PR_PRIVATE_KEY }}
-      - uses: actions/checkout@master
-        with:
-          persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal token
-          fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
+          appId: ${{ secrets.UHA_APP_ID }}
+          installationId: ${{ secrets.UHA_INSTALLATION_ID }}
+          privateKey: ${{ secrets.UHA_APP_PRIVATE_KEY }}
       - uses: actions/checkout@v3
       - name: Install packages
         run: npm install
