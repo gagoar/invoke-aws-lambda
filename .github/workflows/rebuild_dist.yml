@@ -31,5 +31,5 @@ jobs:
           git config --global url."https://x-access-token:${{steps.auth.outputs.token}}@github.com/gagoar/".insteadOf  "git@github.com:gagoar/"
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git commit -m "rebuild dist/" -a
-          git push 
+          git commit -m "rebuild dist/" -a --no-verify
+          git push  push origin HEAD:$GITHUB_HEAD_REF
