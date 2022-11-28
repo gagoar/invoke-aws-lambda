@@ -7,16 +7,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - id: auth
-        uses: jnwng/github-app-installation-token-action@v2
-        with:
-          appId: ${{ secrets.COMMIT_BUILD_TO_PR_APP_ID }}
-          installationId: ${{ secrets.COMMIT_BUILD_TO_PR_INSTALLATION_ID }}
-          privateKey: ${{ secrets.COMMIT_BUILD_TO_PR_PRIVATE_KEY }}
-      - uses: actions/checkout@master
-        with:
-          persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal token
-          fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
+      # - id: auth
+      #   uses: jnwng/github-app-installation-token-action@v2
+      #   with:
+      #     appId: ${{ secrets.COMMIT_BUILD_TO_PR_APP_ID }}
+      #     installationId: ${{ secrets.COMMIT_BUILD_TO_PR_INSTALLATION_ID }}
+      #     privateKey: ${{ secrets.COMMIT_BUILD_TO_PR_PRIVATE_KEY }}
+      # - uses: actions/checkout@master
+      #   with:
+      #     persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal token
+      #     fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
       - name: Install packages
         run: npm install
       - name: build dist/
@@ -38,5 +38,5 @@ jobs:
         if: contains(steps.gitStatus.outputs.status, 'modified')
         uses: ad-m/github-push-action@master
         with:
-          github_token: ${{ steps.auth.outputs.token }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ github.ref }}
