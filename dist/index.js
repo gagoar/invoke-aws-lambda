@@ -7,6 +7,7 @@ var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getOwnPropSymbols = Object.getOwnPropertySymbols;
 var __getProtoOf = Object.getPrototypeOf;
+
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __propIsEnum = Object.prototype.propertyIsEnumerable;
 var __defNormalProp = (obj, key, value) =>
@@ -20211,11 +20212,12 @@ var require_file_command = __commonJS({
         return result;
       };
     Object.defineProperty(exports, '__esModule', { value: true });
-    exports.issueCommand = void 0;
+    exports.prepareKeyValueMessage = exports.issueFileCommand = void 0;
     var fs = __importStar(require('fs'));
     var os = __importStar(require('os'));
+    var uuid_1 = require_dist();
     var utils_1 = require_utils();
-    function issueCommand(command, message) {
+    function issueFileCommand(command, message) {
       const filePath = process.env[`GITHUB_${command}`];
       if (!filePath) {
         throw new Error(`Unable to find environment variable for file command ${command}`);
@@ -20227,7 +20229,19 @@ var require_file_command = __commonJS({
         encoding: 'utf8',
       });
     }
-    exports.issueCommand = issueCommand;
+    exports.issueFileCommand = issueFileCommand;
+    function prepareKeyValueMessage(key, value) {
+      const delimiter = `ghadelimiter_${uuid_1.v4()}`;
+      const convertedValue = utils_1.toCommandValue(value);
+      if (key.includes(delimiter)) {
+        throw new Error(`Unexpected input: name should not contain the delimiter "${delimiter}"`);
+      }
+      if (convertedValue.includes(delimiter)) {
+        throw new Error(`Unexpected input: value should not contain the delimiter "${delimiter}"`);
+      }
+      return `${key}<<${delimiter}${os.EOL}${convertedValue}${os.EOL}${delimiter}`;
+    }
+    exports.prepareKeyValueMessage = prepareKeyValueMessage;
   },
 });
 
@@ -21686,7 +21700,6 @@ var require_core2 = __commonJS({
     var utils_1 = require_utils();
     var os = __importStar(require('os'));
     var path = __importStar(require('path'));
-    var uuid_1 = require_dist();
     var oidc_utils_1 = require_oidc_utils();
     var ExitCode;
     (function (ExitCode2) {
@@ -21698,18 +21711,9 @@ var require_core2 = __commonJS({
       process.env[name] = convertedVal;
       const filePath = process.env['GITHUB_ENV'] || '';
       if (filePath) {
-        const delimiter = `ghadelimiter_${uuid_1.v4()}`;
-        if (name.includes(delimiter)) {
-          throw new Error(`Unexpected input: name should not contain the delimiter "${delimiter}"`);
-        }
-        if (convertedVal.includes(delimiter)) {
-          throw new Error(`Unexpected input: value should not contain the delimiter "${delimiter}"`);
-        }
-        const commandValue = `${name}<<${delimiter}${os.EOL}${convertedVal}${os.EOL}${delimiter}`;
-        file_command_1.issueCommand('ENV', commandValue);
-      } else {
-        command_1.issueCommand('set-env', { name }, convertedVal);
+        return file_command_1.issueFileCommand('ENV', file_command_1.prepareKeyValueMessage(name, val));
       }
+      command_1.issueCommand('set-env', { name }, convertedVal);
     }
     exports.exportVariable = exportVariable;
     function setSecret2(secret) {
@@ -21719,7 +21723,7 @@ var require_core2 = __commonJS({
     function addPath(inputPath) {
       const filePath = process.env['GITHUB_PATH'] || '';
       if (filePath) {
-        file_command_1.issueCommand('PATH', inputPath);
+        file_command_1.issueFileCommand('PATH', inputPath);
       } else {
         command_1.issueCommand('add-path', {}, inputPath);
       }
@@ -21741,7 +21745,10 @@ var require_core2 = __commonJS({
       const inputs = getInput2(name, options)
         .split('\n')
         .filter((x) => x !== '');
-      return inputs;
+      if (options && options.trimWhitespace === false) {
+        return inputs;
+      }
+      return inputs.map((input) => input.trim());
     }
     exports.getMultilineInput = getMultilineInput;
     function getBooleanInput(name, options) {
@@ -21755,8 +21762,12 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
     }
     exports.getBooleanInput = getBooleanInput;
     function setOutput2(name, value) {
+      const filePath = process.env['GITHUB_OUTPUT'] || '';
+      if (filePath) {
+        return file_command_1.issueFileCommand('OUTPUT', file_command_1.prepareKeyValueMessage(name, value));
+      }
       process.stdout.write(os.EOL);
-      command_1.issueCommand('set-output', { name }, value);
+      command_1.issueCommand('set-output', { name }, utils_1.toCommandValue(value));
     }
     exports.setOutput = setOutput2;
     function setCommandEcho(enabled) {
@@ -21826,7 +21837,11 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
     }
     exports.group = group;
     function saveState(name, value) {
-      command_1.issueCommand('save-state', { name }, value);
+      const filePath = process.env['GITHUB_STATE'] || '';
+      if (filePath) {
+        return file_command_1.issueFileCommand('STATE', file_command_1.prepareKeyValueMessage(name, value));
+      }
+      command_1.issueCommand('save-state', { name }, utils_1.toCommandValue(value));
     }
     exports.saveState = saveState;
     function getState(name) {
