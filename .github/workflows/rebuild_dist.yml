@@ -25,12 +25,11 @@ jobs:
       - run: |
           echo ${{ steps.gitStatus.outputs.status }}
           echo ${{ contains(steps.gitStatus.outputs.status, 'modified') }}
-      - name: Commit dist/ files
+      - name: Commit changes
         if: contains(steps.gitStatus.outputs.status, 'modified')
-        run: |
-          git push -u origin master
-          git config --global url."https://x-access-token:${{steps.auth.outputs.token}}@github.com/gagoar/".insteadOf  "git@github.com:gagoar/"
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git commit -m "rebuild dist/" -a --no-verify
-          git push  push origin HEAD:$GITHUB_HEAD_REF
+        uses: EndBug/add-and-commit@v9
+        with:
+          author_name: GitHub Action
+          author_email: action@github.com
+          message: 'rebuild dist/'
+          add: 'dist/'
