@@ -32,7 +32,7 @@ jobs:
         if: contains(steps.gitStatus.outputs.status, 'modified')
         run: |
           set -x
-          git checkout -b gg/keep-build-up-to-date
+          git checkout -b $GITHUB_REF_NAME
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git commit -m "rebuild dist/" -a
@@ -41,4 +41,4 @@ jobs:
         uses: ad-m/github-push-action@master
         with:
           github_token: ${{ steps.auth.outputs.token }}
-          branch: gg/keep-build-up-to-date
+          branch: $GITHUB_REF_NAME
