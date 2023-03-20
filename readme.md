@@ -163,7 +163,7 @@ These steps process logs returned from the invocation:
 
 ### OpenID Credentials
 
-You can also use OpenID Credentials by using `aws-actions/configure-aws-credentials`:
+You can also use OpenID Credentials via `aws-actions/configure-aws-credentials`:
 ```yaml
   - name: Assume AWS role
         uses: aws-actions/configure-aws-credentials@v1
