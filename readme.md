@@ -19,15 +19,17 @@ This action allows you to synchronously invoke a Lambda function and get the res
 
 ## Table of contents
 
-- [Input parameters](#input-parameters)
-  - [Credentials](#credentials)
-  - [Invocation](#invocation)
-- [Output](#output)
-- [Examples](#examples)
-  - [Basic example](#basic-example)
-  - [Using output](#using-output)
-  - [Specifying alias/version](#specifying-aliasversion)
-  - [Handling logs](#handling-logs)
+- [Invoke AWS Lambda](#invoke-aws-lambda)
+  - [Table of contents](#table-of-contents)
+  - [Input parameters](#input-parameters)
+    - [Credentials](#credentials)
+    - [Invocation](#invocation)
+  - [Output](#output)
+  - [Examples](#examples)
+    - [Basic example](#basic-example)
+    - [Using output](#using-output)
+    - [Specifying alias/version](#specifying-aliasversion)
+    - [Handling logs](#handling-logs)
 
 <hr>
 
@@ -156,4 +158,23 @@ These steps process logs returned from the invocation:
     Payload: '{ "myParameter": false }'
 - name: Store tail logs to file
   run: echo "${{ fromJSON(steps.foobar.outputs.response).LogResult }}" > invocation-logs.json
+```
+
+You can also use OpenID Credentials by using `aws-actions/configure-aws-credentials`:
+```yaml
+  - name: Assume AWS role
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: the_arn_of_the_role_you_want_to_assume
+          aws-region: eu-west-1
+
+      - name: Invoke the Lambda
+        uses: gagoar/invoke-aws-lambda@master
+        with:
+          AWS_ACCESS_KEY_ID: ${{env.AWS_ACCESS_KEY_ID}}
+          AWS_SECRET_ACCESS_KEY: ${{env.AWS_SECRET_ACCESS_KEY}}
+          AWS_SESSION_TOKEN: ${{env.AWS_SESSION_TOKEN}}
+          REGION: ${{env.AWS_REGION}}
+          FunctionName: foobarFunction
+          Payload: '{ "myParameter": false }'
 ```
