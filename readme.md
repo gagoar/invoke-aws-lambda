@@ -30,6 +30,7 @@ This action allows you to synchronously invoke a Lambda function and get the res
     - [Using output](#using-output)
     - [Specifying alias/version](#specifying-aliasversion)
     - [Handling logs](#handling-logs)
+    - [OpenID Credentials](#openid-credentials)
 
 <hr>
 
@@ -159,6 +160,8 @@ These steps process logs returned from the invocation:
 - name: Store tail logs to file
   run: echo "${{ fromJSON(steps.foobar.outputs.response).LogResult }}" > invocation-logs.json
 ```
+
+### OpenID Credentials
 
 You can also use OpenID Credentials by using `aws-actions/configure-aws-credentials`:
 ```yaml
