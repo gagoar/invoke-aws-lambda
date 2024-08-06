@@ -67,6 +67,9 @@ var require_builder = __commonJS({
       }
     }
     function translateStructure(structure, shape) {
+      if (shape.isDocument) {
+        return structure;
+      }
       var struct = {};
       util.each(structure, function (name, value) {
         var memberShape = shape.members[name];
@@ -125,14 +128,21 @@ var require_parser = __commonJS({
     }
     function translateStructure(structure, shape) {
       if (structure == null) return void 0;
+      if (shape.isDocument) return structure;
       var struct = {};
       var shapeMembers = shape.members;
+      var isAwsQueryCompatible = shape.api && shape.api.awsQueryCompatible;
       util.each(shapeMembers, function (name, memberShape) {
         var locationName = memberShape.isLocationName ? memberShape.name : name;
         if (Object.prototype.hasOwnProperty.call(structure, locationName)) {
           var value = structure[locationName];
           var result = translate(value, memberShape);
           if (result !== void 0) struct[name] = result;
+        } else if (isAwsQueryCompatible && memberShape.defaultValue) {
+          if (memberShape.type === 'list') {
+            struct[name] =
+              typeof memberShape.defaultValue === 'function' ? memberShape.defaultValue() : memberShape.defaultValue;
+          }
         }
       });
       return struct;
@@ -168,7 +178,7 @@ var require_parser = __commonJS({
 var require_helpers = __commonJS({
   'node_modules/aws-sdk/lib/protocol/helpers.js'(exports, module2) {
     var util = require_util();
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     function populateHostPrefix(request) {
       var enabled = request.service.config.hostPrefixEnabled;
       if (!enabled) return request;
@@ -223,7 +233,7 @@ var require_helpers = __commonJS({
           });
         }
         if (!hostPattern.test(label)) {
-          throw AWS3.util.error(new Error(), {
+          throw AWS2.util.error(new Error(), {
             code: 'ValidationError',
             message: label + ' is not hostname compatible.',
           });
@@ -251,6 +261,12 @@ var require_json = __commonJS({
       var input = api.operations[req.operation].input;
       var builder = new JsonBuilder();
       if (version === 1) version = '1.0';
+      if (api.awsQueryCompatible) {
+        if (!httpRequest.params) {
+          httpRequest.params = {};
+        }
+        Object.assign(httpRequest.params, req.params);
+      }
       httpRequest.body = builder.build(req.params || {}, input);
       httpRequest.headers['Content-Type'] = 'application/x-amz-json-' + version;
       httpRequest.headers['X-Amz-Target'] = target;
@@ -274,6 +290,17 @@ var require_json = __commonJS({
             error.message = 'Request body must be less than 1 MB';
           } else {
             error.message = e.message || e.Message || null;
+          }
+          for (var key in e || {}) {
+            if (key === 'code' || key === 'message') {
+              continue;
+            }
+            error['[' + key + ']'] = 'See error.' + key + ' for details.';
+            Object.defineProperty(error, key, {
+              value: e[key],
+              enumerable: false,
+              writable: true,
+            });
           }
         } catch (e2) {
           error.statusCode = httpResponse.statusCode;
@@ -342,7 +369,9 @@ var require_query_param_serializer = __commonJS({
     function serializeList(name, list, rules, fn) {
       var memberRules = rules.member || {};
       if (list.length === 0) {
-        fn.call(this, name, null);
+        if (rules.api.protocol !== 'ec2') {
+          fn.call(this, name, null);
+        }
         return;
       }
       util.arrayEach(list, function (v, n) {
@@ -555,6 +584,7 @@ var require_shape = __commonJS({
         property(this, 'isRequired', function () {
           return false;
         });
+        property(this, 'isDocument', Boolean(shape.document));
       }
       if (shape.members) {
         property(
@@ -763,7 +793,7 @@ var require_shape = __commonJS({
 // node_modules/aws-sdk/lib/protocol/query.js
 var require_query = __commonJS({
   'node_modules/aws-sdk/lib/protocol/query.js'(exports, module2) {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var util = require_util();
     var QueryParamSerializer = require_query_param_serializer();
     var Shape = require_shape();
@@ -793,7 +823,7 @@ var require_query = __commonJS({
         };
       } else {
         try {
-          data = new AWS3.XML.Parser().parse(body);
+          data = new AWS2.XML.Parser().parse(body);
         } catch (e) {
           data = {
             Code: resp.httpResponse.statusCode,
@@ -828,7 +858,7 @@ var require_query = __commonJS({
         util.property(shape, 'name', shape.resultWrapper);
         shape = tmp;
       }
-      var parser = new AWS3.XML.Parser();
+      var parser = new AWS2.XML.Parser();
       if (shape && shape.members && !shape.members._XAMZRequestId) {
         var requestIdShape = Shape.create({ type: 'string' }, { api: { protocol: 'query' } }, 'requestId');
         shape.members._XAMZRequestId = requestIdShape;
@@ -986,11 +1016,19 @@ var require_rest = __commonJS({
 // node_modules/aws-sdk/lib/protocol/rest_json.js
 var require_rest_json = __commonJS({
   'node_modules/aws-sdk/lib/protocol/rest_json.js'(exports, module2) {
+    var AWS2 = require_core();
     var util = require_util();
     var Rest = require_rest();
     var Json = require_json();
     var JsonBuilder = require_builder();
     var JsonParser = require_parser();
+    var METHODS_WITHOUT_BODY = ['GET', 'HEAD', 'DELETE'];
+    function unsetContentLength(req) {
+      var payloadMember = util.getRequestPayloadShape(req);
+      if (payloadMember === void 0 && METHODS_WITHOUT_BODY.indexOf(req.httpRequest.method) >= 0) {
+        delete req.httpRequest.headers['Content-Length'];
+      }
+    }
     function populateBody(req) {
       var builder = new JsonBuilder();
       var input = req.service.api.operations[req.operation].input;
@@ -998,27 +1036,21 @@ var require_rest_json = __commonJS({
         var params = {};
         var payloadShape = input.members[input.payload];
         params = req.params[input.payload];
-        if (params === void 0) return;
         if (payloadShape.type === 'structure') {
-          req.httpRequest.body = builder.build(params, payloadShape);
+          req.httpRequest.body = builder.build(params || {}, payloadShape);
           applyContentTypeHeader(req);
-        } else {
+        } else if (params !== void 0) {
           req.httpRequest.body = params;
           if (payloadShape.type === 'binary' || payloadShape.isStreaming) {
             applyContentTypeHeader(req, true);
           }
         }
       } else {
-        var body = builder.build(req.params, input);
-        if (body !== '{}' || req.httpRequest.method !== 'GET') {
-          req.httpRequest.body = body;
-        }
+        req.httpRequest.body = builder.build(req.params, input);
         applyContentTypeHeader(req);
       }
     }
     function applyContentTypeHeader(req, isBinary) {
-      var operation = req.service.api.operations[req.operation];
-      var input = operation.input;
       if (!req.httpRequest.headers['Content-Type']) {
         var type = isBinary ? 'binary/octet-stream' : 'application/json';
         req.httpRequest.headers['Content-Type'] = type;
@@ -1026,7 +1058,7 @@ var require_rest_json = __commonJS({
     }
     function buildRequest(req) {
       Rest.buildRequest(req);
-      if (['HEAD', 'DELETE'].indexOf(req.httpRequest.method) < 0) {
+      if (METHODS_WITHOUT_BODY.indexOf(req.httpRequest.method) < 0) {
         populateBody(req);
       }
     }
@@ -1045,8 +1077,8 @@ var require_rest_json = __commonJS({
         var body = resp.httpResponse.body;
         if (payloadMember.isEventStream) {
           parser = new JsonParser();
-          resp.data[payload] = util.createEventStream(
-            AWS.HttpClient.streamsApiVersion === 2 ? resp.httpResponse.stream : body,
+          resp.data[rules.payload] = util.createEventStream(
+            AWS2.HttpClient.streamsApiVersion === 2 ? resp.httpResponse.stream : body,
             parser,
             payloadMember
           );
@@ -1068,6 +1100,7 @@ var require_rest_json = __commonJS({
       buildRequest,
       extractError,
       extractData,
+      unsetContentLength,
     };
   },
 });
@@ -1075,17 +1108,17 @@ var require_rest_json = __commonJS({
 // node_modules/aws-sdk/lib/protocol/rest_xml.js
 var require_rest_xml = __commonJS({
   'node_modules/aws-sdk/lib/protocol/rest_xml.js'(exports, module2) {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var util = require_util();
     var Rest = require_rest();
     function populateBody(req) {
       var input = req.service.api.operations[req.operation].input;
-      var builder = new AWS3.XML.Builder();
+      var builder = new AWS2.XML.Builder();
       var params = req.params;
-      var payload2 = input.payload;
-      if (payload2) {
-        var payloadMember = input.members[payload2];
-        params = params[payload2];
+      var payload = input.payload;
+      if (payload) {
+        var payloadMember = input.members[payload];
+        params = params[payload];
         if (params === void 0) return;
         if (payloadMember.type === 'structure') {
           var rootElement = payloadMember.name;
@@ -1111,7 +1144,7 @@ var require_rest_xml = __commonJS({
       Rest.extractError(resp);
       var data;
       try {
-        data = new AWS3.XML.Parser().parse(resp.httpResponse.body.toString());
+        data = new AWS2.XML.Parser().parse(resp.httpResponse.body.toString());
       } catch (e) {
         data = {
           Code: resp.httpResponse.statusCode,
@@ -1140,26 +1173,26 @@ var require_rest_xml = __commonJS({
       var operation = req.service.api.operations[req.operation];
       var output = operation.output;
       var hasEventOutput = operation.hasEventOutput;
-      var payload2 = output.payload;
-      if (payload2) {
-        var payloadMember = output.members[payload2];
+      var payload = output.payload;
+      if (payload) {
+        var payloadMember = output.members[payload];
         if (payloadMember.isEventStream) {
-          parser = new AWS3.XML.Parser();
-          resp.data[payload2] = util.createEventStream(
-            AWS3.HttpClient.streamsApiVersion === 2 ? resp.httpResponse.stream : resp.httpResponse.body,
+          parser = new AWS2.XML.Parser();
+          resp.data[payload] = util.createEventStream(
+            AWS2.HttpClient.streamsApiVersion === 2 ? resp.httpResponse.stream : resp.httpResponse.body,
             parser,
             payloadMember
           );
         } else if (payloadMember.type === 'structure') {
-          parser = new AWS3.XML.Parser();
-          resp.data[payload2] = parser.parse(body.toString(), payloadMember);
+          parser = new AWS2.XML.Parser();
+          resp.data[payload] = parser.parse(body.toString(), payloadMember);
         } else if (payloadMember.type === 'binary' || payloadMember.isStreaming) {
-          resp.data[payload2] = body;
+          resp.data[payload] = body;
         } else {
-          resp.data[payload2] = payloadMember.toType(body);
+          resp.data[payload] = payloadMember.toType(body);
         }
       } else if (body.length > 0) {
-        parser = new AWS3.XML.Parser();
+        parser = new AWS2.XML.Parser();
         var data = parser.parse(body.toString(), output);
         util.update(resp.data, data);
       }
@@ -1193,12 +1226,12 @@ var require_escape_attribute = __commonJS({
 var require_xml_node = __commonJS({
   'node_modules/aws-sdk/lib/xml/xml-node.js'(exports, module2) {
     var escapeAttribute = require_escape_attribute().escapeAttribute;
-    function XmlNode(name, children) {
-      if (children === void 0) {
-        children = [];
+    function XmlNode(name, children2) {
+      if (children2 === void 0) {
+        children2 = [];
       }
       this.name = name;
-      this.children = children;
+      this.children = children2;
       this.attributes = {};
     }
     XmlNode.prototype.addAttribute = function (name, value) {
@@ -1246,7 +1279,14 @@ var require_xml_node = __commonJS({
 var require_escape_element = __commonJS({
   'node_modules/aws-sdk/lib/xml/escape-element.js'(exports, module2) {
     function escapeElement(value) {
-      return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\r/g, '&#x0D;')
+        .replace(/\n/g, '&#x0A;')
+        .replace(/\u0085/g, '&#x85;')
+        .replace(/\u2028/, '&#x2028;');
     }
     module2.exports = {
       escapeElement,
@@ -1386,6 +1426,9 @@ var require_operation = __commonJS({
         'endpointDiscoveryRequired',
         operation.endpointdiscovery ? (operation.endpointdiscovery.required ? 'REQUIRED' : 'OPTIONAL') : 'NULL'
       );
+      var httpChecksumRequired =
+        operation.httpChecksumRequired || (operation.httpChecksum && operation.httpChecksum.requestChecksumRequired);
+      property(this, 'httpChecksumRequired', httpChecksumRequired, false);
       memoizedProperty(this, 'input', function () {
         if (!operation.input) {
           return new Shape.create({ type: 'structure' }, options);
@@ -1437,12 +1480,12 @@ var require_operation = __commonJS({
     }
     function hasEventStream(topLevelShape) {
       var members = topLevelShape.members;
-      var payload2 = topLevelShape.payload;
+      var payload = topLevelShape.payload;
       if (!topLevelShape.members) {
         return false;
       }
-      if (payload2) {
-        var payloadMember = members[payload2];
+      if (payload) {
+        var payloadMember = members[payload];
         return payloadMember.isEventStream;
       }
       for (var name in members) {
@@ -1939,6 +1982,7 @@ var require_metadata = __commonJS({
       },
       athena: {
         name: 'Athena',
+        cors: true,
       },
       greengrass: {
         name: 'Greengrass',
@@ -1952,12 +1996,10 @@ var require_metadata = __commonJS({
       },
       cloudhsmv2: {
         name: 'CloudHSMV2',
+        cors: true,
       },
       glue: {
         name: 'Glue',
-      },
-      mobile: {
-        name: 'Mobile',
       },
       pricing: {
         name: 'Pricing',
@@ -2032,9 +2074,6 @@ var require_metadata = __commonJS({
         name: 'ResourceGroups',
         cors: true,
       },
-      alexaforbusiness: {
-        name: 'AlexaForBusiness',
-      },
       cloud9: {
         name: 'Cloud9',
       },
@@ -2094,9 +2133,6 @@ var require_metadata = __commonJS({
       },
       eks: {
         name: 'EKS',
-      },
-      macie: {
-        name: 'Macie',
       },
       dlm: {
         name: 'DLM',
@@ -2277,6 +2313,7 @@ var require_metadata = __commonJS({
       marketplacecatalog: {
         prefix: 'marketplace-catalog',
         name: 'MarketplaceCatalog',
+        cors: true,
       },
       dataexchange: {
         name: 'DataExchange',
@@ -2366,9 +2403,6 @@ var require_metadata = __commonJS({
       },
       codeartifact: {
         name: 'CodeArtifact',
-      },
-      honeycode: {
-        name: 'Honeycode',
       },
       ivs: {
         name: 'IVS',
@@ -2460,6 +2494,7 @@ var require_metadata = __commonJS({
       },
       amp: {
         name: 'Amp',
+        cors: true,
       },
       greengrassv2: {
         name: 'GreengrassV2',
@@ -2475,9 +2510,463 @@ var require_metadata = __commonJS({
       },
       location: {
         name: 'Location',
+        cors: true,
       },
       wellarchitected: {
         name: 'WellArchitected',
+      },
+      lexmodelsv2: {
+        prefix: 'models.lex.v2',
+        name: 'LexModelsV2',
+      },
+      lexruntimev2: {
+        prefix: 'runtime.lex.v2',
+        name: 'LexRuntimeV2',
+        cors: true,
+      },
+      fis: {
+        name: 'Fis',
+      },
+      lookoutmetrics: {
+        name: 'LookoutMetrics',
+      },
+      mgn: {
+        name: 'Mgn',
+      },
+      lookoutequipment: {
+        name: 'LookoutEquipment',
+      },
+      nimble: {
+        name: 'Nimble',
+      },
+      finspace: {
+        name: 'Finspace',
+      },
+      finspacedata: {
+        prefix: 'finspace-data',
+        name: 'Finspacedata',
+      },
+      ssmcontacts: {
+        prefix: 'ssm-contacts',
+        name: 'SSMContacts',
+      },
+      ssmincidents: {
+        prefix: 'ssm-incidents',
+        name: 'SSMIncidents',
+      },
+      applicationcostprofiler: {
+        name: 'ApplicationCostProfiler',
+      },
+      apprunner: {
+        name: 'AppRunner',
+      },
+      proton: {
+        name: 'Proton',
+      },
+      route53recoverycluster: {
+        prefix: 'route53-recovery-cluster',
+        name: 'Route53RecoveryCluster',
+      },
+      route53recoverycontrolconfig: {
+        prefix: 'route53-recovery-control-config',
+        name: 'Route53RecoveryControlConfig',
+      },
+      route53recoveryreadiness: {
+        prefix: 'route53-recovery-readiness',
+        name: 'Route53RecoveryReadiness',
+      },
+      chimesdkidentity: {
+        prefix: 'chime-sdk-identity',
+        name: 'ChimeSDKIdentity',
+      },
+      chimesdkmessaging: {
+        prefix: 'chime-sdk-messaging',
+        name: 'ChimeSDKMessaging',
+      },
+      snowdevicemanagement: {
+        prefix: 'snow-device-management',
+        name: 'SnowDeviceManagement',
+      },
+      memorydb: {
+        name: 'MemoryDB',
+      },
+      opensearch: {
+        name: 'OpenSearch',
+      },
+      kafkaconnect: {
+        name: 'KafkaConnect',
+      },
+      voiceid: {
+        prefix: 'voice-id',
+        name: 'VoiceID',
+      },
+      wisdom: {
+        name: 'Wisdom',
+      },
+      account: {
+        name: 'Account',
+      },
+      cloudcontrol: {
+        name: 'CloudControl',
+      },
+      grafana: {
+        name: 'Grafana',
+      },
+      panorama: {
+        name: 'Panorama',
+      },
+      chimesdkmeetings: {
+        prefix: 'chime-sdk-meetings',
+        name: 'ChimeSDKMeetings',
+      },
+      resiliencehub: {
+        name: 'Resiliencehub',
+      },
+      migrationhubstrategy: {
+        name: 'MigrationHubStrategy',
+      },
+      appconfigdata: {
+        name: 'AppConfigData',
+      },
+      drs: {
+        name: 'Drs',
+      },
+      migrationhubrefactorspaces: {
+        prefix: 'migration-hub-refactor-spaces',
+        name: 'MigrationHubRefactorSpaces',
+      },
+      evidently: {
+        name: 'Evidently',
+      },
+      inspector2: {
+        name: 'Inspector2',
+      },
+      rbin: {
+        name: 'Rbin',
+      },
+      rum: {
+        name: 'RUM',
+      },
+      backupgateway: {
+        prefix: 'backup-gateway',
+        name: 'BackupGateway',
+      },
+      iottwinmaker: {
+        name: 'IoTTwinMaker',
+      },
+      workspacesweb: {
+        prefix: 'workspaces-web',
+        name: 'WorkSpacesWeb',
+      },
+      amplifyuibuilder: {
+        name: 'AmplifyUIBuilder',
+      },
+      keyspaces: {
+        name: 'Keyspaces',
+      },
+      billingconductor: {
+        name: 'Billingconductor',
+      },
+      pinpointsmsvoicev2: {
+        prefix: 'pinpoint-sms-voice-v2',
+        name: 'PinpointSMSVoiceV2',
+      },
+      ivschat: {
+        name: 'Ivschat',
+      },
+      chimesdkmediapipelines: {
+        prefix: 'chime-sdk-media-pipelines',
+        name: 'ChimeSDKMediaPipelines',
+      },
+      emrserverless: {
+        prefix: 'emr-serverless',
+        name: 'EMRServerless',
+      },
+      m2: {
+        name: 'M2',
+      },
+      connectcampaigns: {
+        name: 'ConnectCampaigns',
+      },
+      redshiftserverless: {
+        prefix: 'redshift-serverless',
+        name: 'RedshiftServerless',
+      },
+      rolesanywhere: {
+        name: 'RolesAnywhere',
+      },
+      licensemanagerusersubscriptions: {
+        prefix: 'license-manager-user-subscriptions',
+        name: 'LicenseManagerUserSubscriptions',
+      },
+      privatenetworks: {
+        name: 'PrivateNetworks',
+      },
+      supportapp: {
+        prefix: 'support-app',
+        name: 'SupportApp',
+      },
+      controltower: {
+        name: 'ControlTower',
+      },
+      iotfleetwise: {
+        name: 'IoTFleetWise',
+      },
+      migrationhuborchestrator: {
+        name: 'MigrationHubOrchestrator',
+      },
+      connectcases: {
+        name: 'ConnectCases',
+      },
+      resourceexplorer2: {
+        prefix: 'resource-explorer-2',
+        name: 'ResourceExplorer2',
+      },
+      scheduler: {
+        name: 'Scheduler',
+      },
+      chimesdkvoice: {
+        prefix: 'chime-sdk-voice',
+        name: 'ChimeSDKVoice',
+      },
+      ssmsap: {
+        prefix: 'ssm-sap',
+        name: 'SsmSap',
+      },
+      oam: {
+        name: 'OAM',
+      },
+      arczonalshift: {
+        prefix: 'arc-zonal-shift',
+        name: 'ARCZonalShift',
+      },
+      omics: {
+        name: 'Omics',
+      },
+      opensearchserverless: {
+        name: 'OpenSearchServerless',
+      },
+      securitylake: {
+        name: 'SecurityLake',
+      },
+      simspaceweaver: {
+        name: 'SimSpaceWeaver',
+      },
+      docdbelastic: {
+        prefix: 'docdb-elastic',
+        name: 'DocDBElastic',
+      },
+      sagemakergeospatial: {
+        prefix: 'sagemaker-geospatial',
+        name: 'SageMakerGeospatial',
+      },
+      codecatalyst: {
+        name: 'CodeCatalyst',
+      },
+      pipes: {
+        name: 'Pipes',
+      },
+      sagemakermetrics: {
+        prefix: 'sagemaker-metrics',
+        name: 'SageMakerMetrics',
+      },
+      kinesisvideowebrtcstorage: {
+        prefix: 'kinesis-video-webrtc-storage',
+        name: 'KinesisVideoWebRTCStorage',
+      },
+      licensemanagerlinuxsubscriptions: {
+        prefix: 'license-manager-linux-subscriptions',
+        name: 'LicenseManagerLinuxSubscriptions',
+      },
+      kendraranking: {
+        prefix: 'kendra-ranking',
+        name: 'KendraRanking',
+      },
+      cleanrooms: {
+        name: 'CleanRooms',
+      },
+      cloudtraildata: {
+        prefix: 'cloudtrail-data',
+        name: 'CloudTrailData',
+      },
+      tnb: {
+        name: 'Tnb',
+      },
+      internetmonitor: {
+        name: 'InternetMonitor',
+      },
+      ivsrealtime: {
+        prefix: 'ivs-realtime',
+        name: 'IVSRealTime',
+      },
+      vpclattice: {
+        prefix: 'vpc-lattice',
+        name: 'VPCLattice',
+      },
+      osis: {
+        name: 'OSIS',
+      },
+      mediapackagev2: {
+        name: 'MediaPackageV2',
+      },
+      paymentcryptography: {
+        prefix: 'payment-cryptography',
+        name: 'PaymentCryptography',
+      },
+      paymentcryptographydata: {
+        prefix: 'payment-cryptography-data',
+        name: 'PaymentCryptographyData',
+      },
+      codegurusecurity: {
+        prefix: 'codeguru-security',
+        name: 'CodeGuruSecurity',
+      },
+      verifiedpermissions: {
+        name: 'VerifiedPermissions',
+      },
+      appfabric: {
+        name: 'AppFabric',
+      },
+      medicalimaging: {
+        prefix: 'medical-imaging',
+        name: 'MedicalImaging',
+      },
+      entityresolution: {
+        name: 'EntityResolution',
+      },
+      managedblockchainquery: {
+        prefix: 'managedblockchain-query',
+        name: 'ManagedBlockchainQuery',
+      },
+      neptunedata: {
+        name: 'Neptunedata',
+      },
+      pcaconnectorad: {
+        prefix: 'pca-connector-ad',
+        name: 'PcaConnectorAd',
+      },
+      bedrock: {
+        name: 'Bedrock',
+      },
+      bedrockruntime: {
+        prefix: 'bedrock-runtime',
+        name: 'BedrockRuntime',
+      },
+      datazone: {
+        name: 'DataZone',
+      },
+      launchwizard: {
+        prefix: 'launch-wizard',
+        name: 'LaunchWizard',
+      },
+      trustedadvisor: {
+        name: 'TrustedAdvisor',
+      },
+      inspectorscan: {
+        prefix: 'inspector-scan',
+        name: 'InspectorScan',
+      },
+      bcmdataexports: {
+        prefix: 'bcm-data-exports',
+        name: 'BCMDataExports',
+      },
+      costoptimizationhub: {
+        prefix: 'cost-optimization-hub',
+        name: 'CostOptimizationHub',
+      },
+      eksauth: {
+        prefix: 'eks-auth',
+        name: 'EKSAuth',
+      },
+      freetier: {
+        name: 'FreeTier',
+      },
+      repostspace: {
+        name: 'Repostspace',
+      },
+      workspacesthinclient: {
+        prefix: 'workspaces-thin-client',
+        name: 'WorkSpacesThinClient',
+      },
+      b2bi: {
+        name: 'B2bi',
+      },
+      bedrockagent: {
+        prefix: 'bedrock-agent',
+        name: 'BedrockAgent',
+      },
+      bedrockagentruntime: {
+        prefix: 'bedrock-agent-runtime',
+        name: 'BedrockAgentRuntime',
+      },
+      qbusiness: {
+        name: 'QBusiness',
+      },
+      qconnect: {
+        name: 'QConnect',
+      },
+      cleanroomsml: {
+        name: 'CleanRoomsML',
+      },
+      marketplaceagreement: {
+        prefix: 'marketplace-agreement',
+        name: 'MarketplaceAgreement',
+      },
+      marketplacedeployment: {
+        prefix: 'marketplace-deployment',
+        name: 'MarketplaceDeployment',
+      },
+      networkmonitor: {
+        name: 'NetworkMonitor',
+      },
+      supplychain: {
+        name: 'SupplyChain',
+      },
+      artifact: {
+        name: 'Artifact',
+      },
+      chatbot: {
+        name: 'Chatbot',
+      },
+      timestreaminfluxdb: {
+        prefix: 'timestream-influxdb',
+        name: 'TimestreamInfluxDB',
+      },
+      codeconnections: {
+        name: 'CodeConnections',
+      },
+      deadline: {
+        name: 'Deadline',
+      },
+      controlcatalog: {
+        name: 'ControlCatalog',
+      },
+      route53profiles: {
+        name: 'Route53Profiles',
+      },
+      mailmanager: {
+        name: 'MailManager',
+      },
+      taxsettings: {
+        name: 'TaxSettings',
+      },
+      applicationsignals: {
+        prefix: 'application-signals',
+        name: 'ApplicationSignals',
+      },
+      pcaconnectorscep: {
+        prefix: 'pca-connector-scep',
+        name: 'PcaConnectorScep',
+      },
+      apptest: {
+        name: 'AppTest',
+      },
+      qapps: {
+        name: 'QApps',
+      },
+      ssmquicksetup: {
+        prefix: 'ssm-quicksetup',
+        name: 'SSMQuickSetup',
       },
     };
   },
@@ -2578,6 +3067,7 @@ var require_api = __commonJS({
         property(this, 'documentation', api.documentation);
         property(this, 'documentationUrl', api.documentationUrl);
       }
+      property(this, 'awsQueryCompatible', api.metadata.awsQueryCompatible);
     }
     module2.exports = Api;
   },
@@ -2740,12 +3230,15 @@ var require_endpoint_cache = __commonJS({
         var now = Date.now();
         var records = this.cache.get(keyString);
         if (records) {
-          for (var i = 0; i < records.length; i++) {
+          for (var i = records.length - 1; i >= 0; i--) {
             var record = records[i];
             if (record.Expire < now) {
-              this.cache.remove(keyString);
-              return void 0;
+              records.splice(i, 1);
             }
+          }
+          if (records.length === 0) {
+            this.cache.remove(keyString);
+            return void 0;
           }
         }
         return records;
@@ -2785,8 +3278,8 @@ var require_endpoint_cache = __commonJS({
 // node_modules/aws-sdk/lib/sequential_executor.js
 var require_sequential_executor = __commonJS({
   'node_modules/aws-sdk/lib/sequential_executor.js'(exports, module2) {
-    var AWS3 = require_core();
-    AWS3.SequentialExecutor = AWS3.util.inherit({
+    var AWS2 = require_core();
+    AWS2.SequentialExecutor = AWS2.util.inherit({
       constructor: function SequentialExecutor() {
         this._events = {};
       },
@@ -2841,7 +3334,7 @@ var require_sequential_executor = __commonJS({
         var error = prevError || null;
         function callNextListener(err) {
           if (err) {
-            error = AWS3.util.error(error || new Error(), err);
+            error = AWS2.util.error(error || new Error(), err);
             if (self._haltHandlersOnError) {
               return doneCallback.call(self, error);
             }
@@ -2857,7 +3350,7 @@ var require_sequential_executor = __commonJS({
             try {
               listener.apply(self, args);
             } catch (err) {
-              error = AWS3.util.error(error || new Error(), err);
+              error = AWS2.util.error(error || new Error(), err);
             }
             if (error && self._haltHandlersOnError) {
               doneCallback.call(self, error);
@@ -2870,9 +3363,9 @@ var require_sequential_executor = __commonJS({
       addListeners: function addListeners(listeners) {
         var self = this;
         if (listeners._events) listeners = listeners._events;
-        AWS3.util.each(listeners, function (event, callbacks) {
+        AWS2.util.each(listeners, function (event, callbacks) {
           if (typeof callbacks === 'function') callbacks = [callbacks];
-          AWS3.util.arrayEach(callbacks, function (callback) {
+          AWS2.util.arrayEach(callbacks, function (callback) {
             self.on(event, callback);
           });
         });
@@ -2900,8 +3393,8 @@ var require_sequential_executor = __commonJS({
         return this;
       },
     });
-    AWS3.SequentialExecutor.prototype.addListener = AWS3.SequentialExecutor.prototype.on;
-    module2.exports = AWS3.SequentialExecutor;
+    AWS2.SequentialExecutor.prototype.addListener = AWS2.SequentialExecutor.prototype.on;
+    module2.exports = AWS2.SequentialExecutor;
   },
 });
 
@@ -2916,12 +3409,10 @@ var require_region_config_data = __commonJS({
         'cn-*/*': {
           endpoint: '{service}.{region}.amazonaws.com.cn',
         },
-        'us-iso-*/*': {
-          endpoint: '{service}.{region}.c2s.ic.gov',
-        },
-        'us-isob-*/*': {
-          endpoint: '{service}.{region}.sc2s.sgov.gov',
-        },
+        'eu-isoe-*/*': 'euIsoe',
+        'us-iso-*/*': 'usIso',
+        'us-isob-*/*': 'usIsob',
+        'us-isof-*/*': 'usIsof',
         '*/budgets': 'globalSSL',
         '*/cloudfront': 'globalSSL',
         '*/sts': 'globalSSL',
@@ -2937,6 +3428,16 @@ var require_region_config_data = __commonJS({
           signingRegion: 'cn-northwest-1',
         },
         'us-gov-*/route53': 'globalGovCloud',
+        'us-iso-*/route53': {
+          endpoint: '{service}.c2s.ic.gov',
+          globalEndpoint: true,
+          signingRegion: 'us-iso-east-1',
+        },
+        'us-isob-*/route53': {
+          endpoint: '{service}.sc2s.sgov.gov',
+          globalEndpoint: true,
+          signingRegion: 'us-isob-east-1',
+        },
         '*/waf': 'globalSSL',
         '*/iam': 'globalSSL',
         'cn-*/iam': {
@@ -2944,7 +3445,22 @@ var require_region_config_data = __commonJS({
           globalEndpoint: true,
           signingRegion: 'cn-north-1',
         },
+        'us-iso-*/iam': {
+          endpoint: '{service}.us-iso-east-1.c2s.ic.gov',
+          globalEndpoint: true,
+          signingRegion: 'us-iso-east-1',
+        },
         'us-gov-*/iam': 'globalGovCloud',
+        '*/ce': {
+          endpoint: '{service}.us-east-1.amazonaws.com',
+          globalEndpoint: true,
+          signingRegion: 'us-east-1',
+        },
+        'cn-*/ce': {
+          endpoint: '{service}.cn-northwest-1.amazonaws.com.cn',
+          globalEndpoint: true,
+          signingRegion: 'cn-northwest-1',
+        },
         'us-gov-*/sts': {
           endpoint: '{service}.{region}.amazonaws.com',
         },
@@ -2968,6 +3484,141 @@ var require_region_config_data = __commonJS({
           endpoint: '{service}.{region}.amazonaws.com',
           signatureVersion: 'v2',
         },
+        '*/resource-explorer-2': 'dualstackByDefault',
+        '*/kendra-ranking': 'dualstackByDefault',
+        '*/internetmonitor': 'dualstackByDefault',
+        '*/codecatalyst': 'globalDualstackByDefault',
+      },
+      fipsRules: {
+        '*/*': 'fipsStandard',
+        'us-gov-*/*': 'fipsStandard',
+        'us-iso-*/*': {
+          endpoint: '{service}-fips.{region}.c2s.ic.gov',
+        },
+        'us-iso-*/dms': 'usIso',
+        'us-isob-*/*': {
+          endpoint: '{service}-fips.{region}.sc2s.sgov.gov',
+        },
+        'us-isob-*/dms': 'usIsob',
+        'cn-*/*': {
+          endpoint: '{service}-fips.{region}.amazonaws.com.cn',
+        },
+        '*/api.ecr': 'fips.api.ecr',
+        '*/api.sagemaker': 'fips.api.sagemaker',
+        '*/batch': 'fipsDotPrefix',
+        '*/eks': 'fipsDotPrefix',
+        '*/models.lex': 'fips.models.lex',
+        '*/runtime.lex': 'fips.runtime.lex',
+        '*/runtime.sagemaker': {
+          endpoint: 'runtime-fips.sagemaker.{region}.amazonaws.com',
+        },
+        '*/iam': 'fipsWithoutRegion',
+        '*/route53': 'fipsWithoutRegion',
+        '*/transcribe': 'fipsDotPrefix',
+        '*/waf': 'fipsWithoutRegion',
+        'us-gov-*/transcribe': 'fipsDotPrefix',
+        'us-gov-*/api.ecr': 'fips.api.ecr',
+        'us-gov-*/models.lex': 'fips.models.lex',
+        'us-gov-*/runtime.lex': 'fips.runtime.lex',
+        'us-gov-*/access-analyzer': 'fipsWithServiceOnly',
+        'us-gov-*/acm': 'fipsWithServiceOnly',
+        'us-gov-*/acm-pca': 'fipsWithServiceOnly',
+        'us-gov-*/api.sagemaker': 'fipsWithServiceOnly',
+        'us-gov-*/appconfig': 'fipsWithServiceOnly',
+        'us-gov-*/application-autoscaling': 'fipsWithServiceOnly',
+        'us-gov-*/autoscaling': 'fipsWithServiceOnly',
+        'us-gov-*/autoscaling-plans': 'fipsWithServiceOnly',
+        'us-gov-*/batch': 'fipsWithServiceOnly',
+        'us-gov-*/cassandra': 'fipsWithServiceOnly',
+        'us-gov-*/clouddirectory': 'fipsWithServiceOnly',
+        'us-gov-*/cloudformation': 'fipsWithServiceOnly',
+        'us-gov-*/cloudshell': 'fipsWithServiceOnly',
+        'us-gov-*/cloudtrail': 'fipsWithServiceOnly',
+        'us-gov-*/config': 'fipsWithServiceOnly',
+        'us-gov-*/connect': 'fipsWithServiceOnly',
+        'us-gov-*/databrew': 'fipsWithServiceOnly',
+        'us-gov-*/dlm': 'fipsWithServiceOnly',
+        'us-gov-*/dms': 'fipsWithServiceOnly',
+        'us-gov-*/dynamodb': 'fipsWithServiceOnly',
+        'us-gov-*/ec2': 'fipsWithServiceOnly',
+        'us-gov-*/eks': 'fipsWithServiceOnly',
+        'us-gov-*/elasticache': 'fipsWithServiceOnly',
+        'us-gov-*/elasticbeanstalk': 'fipsWithServiceOnly',
+        'us-gov-*/elasticloadbalancing': 'fipsWithServiceOnly',
+        'us-gov-*/elasticmapreduce': 'fipsWithServiceOnly',
+        'us-gov-*/events': 'fipsWithServiceOnly',
+        'us-gov-*/fis': 'fipsWithServiceOnly',
+        'us-gov-*/glacier': 'fipsWithServiceOnly',
+        'us-gov-*/greengrass': 'fipsWithServiceOnly',
+        'us-gov-*/guardduty': 'fipsWithServiceOnly',
+        'us-gov-*/identitystore': 'fipsWithServiceOnly',
+        'us-gov-*/imagebuilder': 'fipsWithServiceOnly',
+        'us-gov-*/kafka': 'fipsWithServiceOnly',
+        'us-gov-*/kinesis': 'fipsWithServiceOnly',
+        'us-gov-*/logs': 'fipsWithServiceOnly',
+        'us-gov-*/mediaconvert': 'fipsWithServiceOnly',
+        'us-gov-*/monitoring': 'fipsWithServiceOnly',
+        'us-gov-*/networkmanager': 'fipsWithServiceOnly',
+        'us-gov-*/organizations': 'fipsWithServiceOnly',
+        'us-gov-*/outposts': 'fipsWithServiceOnly',
+        'us-gov-*/participant.connect': 'fipsWithServiceOnly',
+        'us-gov-*/ram': 'fipsWithServiceOnly',
+        'us-gov-*/rds': 'fipsWithServiceOnly',
+        'us-gov-*/redshift': 'fipsWithServiceOnly',
+        'us-gov-*/resource-groups': 'fipsWithServiceOnly',
+        'us-gov-*/runtime.sagemaker': 'fipsWithServiceOnly',
+        'us-gov-*/serverlessrepo': 'fipsWithServiceOnly',
+        'us-gov-*/servicecatalog-appregistry': 'fipsWithServiceOnly',
+        'us-gov-*/servicequotas': 'fipsWithServiceOnly',
+        'us-gov-*/sns': 'fipsWithServiceOnly',
+        'us-gov-*/sqs': 'fipsWithServiceOnly',
+        'us-gov-*/ssm': 'fipsWithServiceOnly',
+        'us-gov-*/streams.dynamodb': 'fipsWithServiceOnly',
+        'us-gov-*/sts': 'fipsWithServiceOnly',
+        'us-gov-*/support': 'fipsWithServiceOnly',
+        'us-gov-*/swf': 'fipsWithServiceOnly',
+        'us-gov-west-1/states': 'fipsWithServiceOnly',
+        'us-iso-east-1/elasticfilesystem': {
+          endpoint: 'elasticfilesystem-fips.{region}.c2s.ic.gov',
+        },
+        'us-gov-west-1/organizations': 'fipsWithServiceOnly',
+        'us-gov-west-1/route53': {
+          endpoint: 'route53.us-gov.amazonaws.com',
+        },
+        '*/resource-explorer-2': 'fipsDualstackByDefault',
+        '*/kendra-ranking': 'dualstackByDefault',
+        '*/internetmonitor': 'dualstackByDefault',
+        '*/codecatalyst': 'fipsGlobalDualstackByDefault',
+      },
+      dualstackRules: {
+        '*/*': {
+          endpoint: '{service}.{region}.api.aws',
+        },
+        'cn-*/*': {
+          endpoint: '{service}.{region}.api.amazonwebservices.com.cn',
+        },
+        '*/s3': 'dualstackLegacy',
+        'cn-*/s3': 'dualstackLegacyCn',
+        '*/s3-control': 'dualstackLegacy',
+        'cn-*/s3-control': 'dualstackLegacyCn',
+        'ap-south-1/ec2': 'dualstackLegacyEc2',
+        'eu-west-1/ec2': 'dualstackLegacyEc2',
+        'sa-east-1/ec2': 'dualstackLegacyEc2',
+        'us-east-1/ec2': 'dualstackLegacyEc2',
+        'us-east-2/ec2': 'dualstackLegacyEc2',
+        'us-west-2/ec2': 'dualstackLegacyEc2',
+      },
+      dualstackFipsRules: {
+        '*/*': {
+          endpoint: '{service}-fips.{region}.api.aws',
+        },
+        'cn-*/*': {
+          endpoint: '{service}-fips.{region}.api.amazonwebservices.com.cn',
+        },
+        '*/s3': 'dualstackFipsLegacy',
+        'cn-*/s3': 'dualstackFipsLegacyCn',
+        '*/s3-control': 'dualstackFipsLegacy',
+        'cn-*/s3-control': 'dualstackFipsLegacyCn',
       },
       patterns: {
         globalSSL: {
@@ -2983,6 +3634,69 @@ var require_region_config_data = __commonJS({
         s3signature: {
           endpoint: '{service}.{region}.amazonaws.com',
           signatureVersion: 's3',
+        },
+        euIsoe: {
+          endpoint: '{service}.{region}.cloud.adc-e.uk',
+        },
+        usIso: {
+          endpoint: '{service}.{region}.c2s.ic.gov',
+        },
+        usIsob: {
+          endpoint: '{service}.{region}.sc2s.sgov.gov',
+        },
+        usIsof: {
+          endpoint: '{service}.{region}.csp.hci.ic.gov',
+        },
+        fipsStandard: {
+          endpoint: '{service}-fips.{region}.amazonaws.com',
+        },
+        fipsDotPrefix: {
+          endpoint: 'fips.{service}.{region}.amazonaws.com',
+        },
+        fipsWithoutRegion: {
+          endpoint: '{service}-fips.amazonaws.com',
+        },
+        'fips.api.ecr': {
+          endpoint: 'ecr-fips.{region}.amazonaws.com',
+        },
+        'fips.api.sagemaker': {
+          endpoint: 'api-fips.sagemaker.{region}.amazonaws.com',
+        },
+        'fips.models.lex': {
+          endpoint: 'models-fips.lex.{region}.amazonaws.com',
+        },
+        'fips.runtime.lex': {
+          endpoint: 'runtime-fips.lex.{region}.amazonaws.com',
+        },
+        fipsWithServiceOnly: {
+          endpoint: '{service}.{region}.amazonaws.com',
+        },
+        dualstackLegacy: {
+          endpoint: '{service}.dualstack.{region}.amazonaws.com',
+        },
+        dualstackLegacyCn: {
+          endpoint: '{service}.dualstack.{region}.amazonaws.com.cn',
+        },
+        dualstackFipsLegacy: {
+          endpoint: '{service}-fips.dualstack.{region}.amazonaws.com',
+        },
+        dualstackFipsLegacyCn: {
+          endpoint: '{service}-fips.dualstack.{region}.amazonaws.com.cn',
+        },
+        dualstackLegacyEc2: {
+          endpoint: 'api.ec2.{region}.aws',
+        },
+        dualstackByDefault: {
+          endpoint: '{service}.{region}.api.aws',
+        },
+        fipsDualstackByDefault: {
+          endpoint: '{service}-fips.{region}.api.aws',
+        },
+        globalDualstackByDefault: {
+          endpoint: '{service}.global.api.aws',
+        },
+        fipsGlobalDualstackByDefault: {
+          endpoint: '{service}-fips.global.api.aws',
         },
       },
     };
@@ -3010,6 +3724,7 @@ var require_region_config = __commonJS({
         [region, '*'],
         [regionPrefix, '*'],
         ['*', endpointPrefix],
+        [region, 'internal-*'],
         ['*', '*'],
       ].map(function (item) {
         return item[0] && item[1] ? item.join('/') : null;
@@ -3025,24 +3740,35 @@ var require_region_config = __commonJS({
     }
     function configureEndpoint(service) {
       var keys = derivedKeys(service);
+      var useFipsEndpoint = service.config.useFipsEndpoint;
+      var useDualstackEndpoint = service.config.useDualstackEndpoint;
       for (var i = 0; i < keys.length; i++) {
         var key = keys[i];
         if (!key) continue;
-        if (Object.prototype.hasOwnProperty.call(regionConfig.rules, key)) {
-          var config = regionConfig.rules[key];
+        var rules = useFipsEndpoint
+          ? useDualstackEndpoint
+            ? regionConfig.dualstackFipsRules
+            : regionConfig.fipsRules
+          : useDualstackEndpoint
+          ? regionConfig.dualstackRules
+          : regionConfig.rules;
+        if (Object.prototype.hasOwnProperty.call(rules, key)) {
+          var config = rules[key];
           if (typeof config === 'string') {
             config = regionConfig.patterns[config];
-          }
-          if (service.config.useDualstack && util.isDualstackAvailable(service)) {
-            config = util.copy(config);
-            config.endpoint = config.endpoint.replace(/{service}\.({region}\.)?/, '{service}.dualstack.{region}.');
           }
           service.isGlobalEndpoint = !!config.globalEndpoint;
           if (config.signingRegion) {
             service.signingRegion = config.signingRegion;
           }
-          if (!config.signatureVersion) config.signatureVersion = 'v4';
-          applyConfig(service, config);
+          if (!config.signatureVersion) {
+            config.signatureVersion = 'v4';
+          }
+          var useBearer = (service.api && service.api.signatureVersion) === 'bearer';
+          applyConfig(
+            service,
+            Object.assign({}, config, { signatureVersion: useBearer ? 'bearer' : config.signatureVersion })
+          );
           return;
         }
       }
@@ -3054,6 +3780,7 @@ var require_region_config = __commonJS({
         '^us\\-gov\\-\\w+\\-\\d+$': 'amazonaws.com',
         '^us\\-iso\\-\\w+\\-\\d+$': 'c2s.ic.gov',
         '^us\\-isob\\-\\w+\\-\\d+$': 'sc2s.sgov.gov',
+        '^eu\\-isoe\\-west\\-1$': 'cloud.adc-e.uk',
       };
       var defaultSuffix = 'amazonaws.com';
       var regexes = Object.keys(regionRegexes);
@@ -3071,22 +3798,62 @@ var require_region_config = __commonJS({
   },
 });
 
+// node_modules/aws-sdk/lib/region/utils.js
+var require_utils = __commonJS({
+  'node_modules/aws-sdk/lib/region/utils.js'(exports, module2) {
+    function isFipsRegion(region) {
+      return typeof region === 'string' && (region.startsWith('fips-') || region.endsWith('-fips'));
+    }
+    function isGlobalRegion(region) {
+      return typeof region === 'string' && ['aws-global', 'aws-us-gov-global'].includes(region);
+    }
+    function getRealRegion(region) {
+      return ['fips-aws-global', 'aws-fips', 'aws-global'].includes(region)
+        ? 'us-east-1'
+        : ['fips-aws-us-gov-global', 'aws-us-gov-global'].includes(region)
+        ? 'us-gov-west-1'
+        : region.replace(/fips-(dkr-|prod-)?|-fips/, '');
+    }
+    module2.exports = {
+      isFipsRegion,
+      isGlobalRegion,
+      getRealRegion,
+    };
+  },
+});
+
 // node_modules/aws-sdk/lib/service.js
 var require_service = __commonJS({
   'node_modules/aws-sdk/lib/service.js'(exports, module2) {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var Api = require_api();
     var regionConfig = require_region_config();
-    var inherit = AWS3.util.inherit;
+    var inherit = AWS2.util.inherit;
     var clientCount = 0;
-    AWS3.Service = inherit({
+    var region_utils = require_utils();
+    AWS2.Service = inherit({
       constructor: function Service(config) {
         if (!this.loadServiceClass) {
-          throw AWS3.util.error(new Error(), "Service must be constructed with `new' operator");
+          throw AWS2.util.error(new Error(), "Service must be constructed with `new' operator");
+        }
+        if (config) {
+          if (config.region) {
+            var region = config.region;
+            if (region_utils.isFipsRegion(region)) {
+              config.region = region_utils.getRealRegion(region);
+              config.useFipsEndpoint = true;
+            }
+            if (region_utils.isGlobalRegion(region)) {
+              config.region = region_utils.getRealRegion(region);
+            }
+          }
+          if (typeof config.useDualstack === 'boolean' && typeof config.useDualstackEndpoint !== 'boolean') {
+            config.useDualstackEndpoint = config.useDualstack;
+          }
         }
         var ServiceClass = this.loadServiceClass(config || {});
         if (ServiceClass) {
-          var originalConfig = AWS3.util.copy(config);
+          var originalConfig = AWS2.util.copy(config);
           var svc = new ServiceClass(config);
           Object.defineProperty(svc, '_originalConfig', {
             get: function () {
@@ -3101,17 +3868,17 @@ var require_service = __commonJS({
         this.initialize(config);
       },
       initialize: function initialize(config) {
-        var svcConfig = AWS3.config[this.serviceIdentifier];
-        this.config = new AWS3.Config(AWS3.config);
+        var svcConfig = AWS2.config[this.serviceIdentifier];
+        this.config = new AWS2.Config(AWS2.config);
         if (svcConfig) this.config.update(svcConfig, true);
         if (config) this.config.update(config, true);
         this.validateService();
         if (!this.config.endpoint) regionConfig.configureEndpoint(this);
         this.config.endpoint = this.endpointFromTemplate(this.config.endpoint);
         this.setEndpoint(this.config.endpoint);
-        AWS3.SequentialExecutor.call(this);
-        AWS3.Service.addDefaultMonitoringListeners(this);
-        if ((this.config.clientSideMonitoring || AWS3.Service._clientSideMonitoring) && this.publisher) {
+        AWS2.SequentialExecutor.call(this);
+        AWS2.Service.addDefaultMonitoringListeners(this);
+        if ((this.config.clientSideMonitoring || AWS2.Service._clientSideMonitoring) && this.publisher) {
           var publisher = this.publisher;
           this.addNamedListener('PUBLISH_API_CALL', 'apiCall', function PUBLISH_API_CALL(event) {
             process.nextTick(function () {
@@ -3128,14 +3895,14 @@ var require_service = __commonJS({
       validateService: function validateService() {},
       loadServiceClass: function loadServiceClass(serviceConfig) {
         var config = serviceConfig;
-        if (!AWS3.util.isEmpty(this.api)) {
+        if (!AWS2.util.isEmpty(this.api)) {
           return null;
         } else if (config.apiConfig) {
-          return AWS3.Service.defineServiceApi(this.constructor, config.apiConfig);
+          return AWS2.Service.defineServiceApi(this.constructor, config.apiConfig);
         } else if (!this.constructor.services) {
           return null;
         } else {
-          config = new AWS3.Config(AWS3.config);
+          config = new AWS2.Config(AWS2.config);
           config.update(serviceConfig, true);
           var version = config.apiVersions[this.constructor.serviceIdentifier];
           version = version || config.apiVersion;
@@ -3145,7 +3912,7 @@ var require_service = __commonJS({
       getLatestServiceClass: function getLatestServiceClass(version) {
         version = this.getLatestServiceVersion(version);
         if (this.constructor.services[version] === null) {
-          AWS3.Service.defineServiceApi(this.constructor, version);
+          AWS2.Service.defineServiceApi(this.constructor, version);
         }
         return this.constructor.services[version];
       },
@@ -3155,8 +3922,8 @@ var require_service = __commonJS({
         }
         if (!version) {
           version = 'latest';
-        } else if (AWS3.util.isType(version, Date)) {
-          version = AWS3.util.date.iso8601(version).split('T')[0];
+        } else if (AWS2.util.isType(version, Date)) {
+          version = AWS2.util.date.iso8601(version).split('T')[0];
         }
         if (Object.hasOwnProperty(this.constructor.services, version)) {
           return version;
@@ -3199,8 +3966,8 @@ var require_service = __commonJS({
         if (this.config.params) {
           var rules = this.api.operations[operation];
           if (rules) {
-            params = AWS3.util.copy(params);
-            AWS3.util.each(this.config.params, function (key, value) {
+            params = AWS2.util.copy(params);
+            AWS2.util.each(this.config.params, function (key, value) {
               if (rules.input.members[key]) {
                 if (params[key] === void 0 || params[key] === null) {
                   params[key] = value;
@@ -3209,7 +3976,7 @@ var require_service = __commonJS({
             });
           }
         }
-        var request = new AWS3.Request(this, operation, params);
+        var request = new AWS2.Request(this, operation, params);
         this.addAllRequestListeners(request);
         this.attachMonitoringEmitter(request);
         if (callback) request.send(callback);
@@ -3224,19 +3991,19 @@ var require_service = __commonJS({
         return callback ? request.send(callback) : request;
       },
       waitFor: function waitFor(state, params, callback) {
-        var waiter = new AWS3.ResourceWaiter(this, state);
+        var waiter = new AWS2.ResourceWaiter(this, state);
         return waiter.wait(params, callback);
       },
       addAllRequestListeners: function addAllRequestListeners(request) {
-        var list = [AWS3.events, AWS3.EventListeners.Core, this.serviceInterface(), AWS3.EventListeners.CorePost];
+        var list = [AWS2.events, AWS2.EventListeners.Core, this.serviceInterface(), AWS2.EventListeners.CorePost];
         for (var i = 0; i < list.length; i++) {
           if (list[i]) request.addListeners(list[i]);
         }
         if (!this.config.paramValidation) {
-          request.removeListener('validate', AWS3.EventListeners.Core.VALIDATE_PARAMETERS);
+          request.removeListener('validate', AWS2.EventListeners.Core.VALIDATE_PARAMETERS);
         }
         if (this.config.logger) {
-          request.addListeners(AWS3.EventListeners.Logger);
+          request.addListeners(AWS2.EventListeners.Logger);
         }
         this.setupRequestListeners(request);
         if (typeof this.constructor.prototype.customRequestHandler === 'function') {
@@ -3339,7 +4106,7 @@ var require_service = __commonJS({
         request.on(
           'validate',
           function () {
-            callStartRealTime = AWS3.util.realClock.now();
+            callStartRealTime = AWS2.util.realClock.now();
             callTimestamp = Date.now();
           },
           addToHead
@@ -3347,7 +4114,7 @@ var require_service = __commonJS({
         request.on(
           'sign',
           function () {
-            attemptStartRealTime = AWS3.util.realClock.now();
+            attemptStartRealTime = AWS2.util.realClock.now();
             attemptTimestamp = Date.now();
             region = request.httpRequest.region;
             attemptCount++;
@@ -3355,7 +4122,7 @@ var require_service = __commonJS({
           addToHead
         );
         request.on('validateResponse', function () {
-          attemptLatency = Math.round(AWS3.util.realClock.now() - attemptStartRealTime);
+          attemptLatency = Math.round(AWS2.util.realClock.now() - attemptStartRealTime);
         });
         request.addNamedListener('API_CALL_ATTEMPT', 'success', function API_CALL_ATTEMPT() {
           var apiAttemptEvent = self.apiAttemptEvent(request);
@@ -3367,7 +4134,7 @@ var require_service = __commonJS({
         request.addNamedListener('API_CALL_ATTEMPT_RETRY', 'retry', function API_CALL_ATTEMPT_RETRY() {
           var apiAttemptEvent = self.attemptFailEvent(request);
           apiAttemptEvent.Timestamp = attemptTimestamp;
-          attemptLatency = attemptLatency || Math.round(AWS3.util.realClock.now() - attemptStartRealTime);
+          attemptLatency = attemptLatency || Math.round(AWS2.util.realClock.now() - attemptStartRealTime);
           apiAttemptEvent.AttemptLatency = attemptLatency >= 0 ? attemptLatency : 0;
           apiAttemptEvent.Region = region;
           self.emit('apiCallAttempt', [apiAttemptEvent]);
@@ -3377,7 +4144,7 @@ var require_service = __commonJS({
           apiCallEvent.AttemptCount = attemptCount;
           if (apiCallEvent.AttemptCount <= 0) return;
           apiCallEvent.Timestamp = callTimestamp;
-          var latency = Math.round(AWS3.util.realClock.now() - callStartRealTime);
+          var latency = Math.round(AWS2.util.realClock.now() - callStartRealTime);
           apiCallEvent.Latency = latency >= 0 ? latency : 0;
           var response = request.response;
           if (
@@ -3409,23 +4176,25 @@ var require_service = __commonJS({
           version = this.config.signatureVersion;
         } else if (authtype === 'v4' || authtype === 'v4-unsigned-body') {
           version = 'v4';
+        } else if (authtype === 'bearer') {
+          version = 'bearer';
         } else {
           version = this.api.signatureVersion;
         }
-        return AWS3.Signers.RequestSigner.getVersion(version);
+        return AWS2.Signers.RequestSigner.getVersion(version);
       },
       serviceInterface: function serviceInterface() {
         switch (this.api.protocol) {
           case 'ec2':
-            return AWS3.EventListeners.Query;
+            return AWS2.EventListeners.Query;
           case 'query':
-            return AWS3.EventListeners.Query;
+            return AWS2.EventListeners.Query;
           case 'json':
-            return AWS3.EventListeners.Json;
+            return AWS2.EventListeners.Json;
           case 'rest-json':
-            return AWS3.EventListeners.RestJson;
+            return AWS2.EventListeners.RestJson;
           case 'rest-xml':
-            return AWS3.EventListeners.RestXml;
+            return AWS2.EventListeners.RestXml;
         }
         if (this.api.protocol) {
           throw new Error("Invalid service `protocol' " + this.api.protocol + ' in API config');
@@ -3442,7 +4211,7 @@ var require_service = __commonJS({
         }
       },
       retryDelays: function retryDelays(retryCount, err) {
-        return AWS3.util.calculateRetryDelay(retryCount, this.config.retryDelayOptions, err);
+        return AWS2.util.calculateRetryDelay(retryCount, this.config.retryDelayOptions, err);
       },
       retryableError: function retryableError(error) {
         if (this.timeoutError(error)) return true;
@@ -3513,23 +4282,23 @@ var require_service = __commonJS({
         return e;
       },
       setEndpoint: function setEndpoint(endpoint) {
-        this.endpoint = new AWS3.Endpoint(endpoint, this.config);
+        this.endpoint = new AWS2.Endpoint(endpoint, this.config);
       },
       paginationConfig: function paginationConfig(operation, throwException) {
         var paginator = this.api.operations[operation].paginator;
         if (!paginator) {
           if (throwException) {
             var e = new Error();
-            throw AWS3.util.error(e, 'No pagination configuration for ' + operation);
+            throw AWS2.util.error(e, 'No pagination configuration for ' + operation);
           }
           return null;
         }
         return paginator;
       },
     });
-    AWS3.util.update(AWS3.Service, {
+    AWS2.util.update(AWS2.Service, {
       defineMethods: function defineMethods(svc) {
-        AWS3.util.each(svc.prototype.api.operations, function iterator(method) {
+        AWS2.util.each(svc.prototype.api.operations, function iterator(method) {
           if (svc.prototype[method]) return;
           var operation = svc.prototype.api.operations[method];
           if (operation.authtype === 'none') {
@@ -3544,32 +4313,32 @@ var require_service = __commonJS({
         });
       },
       defineService: function defineService(serviceIdentifier, versions, features) {
-        AWS3.Service._serviceMap[serviceIdentifier] = true;
+        AWS2.Service._serviceMap[serviceIdentifier] = true;
         if (!Array.isArray(versions)) {
           features = versions;
           versions = [];
         }
-        var svc = inherit(AWS3.Service, features || {});
+        var svc = inherit(AWS2.Service, features || {});
         if (typeof serviceIdentifier === 'string') {
-          AWS3.Service.addVersions(svc, versions);
+          AWS2.Service.addVersions(svc, versions);
           var identifier = svc.serviceIdentifier || serviceIdentifier;
           svc.serviceIdentifier = identifier;
         } else {
           svc.prototype.api = serviceIdentifier;
-          AWS3.Service.defineMethods(svc);
+          AWS2.Service.defineMethods(svc);
         }
-        AWS3.SequentialExecutor.call(this.prototype);
-        if (!this.prototype.publisher && AWS3.util.clientSideMonitoring) {
-          var Publisher = AWS3.util.clientSideMonitoring.Publisher;
-          var configProvider = AWS3.util.clientSideMonitoring.configProvider;
+        AWS2.SequentialExecutor.call(this.prototype);
+        if (!this.prototype.publisher && AWS2.util.clientSideMonitoring) {
+          var Publisher = AWS2.util.clientSideMonitoring.Publisher;
+          var configProvider = AWS2.util.clientSideMonitoring.configProvider;
           var publisherConfig = configProvider();
           this.prototype.publisher = new Publisher(publisherConfig);
           if (publisherConfig.enabled) {
-            AWS3.Service._clientSideMonitoring = true;
+            AWS2.Service._clientSideMonitoring = true;
           }
         }
-        AWS3.SequentialExecutor.call(svc.prototype);
-        AWS3.Service.addDefaultMonitoringListeners(svc.prototype);
+        AWS2.SequentialExecutor.call(svc.prototype);
+        AWS2.Service.addDefaultMonitoringListeners(svc.prototype);
         return svc;
       },
       addVersions: function addVersions(svc, versions) {
@@ -3600,9 +4369,9 @@ var require_service = __commonJS({
             setApi(apiConfig);
           } else {
             try {
-              setApi(AWS3.apiLoader(superclass.serviceIdentifier, version));
+              setApi(AWS2.apiLoader(superclass.serviceIdentifier, version));
             } catch (err) {
-              throw AWS3.util.error(err, {
+              throw AWS2.util.error(err, {
                 message: 'Could not find API configuration ' + superclass.serviceIdentifier + '-' + version,
               });
             }
@@ -3614,11 +4383,11 @@ var require_service = __commonJS({
         } else {
           setApi(version);
         }
-        AWS3.Service.defineMethods(svc);
+        AWS2.Service.defineMethods(svc);
         return svc;
       },
       hasService: function (identifier) {
-        return Object.prototype.hasOwnProperty.call(AWS3.Service._serviceMap, identifier);
+        return Object.prototype.hasOwnProperty.call(AWS2.Service._serviceMap, identifier);
       },
       addDefaultMonitoringListeners: function addDefaultMonitoringListeners(attachOn) {
         attachOn.addNamedListener('MONITOR_EVENTS_BUBBLE', 'apiCallAttempt', function EVENTS_BUBBLE(event) {
@@ -3632,18 +4401,18 @@ var require_service = __commonJS({
       },
       _serviceMap: {},
     });
-    AWS3.util.mixin(AWS3.Service, AWS3.SequentialExecutor);
-    module2.exports = AWS3.Service;
+    AWS2.util.mixin(AWS2.Service, AWS2.SequentialExecutor);
+    module2.exports = AWS2.Service;
   },
 });
 
 // node_modules/aws-sdk/lib/credentials.js
 var require_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials.js'() {
-    var AWS3 = require_core();
-    AWS3.Credentials = AWS3.util.inherit({
+    var AWS2 = require_core();
+    AWS2.Credentials = AWS2.util.inherit({
       constructor: function Credentials() {
-        AWS3.util.hideProperties(this, ['secretAccessKey']);
+        AWS2.util.hideProperties(this, ['secretAccessKey']);
         this.expired = false;
         this.expireTime = null;
         this.refreshCallbacks = [];
@@ -3660,7 +4429,7 @@ var require_credentials = __commonJS({
       },
       expiryWindow: 15,
       needsRefresh: function needsRefresh() {
-        var currentTime = AWS3.util.date.getDate().getTime();
+        var currentTime = AWS2.util.date.getDate().getTime();
         var adjustedTime = new Date(currentTime + this.expiryWindow * 1e3);
         if (this.expireTime && adjustedTime > this.expireTime) {
           return true;
@@ -3687,11 +4456,11 @@ var require_credentials = __commonJS({
         var self = this;
         if (self.refreshCallbacks.push(callback) === 1) {
           self.load(function onLoad(err) {
-            AWS3.util.arrayEach(self.refreshCallbacks, function (callback2) {
+            AWS2.util.arrayEach(self.refreshCallbacks, function (callback2) {
               if (sync) {
                 callback2(err);
               } else {
-                AWS3.util.defer(function () {
+                AWS2.util.defer(function () {
                   callback2(err);
                 });
               }
@@ -3704,28 +4473,28 @@ var require_credentials = __commonJS({
         callback();
       },
     });
-    AWS3.Credentials.addPromisesToClass = function addPromisesToClass(PromiseDependency) {
-      this.prototype.getPromise = AWS3.util.promisifyMethod('get', PromiseDependency);
-      this.prototype.refreshPromise = AWS3.util.promisifyMethod('refresh', PromiseDependency);
+    AWS2.Credentials.addPromisesToClass = function addPromisesToClass(PromiseDependency) {
+      this.prototype.getPromise = AWS2.util.promisifyMethod('get', PromiseDependency);
+      this.prototype.refreshPromise = AWS2.util.promisifyMethod('refresh', PromiseDependency);
     };
-    AWS3.Credentials.deletePromisesFromClass = function deletePromisesFromClass() {
+    AWS2.Credentials.deletePromisesFromClass = function deletePromisesFromClass() {
       delete this.prototype.getPromise;
       delete this.prototype.refreshPromise;
     };
-    AWS3.util.addPromises(AWS3.Credentials);
+    AWS2.util.addPromises(AWS2.Credentials);
   },
 });
 
 // node_modules/aws-sdk/lib/credentials/credential_provider_chain.js
 var require_credential_provider_chain = __commonJS({
   'node_modules/aws-sdk/lib/credentials/credential_provider_chain.js'() {
-    var AWS3 = require_core();
-    AWS3.CredentialProviderChain = AWS3.util.inherit(AWS3.Credentials, {
+    var AWS2 = require_core();
+    AWS2.CredentialProviderChain = AWS2.util.inherit(AWS2.Credentials, {
       constructor: function CredentialProviderChain(providers) {
         if (providers) {
           this.providers = providers;
         } else {
-          this.providers = AWS3.CredentialProviderChain.defaultProviders.slice(0);
+          this.providers = AWS2.CredentialProviderChain.defaultProviders.slice(0);
         }
         this.resolveCallbacks = [];
       },
@@ -3738,7 +4507,7 @@ var require_credential_provider_chain = __commonJS({
         if (self.resolveCallbacks.push(callback) === 1) {
           let resolveNext2 = function (err, creds) {
             if ((!err && creds) || index === providers.length) {
-              AWS3.util.arrayEach(self.resolveCallbacks, function (callback2) {
+              AWS2.util.arrayEach(self.resolveCallbacks, function (callback2) {
                 callback2(err, creds);
               });
               self.resolveCallbacks.length = 0;
@@ -3766,29 +4535,29 @@ var require_credential_provider_chain = __commonJS({
         return self;
       },
     });
-    AWS3.CredentialProviderChain.defaultProviders = [];
-    AWS3.CredentialProviderChain.addPromisesToClass = function addPromisesToClass(PromiseDependency) {
-      this.prototype.resolvePromise = AWS3.util.promisifyMethod('resolve', PromiseDependency);
+    AWS2.CredentialProviderChain.defaultProviders = [];
+    AWS2.CredentialProviderChain.addPromisesToClass = function addPromisesToClass(PromiseDependency) {
+      this.prototype.resolvePromise = AWS2.util.promisifyMethod('resolve', PromiseDependency);
     };
-    AWS3.CredentialProviderChain.deletePromisesFromClass = function deletePromisesFromClass() {
+    AWS2.CredentialProviderChain.deletePromisesFromClass = function deletePromisesFromClass() {
       delete this.prototype.resolvePromise;
     };
-    AWS3.util.addPromises(AWS3.CredentialProviderChain);
+    AWS2.util.addPromises(AWS2.CredentialProviderChain);
   },
 });
 
 // node_modules/aws-sdk/lib/config.js
 var require_config = __commonJS({
   'node_modules/aws-sdk/lib/config.js'() {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     require_credentials();
     require_credential_provider_chain();
     var PromisesDependency;
-    AWS3.Config = AWS3.util.inherit({
+    AWS2.Config = AWS2.util.inherit({
       constructor: function Config(options) {
         if (options === void 0) options = {};
         options = this.extractCredentials(options);
-        AWS3.util.each.call(this, this.keys, function (key, value) {
+        AWS2.util.each.call(this, this.keys, function (key, value) {
           this.set(key, options[key], value);
         });
       },
@@ -3798,7 +4567,7 @@ var require_config = __commonJS({
           callback(err, err ? null : self.credentials);
         }
         function credError(msg, err) {
-          return new AWS3.util.error(err || new Error(), {
+          return new AWS2.util.error(err || new Error(), {
             code: 'CredentialsError',
             message: msg,
             name: 'CredentialsError',
@@ -3838,14 +4607,60 @@ var require_config = __commonJS({
           finish(credError('No credentials to load'));
         }
       },
+      getToken: function getToken(callback) {
+        var self = this;
+        function finish(err) {
+          callback(err, err ? null : self.token);
+        }
+        function tokenError(msg, err) {
+          return new AWS2.util.error(err || new Error(), {
+            code: 'TokenError',
+            message: msg,
+            name: 'TokenError',
+          });
+        }
+        function getAsyncToken() {
+          self.token.get(function (err) {
+            if (err) {
+              var msg = 'Could not load token from ' + self.token.constructor.name;
+              err = tokenError(msg, err);
+            }
+            finish(err);
+          });
+        }
+        function getStaticToken() {
+          var err = null;
+          if (!self.token.token) {
+            err = tokenError('Missing token');
+          }
+          finish(err);
+        }
+        if (self.token) {
+          if (typeof self.token.get === 'function') {
+            getAsyncToken();
+          } else {
+            getStaticToken();
+          }
+        } else if (self.tokenProvider) {
+          self.tokenProvider.resolve(function (err, token) {
+            if (err) {
+              err = tokenError('Could not load token from any providers', err);
+            }
+            self.token = token;
+            finish(err);
+          });
+        } else {
+          finish(tokenError('No token to load'));
+        }
+      },
       update: function update(options, allowUnknownKeys) {
         allowUnknownKeys = allowUnknownKeys || false;
         options = this.extractCredentials(options);
-        AWS3.util.each.call(this, options, function (key, value) {
+        AWS2.util.each.call(this, options, function (key, value) {
           if (
             allowUnknownKeys ||
             Object.prototype.hasOwnProperty.call(this.keys, key) ||
-            AWS3.Service.hasService(key)
+            AWS2.Service.hasService(key)
           ) {
             this.set(key, value);
           }
@@ -3853,9 +4668,9 @@ var require_config = __commonJS({
       },
       loadFromPath: function loadFromPath(path) {
         this.clear();
-        var options = JSON.parse(AWS3.util.readFileSync(path));
-        var fileSystemCreds = new AWS3.FileSystemCredentials(path);
-        var chain = new AWS3.CredentialProviderChain();
+        var options = JSON.parse(AWS2.util.readFileSync(path));
+        var fileSystemCreds = new AWS2.FileSystemCredentials(path);
+        var chain = new AWS2.CredentialProviderChain();
         chain.providers.unshift(fileSystemCreds);
         chain.resolve(function (err, creds) {
           if (err) throw err;
@@ -3865,7 +4680,7 @@ var require_config = __commonJS({
         return this;
       },
       clear: function clear() {
-        AWS3.util.each.call(this, this.keys, function (key) {
+        AWS2.util.each.call(this, this.keys, function (key) {
           delete this[key];
         });
         this.set('credentials', void 0);
@@ -3882,7 +4697,7 @@ var require_config = __commonJS({
             this[property] = defaultValue;
           }
         } else if (property === 'httpOptions' && this[property]) {
-          this[property] = AWS3.util.merge(this[property], value);
+          this[property] = AWS2.util.merge(this[property], value);
         } else {
           this[property] = value;
         }
@@ -3922,11 +4737,14 @@ var require_config = __commonJS({
         endpointCacheSize: 1e3,
         hostPrefixEnabled: true,
         stsRegionalEndpoints: 'legacy',
+        useFipsEndpoint: false,
+        useDualstackEndpoint: false,
+        token: null,
       },
       extractCredentials: function extractCredentials(options) {
         if (options.accessKeyId && options.secretAccessKey) {
-          options = AWS3.util.copy(options);
-          options.credentials = new AWS3.Credentials(options);
+          options = AWS2.util.copy(options);
+          options.credentials = new AWS2.Credentials(options);
         }
         return options;
       },
@@ -3935,41 +4753,41 @@ var require_config = __commonJS({
         if (dep === null && typeof Promise === 'function') {
           PromisesDependency = Promise;
         }
-        var constructors = [AWS3.Request, AWS3.Credentials, AWS3.CredentialProviderChain];
-        if (AWS3.S3) {
-          constructors.push(AWS3.S3);
-          if (AWS3.S3.ManagedUpload) {
-            constructors.push(AWS3.S3.ManagedUpload);
+        var constructors = [AWS2.Request, AWS2.Credentials, AWS2.CredentialProviderChain];
+        if (AWS2.S3) {
+          constructors.push(AWS2.S3);
+          if (AWS2.S3.ManagedUpload) {
+            constructors.push(AWS2.S3.ManagedUpload);
           }
         }
-        AWS3.util.addPromises(constructors, PromisesDependency);
+        AWS2.util.addPromises(constructors, PromisesDependency);
       },
       getPromisesDependency: function getPromisesDependency() {
         return PromisesDependency;
       },
     });
-    AWS3.config = new AWS3.Config();
+    AWS2.config = new AWS2.Config();
   },
 });
 
 // node_modules/aws-sdk/lib/http.js
 var require_http = __commonJS({
   'node_modules/aws-sdk/lib/http.js'() {
-    var AWS3 = require_core();
-    var inherit = AWS3.util.inherit;
-    AWS3.Endpoint = inherit({
+    var AWS2 = require_core();
+    var inherit = AWS2.util.inherit;
+    AWS2.Endpoint = inherit({
       constructor: function Endpoint(endpoint, config) {
-        AWS3.util.hideProperties(this, ['slashes', 'auth', 'hash', 'search', 'query']);
+        AWS2.util.hideProperties(this, ['slashes', 'auth', 'hash', 'search', 'query']);
         if (typeof endpoint === 'undefined' || endpoint === null) {
           throw new Error('Invalid endpoint: ' + endpoint);
         } else if (typeof endpoint !== 'string') {
-          return AWS3.util.copy(endpoint);
+          return AWS2.util.copy(endpoint);
         }
         if (!endpoint.match(/^http/)) {
-          var useSSL = config && config.sslEnabled !== void 0 ? config.sslEnabled : AWS3.config.sslEnabled;
+          var useSSL = config && config.sslEnabled !== void 0 ? config.sslEnabled : AWS2.config.sslEnabled;
           endpoint = (useSSL ? 'https' : 'http') + '://' + endpoint;
         }
-        AWS3.util.update(this, AWS3.util.urlParse(endpoint));
+        AWS2.util.update(this, AWS2.util.urlParse(endpoint));
         if (this.port) {
           this.port = parseInt(this.port, 10);
         } else {
@@ -3977,9 +4795,9 @@ var require_http = __commonJS({
         }
       },
     });
-    AWS3.HttpRequest = inherit({
+    AWS2.HttpRequest = inherit({
       constructor: function HttpRequest(endpoint, region) {
-        endpoint = new AWS3.Endpoint(endpoint);
+        endpoint = new AWS2.Endpoint(endpoint);
         this.method = 'POST';
         this.path = endpoint.path || '/';
         this.headers = {};
@@ -3990,10 +4808,10 @@ var require_http = __commonJS({
         this.setUserAgent();
       },
       setUserAgent: function setUserAgent() {
-        this._userAgent = this.headers[this.getUserAgentHeaderName()] = AWS3.util.userAgent();
+        this._userAgent = this.headers[this.getUserAgentHeaderName()] = AWS2.util.userAgent();
       },
       getUserAgentHeaderName: function getUserAgentHeaderName() {
-        var prefix = AWS3.util.isBrowser() ? 'X-Amz-' : '';
+        var prefix = AWS2.util.isBrowser() ? 'X-Amz-' : '';
         return prefix + 'User-Agent';
       },
       appendToUserAgent: function appendToUserAgent(agentPartial) {
@@ -4011,13 +4829,13 @@ var require_http = __commonJS({
       search: function search() {
         var query = this.path.split('?', 2)[1];
         if (query) {
-          query = AWS3.util.queryStringParse(query);
-          return AWS3.util.queryParamsToString(query);
+          query = AWS2.util.queryStringParse(query);
+          return AWS2.util.queryParamsToString(query);
         }
         return '';
       },
       updateEndpoint: function updateEndpoint(endpointStr) {
-        var newEndpoint = new AWS3.Endpoint(endpointStr);
+        var newEndpoint = new AWS2.Endpoint(endpointStr);
         this.endpoint = newEndpoint;
         this.path = newEndpoint.path || '/';
         if (this.headers['Host']) {
@@ -4025,7 +4843,7 @@ var require_http = __commonJS({
         }
       },
     });
-    AWS3.HttpResponse = inherit({
+    AWS2.HttpResponse = inherit({
       constructor: function HttpResponse() {
         this.statusCode = void 0;
         this.headers = {};
@@ -4038,8 +4856,8 @@ var require_http = __commonJS({
         return this.stream;
       },
     });
-    AWS3.HttpClient = inherit({});
-    AWS3.HttpClient.getInstance = function getInstance() {
+    AWS2.HttpClient = inherit({});
+    AWS2.HttpClient.getInstance = function getInstance() {
       if (this.singleton === void 0) {
         this.singleton = new this();
       }
@@ -4051,7 +4869,7 @@ var require_http = __commonJS({
 // node_modules/aws-sdk/lib/discover_endpoint.js
 var require_discover_endpoint = __commonJS({
   'node_modules/aws-sdk/lib/discover_endpoint.js'(exports, module2) {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var util = require_util();
     var endpointDiscoveryEnabledEnvs = ['AWS_ENABLE_ENDPOINT_DISCOVERY', 'AWS_ENDPOINT_DISCOVERY_ENABLED'];
     function getCacheKey(request) {
@@ -4100,7 +4918,7 @@ var require_discover_endpoint = __commonJS({
         cacheKey = util.update(cacheKey, identifiers);
         if (operationModel) cacheKey.operation = operationModel.name;
       }
-      var endpoints = AWS3.endpointCache.get(cacheKey);
+      var endpoints = AWS2.endpointCache.get(cacheKey);
       if (endpoints && endpoints.length === 1 && endpoints[0].Address === '') {
         return;
       } else if (endpoints && endpoints.length > 0) {
@@ -4111,9 +4929,9 @@ var require_discover_endpoint = __commonJS({
           Identifiers: identifiers,
         });
         addApiVersionHeader(endpointRequest);
-        endpointRequest.removeListener('validate', AWS3.EventListeners.Core.VALIDATE_PARAMETERS);
-        endpointRequest.removeListener('retry', AWS3.EventListeners.Core.RETRY_CHECK);
-        AWS3.endpointCache.put(cacheKey, [
+        endpointRequest.removeListener('validate', AWS2.EventListeners.Core.VALIDATE_PARAMETERS);
+        endpointRequest.removeListener('retry', AWS2.EventListeners.Core.RETRY_CHECK);
+        AWS2.endpointCache.put(cacheKey, [
           {
             Address: '',
             CachePeriodInMinutes: 1,
@@ -4121,9 +4939,9 @@ var require_discover_endpoint = __commonJS({
         ]);
         endpointRequest.send(function (err, data) {
           if (data && data.Endpoints) {
-            AWS3.endpointCache.put(cacheKey, data.Endpoints);
+            AWS2.endpointCache.put(cacheKey, data.Endpoints);
           } else if (err) {
-            AWS3.endpointCache.put(cacheKey, [
+            AWS2.endpointCache.put(cacheKey, [
               {
                 Address: '',
                 CachePeriodInMinutes: 1,
@@ -4145,8 +4963,8 @@ var require_discover_endpoint = __commonJS({
         cacheKey = util.update(cacheKey, identifiers);
         if (operationModel) cacheKey.operation = operationModel.name;
       }
-      var cacheKeyStr = AWS3.EndpointCache.getKeyString(cacheKey);
-      var endpoints = AWS3.endpointCache.get(cacheKeyStr);
+      var cacheKeyStr = AWS2.EndpointCache.getKeyString(cacheKey);
+      var endpoints = AWS2.endpointCache.get(cacheKeyStr);
       if (endpoints && endpoints.length === 1 && endpoints[0].Address === '') {
         if (!requestQueue[cacheKeyStr]) requestQueue[cacheKeyStr] = [];
         requestQueue[cacheKeyStr].push({ request, callback: done });
@@ -4159,9 +4977,9 @@ var require_discover_endpoint = __commonJS({
           Operation: operationModel.name,
           Identifiers: identifiers,
         });
-        endpointRequest.removeListener('validate', AWS3.EventListeners.Core.VALIDATE_PARAMETERS);
+        endpointRequest.removeListener('validate', AWS2.EventListeners.Core.VALIDATE_PARAMETERS);
         addApiVersionHeader(endpointRequest);
-        AWS3.endpointCache.put(cacheKeyStr, [
+        AWS2.endpointCache.put(cacheKeyStr, [
           {
             Address: '',
             CachePeriodInMinutes: 60,
@@ -4170,7 +4988,7 @@ var require_discover_endpoint = __commonJS({
         endpointRequest.send(function (err, data) {
           if (err) {
             request.response.error = util.error(err, { retryable: false });
-            AWS3.endpointCache.remove(cacheKey);
+            AWS2.endpointCache.remove(cacheKey);
             if (requestQueue[cacheKeyStr]) {
               var pendingRequests = requestQueue[cacheKeyStr];
               util.arrayEach(pendingRequests, function (requestContext) {
@@ -4180,7 +4998,7 @@ var require_discover_endpoint = __commonJS({
               delete requestQueue[cacheKeyStr];
             }
           } else if (data) {
-            AWS3.endpointCache.put(cacheKeyStr, data.Endpoints);
+            AWS2.endpointCache.put(cacheKeyStr, data.Endpoints);
             request.httpRequest.updateEndpoint(data.Endpoints[0].Address);
             if (requestQueue[cacheKeyStr]) {
               var pendingRequests = requestQueue[cacheKeyStr];
@@ -4215,7 +5033,7 @@ var require_discover_endpoint = __commonJS({
           cacheKey = util.update(cacheKey, identifiers);
           if (operations[request.operation]) cacheKey.operation = operations[request.operation].name;
         }
-        AWS3.endpointCache.remove(cacheKey);
+        AWS2.endpointCache.remove(cacheKey);
       }
     }
     function hasCustomEndpoint(client) {
@@ -4229,9 +5047,9 @@ var require_discover_endpoint = __commonJS({
           message: 'Custom endpoint is supplied; endpointDiscoveryEnabled must not be true.',
         });
       }
-      var svcConfig = AWS3.config[client.serviceIdentifier] || {};
+      var svcConfig = AWS2.config[client.serviceIdentifier] || {};
       return Boolean(
-        AWS3.config.endpoint || svcConfig.endpoint || (client._originalConfig && client._originalConfig.endpoint)
+        AWS2.config.endpoint || svcConfig.endpoint || (client._originalConfig && client._originalConfig.endpoint)
       );
     }
     function isFalsy(value) {
@@ -4257,14 +5075,14 @@ var require_discover_endpoint = __commonJS({
       }
       var configFile = {};
       try {
-        configFile = AWS3.util.iniLoader
-          ? AWS3.util.iniLoader.loadFrom({
+        configFile = AWS2.util.iniLoader
+          ? AWS2.util.iniLoader.loadFrom({
               isConfig: true,
-              filename: process.env[AWS3.util.sharedConfigFileEnv],
+              filename: process.env[AWS2.util.sharedConfigFileEnv],
             })
           : {};
       } catch (e) {}
-      var sharedFileConfig = configFile[process.env.AWS_PROFILE || AWS3.util.defaultProfile] || {};
+      var sharedFileConfig = configFile[process.env.AWS_PROFILE || AWS2.util.defaultProfile] || {};
       if (Object.prototype.hasOwnProperty.call(sharedFileConfig, 'endpoint_discovery_enabled')) {
         if (sharedFileConfig.endpoint_discovery_enabled === void 0) {
           throw util.error(new Error(), {
@@ -4332,10 +5150,10 @@ var require_discover_endpoint = __commonJS({
 // node_modules/aws-sdk/lib/event_listeners.js
 var require_event_listeners = __commonJS({
   'node_modules/aws-sdk/lib/event_listeners.js'() {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var SequentialExecutor = require_sequential_executor();
     var DISCOVER_ENDPOINT = require_discover_endpoint().discoverEndpoint;
-    AWS3.EventListeners = {
+    AWS2.EventListeners = {
       Core: {},
     };
     function getOperationAuthtype(req) {
@@ -4345,13 +5163,33 @@ var require_event_listeners = __commonJS({
       var operation = req.service.api.operations[req.operation];
       return operation ? operation.authtype : '';
     }
-    AWS3.EventListeners = {
+    function getIdentityType(req) {
+      var service = req.service;
+      if (service.config.signatureVersion) {
+        return service.config.signatureVersion;
+      }
+      if (service.api.signatureVersion) {
+        return service.api.signatureVersion;
+      }
+      return getOperationAuthtype(req);
+    }
+    AWS2.EventListeners = {
       Core: new SequentialExecutor().addNamedListeners(function (add, addAsync) {
         addAsync('VALIDATE_CREDENTIALS', 'validate', function VALIDATE_CREDENTIALS(req, done) {
           if (!req.service.api.signatureVersion && !req.service.config.signatureVersion) return done();
+          var identityType = getIdentityType(req);
+          if (identityType === 'bearer') {
+            req.service.config.getToken(function (err) {
+              if (err) {
+                req.response.error = AWS2.util.error(err, { code: 'TokenError' });
+              }
+              done();
+            });
+            return;
+          }
           req.service.config.getCredentials(function (err) {
             if (err) {
-              req.response.error = AWS3.util.error(err, {
+              req.response.error = AWS2.util.error(err, {
                 code: 'CredentialsError',
                 message: 'Missing credentials in config, if using AWS_CONFIG_FILE, set AWS_SDK_LOAD_CONFIG=1',
               });
@@ -4363,12 +5201,12 @@ var require_event_listeners = __commonJS({
           if (!req.service.isGlobalEndpoint) {
             var dnsHostRegex = new RegExp(/^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9])$/);
             if (!req.service.config.region) {
-              req.response.error = AWS3.util.error(new Error(), {
+              req.response.error = AWS2.util.error(new Error(), {
                 code: 'ConfigError',
                 message: 'Missing region in config',
               });
             } else if (!dnsHostRegex.test(req.service.config.region)) {
-              req.response.error = AWS3.util.error(new Error(), {
+              req.response.error = AWS2.util.error(new Error(), {
                 code: 'ConfigError',
                 message: 'Invalid region in config',
               });
@@ -4387,10 +5225,10 @@ var require_event_listeners = __commonJS({
           if (!idempotentMembers.length) {
             return;
           }
-          var params = AWS3.util.copy(req.params);
+          var params = AWS2.util.copy(req.params);
           for (var i = 0, iLen = idempotentMembers.length; i < iLen; i++) {
             if (!params[idempotentMembers[i]]) {
-              params[idempotentMembers[i]] = AWS3.util.uuid.v4();
+              params[idempotentMembers[i]] = AWS2.util.uuid.v4();
             }
           }
           req.params = params;
@@ -4401,7 +5239,28 @@ var require_event_listeners = __commonJS({
           }
           var rules = req.service.api.operations[req.operation].input;
           var validation = req.service.config.paramValidation;
-          new AWS3.ParamValidator(validation).validate(rules, req.params);
+          new AWS2.ParamValidator(validation).validate(rules, req.params);
+        });
+        add('COMPUTE_CHECKSUM', 'afterBuild', function COMPUTE_CHECKSUM(req) {
+          if (!req.service.api.operations) {
+            return;
+          }
+          var operation = req.service.api.operations[req.operation];
+          if (!operation) {
+            return;
+          }
+          var body = req.httpRequest.body;
+          var isNonStreamingPayload = body && (AWS2.util.Buffer.isBuffer(body) || typeof body === 'string');
+          var headers = req.httpRequest.headers;
+          if (
+            operation.httpChecksumRequired &&
+            req.service.config.computeChecksums &&
+            isNonStreamingPayload &&
+            !headers['Content-MD5']
+          ) {
+            var md5 = AWS2.util.crypto.md5(body, 'base64');
+            headers['Content-MD5'] = md5;
+          }
         });
         addAsync('COMPUTE_SHA256', 'afterBuild', function COMPUTE_SHA256(req, done) {
           req.haltHandlersOnError();
@@ -4411,13 +5270,13 @@ var require_event_listeners = __commonJS({
           var operation = req.service.api.operations[req.operation];
           var authtype = operation ? operation.authtype : '';
           if (!req.service.api.signatureVersion && !authtype && !req.service.config.signatureVersion) return done();
-          if (req.service.getSignerClass(req) === AWS3.Signers.V4) {
+          if (req.service.getSignerClass(req) === AWS2.Signers.V4) {
             var body = req.httpRequest.body || '';
             if (authtype.indexOf('unsigned-body') >= 0) {
               req.httpRequest.headers['X-Amz-Content-Sha256'] = 'UNSIGNED-PAYLOAD';
               return done();
             }
-            AWS3.util.computeSha256(body, function (err, sha) {
+            AWS2.util.computeSha256(body, function (err, sha) {
               if (err) {
                 done(err);
               } else {
@@ -4431,10 +5290,10 @@ var require_event_listeners = __commonJS({
         });
         add('SET_CONTENT_LENGTH', 'afterBuild', function SET_CONTENT_LENGTH(req) {
           var authtype = getOperationAuthtype(req);
-          var payloadMember = AWS3.util.getRequestPayloadShape(req);
+          var payloadMember = AWS2.util.getRequestPayloadShape(req);
           if (req.httpRequest.headers['Content-Length'] === void 0) {
             try {
-              var length = AWS3.util.string.byteLength(req.httpRequest.body);
+              var length = AWS2.util.string.byteLength(req.httpRequest.body);
               req.httpRequest.headers['Content-Length'] = length;
             } catch (err) {
               if (payloadMember && payloadMember.isStreaming) {
@@ -4454,10 +5313,27 @@ var require_event_listeners = __commonJS({
         add('SET_HTTP_HOST', 'afterBuild', function SET_HTTP_HOST(req) {
           req.httpRequest.headers['Host'] = req.httpRequest.endpoint.host;
         });
+        add('SET_TRACE_ID', 'afterBuild', function SET_TRACE_ID(req) {
+          var traceIdHeaderName = 'X-Amzn-Trace-Id';
+          if (AWS2.util.isNode() && !Object.hasOwnProperty.call(req.httpRequest.headers, traceIdHeaderName)) {
+            var ENV_LAMBDA_FUNCTION_NAME = 'AWS_LAMBDA_FUNCTION_NAME';
+            var ENV_TRACE_ID = '_X_AMZN_TRACE_ID';
+            var functionName = process.env[ENV_LAMBDA_FUNCTION_NAME];
+            var traceId = process.env[ENV_TRACE_ID];
+            if (
+              typeof functionName === 'string' &&
+              functionName.length > 0 &&
+              typeof traceId === 'string' &&
+              traceId.length > 0
+            ) {
+              req.httpRequest.headers[traceIdHeaderName] = traceId;
+            }
+          }
+        });
         add('RESTART', 'restart', function RESTART() {
           var err = this.response.error;
           if (!err || !err.retryable) return;
-          this.httpRequest = new AWS3.HttpRequest(this.service.endpoint, this.service.region);
+          this.httpRequest = new AWS2.HttpRequest(this.service.endpoint, this.service.region);
           if (this.response.retryCount < this.service.config.maxRetries) {
             this.response.retryCount++;
           } else {
@@ -4468,34 +5344,51 @@ var require_event_listeners = __commonJS({
         addAsync('DISCOVER_ENDPOINT', 'sign', DISCOVER_ENDPOINT, addToHead);
         addAsync('SIGN', 'sign', function SIGN(req, done) {
           var service = req.service;
-          var operations = req.service.api.operations || {};
-          var operation = operations[req.operation];
-          var authtype = operation ? operation.authtype : '';
-          if (!service.api.signatureVersion && !authtype && !service.config.signatureVersion) return done();
-          service.config.getCredentials(function (err, credentials) {
-            if (err) {
-              req.response.error = err;
-              return done();
-            }
-            try {
-              var date = service.getSkewCorrectedDate();
-              var SignerClass = service.getSignerClass(req);
-              var signer = new SignerClass(req.httpRequest, service.getSigningName(), {
-                signatureCache: service.config.signatureCache,
-                operation,
-                signatureVersion: service.api.signatureVersion,
-              });
-              signer.setServiceClientId(service._clientId);
-              delete req.httpRequest.headers['Authorization'];
-              delete req.httpRequest.headers['Date'];
-              delete req.httpRequest.headers['X-Amz-Date'];
-              signer.addAuthorization(credentials, date);
-              req.signedAt = date;
-            } catch (e) {
-              req.response.error = e;
-            }
-            done();
-          });
+          var identityType = getIdentityType(req);
+          if (!identityType || identityType.length === 0) return done();
+          if (identityType === 'bearer') {
+            service.config.getToken(function (err, token) {
+              if (err) {
+                req.response.error = err;
+                return done();
+              }
+              try {
+                var SignerClass = service.getSignerClass(req);
+                var signer = new SignerClass(req.httpRequest);
+                signer.addAuthorization(token);
+              } catch (e) {
+                req.response.error = e;
+              }
+              done();
+            });
+          } else {
+            service.config.getCredentials(function (err, credentials) {
+              if (err) {
+                req.response.error = err;
+                return done();
+              }
+              try {
+                var date = service.getSkewCorrectedDate();
+                var SignerClass = service.getSignerClass(req);
+                var operations = req.service.api.operations || {};
+                var operation = operations[req.operation];
+                var signer = new SignerClass(req.httpRequest, service.getSigningName(req), {
+                  signatureCache: service.config.signatureCache,
+                  operation,
+                  signatureVersion: service.api.signatureVersion,
+                });
+                signer.setServiceClientId(service._clientId);
+                delete req.httpRequest.headers['Authorization'];
+                delete req.httpRequest.headers['Date'];
+                delete req.httpRequest.headers['X-Amz-Date'];
+                signer.addAuthorization(credentials, date);
+                req.signedAt = date;
+              } catch (e) {
+                req.response.error = e;
+              }
+              done();
+            });
+          }
         });
         add('VALIDATE_RESPONSE', 'validateResponse', function VALIDATE_RESPONSE(resp) {
           if (this.service.successfulResponse(resp, this)) {
@@ -4503,9 +5396,24 @@ var require_event_listeners = __commonJS({
             resp.error = null;
           } else {
             resp.data = null;
-            resp.error = AWS3.util.error(new Error(), { code: 'UnknownError', message: 'An unknown error occurred.' });
+            resp.error = AWS2.util.error(new Error(), { code: 'UnknownError', message: 'An unknown error occurred.' });
           }
         });
+        add(
+          'ERROR',
+          'error',
+          function ERROR(err, resp) {
+            var awsQueryCompatible = resp.request.service.api.awsQueryCompatible;
+            if (awsQueryCompatible) {
+              var headers = resp.httpResponse.headers;
+              var queryErrorCode = headers ? headers['x-amzn-query-error'] : void 0;
+              if (queryErrorCode && queryErrorCode.includes(';')) {
+                resp.error.code = queryErrorCode.split(';')[0];
+              }
+            }
+          },
+          true
+        );
         addAsync('SEND', 'send', function SEND(resp, done) {
           resp.httpResponse._abortCallback = done;
           resp.error = null;
@@ -4520,7 +5428,7 @@ var require_event_listeners = __commonJS({
             httpResp.on('headers', function onHeaders(statusCode, headers, statusMessage) {
               resp.request.emit('httpHeaders', [statusCode, headers, resp, statusMessage]);
               if (!resp.httpResponse.streaming) {
-                if (AWS3.HttpClient.streamsApiVersion === 2) {
+                if (AWS2.HttpClient.streamsApiVersion === 2) {
                   if (operation.hasEventOutput && service.successfulResponse(resp)) {
                     resp.request.emit('httpDone');
                     done();
@@ -4542,7 +5450,7 @@ var require_event_listeners = __commonJS({
             httpResp.on('end', function onEnd() {
               if (!stream || !stream.didCallback) {
                 if (
-                  AWS3.HttpClient.streamsApiVersion === 2 &&
+                  AWS2.HttpClient.streamsApiVersion === 2 &&
                   operation.hasEventOutput &&
                   service.successfulResponse(resp)
                 ) {
@@ -4564,7 +5472,7 @@ var require_event_listeners = __commonJS({
           function error(err) {
             if (err.code !== 'RequestAbortedError') {
               var errCode = err.code === 'TimeoutError' ? err.code : 'NetworkingError';
-              err = AWS3.util.error(err, {
+              err = AWS2.util.error(err, {
                 code: errCode,
                 region: resp.request.httpRequest.region,
                 hostname: resp.request.httpRequest.endpoint.hostname,
@@ -4577,7 +5485,7 @@ var require_event_listeners = __commonJS({
             });
           }
           function executeSend() {
-            var http = AWS3.HttpClient.getInstance();
+            var http = AWS2.HttpClient.getInstance();
             var httpOptions = resp.request.service.config.httpOptions || {};
             try {
               var stream = http.handleRequest(resp.request.httpRequest, httpOptions, callback, error);
@@ -4600,7 +5508,7 @@ var require_event_listeners = __commonJS({
           resp.httpResponse.statusCode = statusCode;
           resp.httpResponse.statusMessage = statusMessage;
           resp.httpResponse.headers = headers;
-          resp.httpResponse.body = AWS3.util.buffer.toBuffer('');
+          resp.httpResponse.body = AWS2.util.buffer.toBuffer('');
           resp.httpResponse.buffers = [];
           resp.httpResponse.numBytes = 0;
           var dateHeader = headers.date || headers.Date;
@@ -4614,18 +5522,18 @@ var require_event_listeners = __commonJS({
         });
         add('HTTP_DATA', 'httpData', function HTTP_DATA(chunk, resp) {
           if (chunk) {
-            if (AWS3.util.isNode()) {
+            if (AWS2.util.isNode()) {
               resp.httpResponse.numBytes += chunk.length;
               var total = resp.httpResponse.headers['content-length'];
               var progress = { loaded: resp.httpResponse.numBytes, total };
               resp.request.emit('httpDownloadProgress', [progress, resp]);
             }
-            resp.httpResponse.buffers.push(AWS3.util.buffer.toBuffer(chunk));
+            resp.httpResponse.buffers.push(AWS2.util.buffer.toBuffer(chunk));
           }
         });
         add('HTTP_DONE', 'httpDone', function HTTP_DONE(resp) {
           if (resp.httpResponse.buffers && resp.httpResponse.buffers.length > 0) {
-            var body = AWS3.util.buffer.concat(resp.httpResponse.buffers);
+            var body = AWS2.util.buffer.concat(resp.httpResponse.buffers);
             resp.httpResponse.body = body;
           }
           delete resp.httpResponse.numBytes;
@@ -4671,8 +5579,9 @@ var require_event_listeners = __commonJS({
             resp.error.statusCode < 400 &&
             resp.httpResponse.headers['location']
           ) {
-            this.httpRequest.endpoint = new AWS3.Endpoint(resp.httpResponse.headers['location']);
+            this.httpRequest.endpoint = new AWS2.Endpoint(resp.httpResponse.headers['location']);
             this.httpRequest.headers['Host'] = this.httpRequest.endpoint.host;
+            this.httpRequest.path = this.httpRequest.endpoint.path;
             resp.error.redirect = true;
             resp.error.retryable = true;
           }
@@ -4708,25 +5617,27 @@ var require_event_listeners = __commonJS({
         });
       }),
       CorePost: new SequentialExecutor().addNamedListeners(function (add) {
-        add('EXTRACT_REQUEST_ID', 'extractData', AWS3.util.extractRequestId);
-        add('EXTRACT_REQUEST_ID', 'extractError', AWS3.util.extractRequestId);
+        add('EXTRACT_REQUEST_ID', 'extractData', AWS2.util.extractRequestId);
+        add('EXTRACT_REQUEST_ID', 'extractError', AWS2.util.extractRequestId);
         add('ENOTFOUND_ERROR', 'httpError', function ENOTFOUND_ERROR(err) {
           function isDNSError(err2) {
             return (
               err2.errno === 'ENOTFOUND' ||
               (typeof err2.errno === 'number' &&
-                typeof AWS3.util.getSystemErrorName === 'function' &&
-                ['EAI_NONAME', 'EAI_NODATA'].indexOf(AWS3.util.getSystemErrorName(err2.errno) >= 0))
+                typeof AWS2.util.getSystemErrorName === 'function' &&
+                ['EAI_NONAME', 'EAI_NODATA'].indexOf(AWS2.util.getSystemErrorName(err2.errno) >= 0))
             );
           }
           if (err.code === 'NetworkingError' && isDNSError(err)) {
             var message =
               'Inaccessible host: `' +
               err.hostname +
+              "' at port `" +
+              err.port +
               "'. This service may not be available in the `" +
               err.region +
               "' region.";
-            this.response.error = AWS3.util.error(new Error(message), {
+            this.response.error = AWS2.util.error(new Error(message), {
               code: 'UnknownEndpoint',
               region: err.region,
               hostname: err.hostname,
@@ -4751,7 +5662,7 @@ var require_event_listeners = __commonJS({
             switch (inputShape.type) {
               case 'structure':
                 var struct = {};
-                AWS3.util.each(shape, function (subShapeName, subShape) {
+                AWS2.util.each(shape, function (subShapeName, subShape) {
                   if (Object.prototype.hasOwnProperty.call(inputShape.members, subShapeName)) {
                     struct[subShapeName] = filterSensitiveLog(inputShape.members[subShapeName], subShape);
                   } else {
@@ -4761,13 +5672,13 @@ var require_event_listeners = __commonJS({
                 return struct;
               case 'list':
                 var list = [];
-                AWS3.util.arrayEach(shape, function (subShape, index) {
+                AWS2.util.arrayEach(shape, function (subShape, index) {
                   list.push(filterSensitiveLog(inputShape.member, subShape));
                 });
                 return list;
               case 'map':
                 var map = {};
-                AWS3.util.each(shape, function (key, value) {
+                AWS2.util.each(shape, function (key, value) {
                   map[key] = filterSensitiveLog(inputShape.value, value);
                 });
                 return map;
@@ -4795,7 +5706,7 @@ var require_event_listeners = __commonJS({
             message += '[AWS ' + req.service.serviceIdentifier + ' ' + status;
             message += ' ' + delta.toString() + 's ' + resp.retryCount + ' retries]';
             if (ansi) message += '\x1B[0;1m';
-            message += ' ' + AWS3.util.string.lowerFirst(req.operation);
+            message += ' ' + AWS2.util.string.lowerFirst(req.operation);
             message += '(' + params + ')';
             if (ansi) message += '\x1B[0m';
             return message;
@@ -4825,6 +5736,7 @@ var require_event_listeners = __commonJS({
         add('BUILD', 'build', svc.buildRequest);
         add('EXTRACT_DATA', 'extractData', svc.extractData);
         add('EXTRACT_ERROR', 'extractError', svc.extractError);
+        add('UNSET_CONTENT_LENGTH', 'afterBuild', svc.unsetContentLength);
       }),
       RestXml: new SequentialExecutor().addNamedListeners(function (add) {
         var svc = require_rest_xml();
@@ -5002,6 +5914,18 @@ var require_jmespath = __commonJS({
       var TYPE_NULL = 7;
       var TYPE_ARRAY_NUMBER = 8;
       var TYPE_ARRAY_STRING = 9;
+      var TYPE_NAME_TABLE = {
+        0: 'number',
+        1: 'any',
+        2: 'string',
+        3: 'array',
+        4: 'object',
+        5: 'boolean',
+        6: 'expression',
+        7: 'null',
+        8: 'Array<number>',
+        9: 'Array<string>',
+      };
       var TOK_EOF = 'EOF';
       var TOK_UNQUOTEDIDENTIFIER = 'UnquotedIdentifier';
       var TOK_QUOTEDIDENTIFIER = 'QuotedIdentifier';
@@ -5371,10 +6295,8 @@ var require_jmespath = __commonJS({
               var node = { type: 'Field', name: token.value };
               if (this._lookahead(0) === TOK_LPAREN) {
                 throw new Error('Quoted identifier not allowed for function names.');
-              } else {
-                return node;
               }
-              break;
+              return node;
             case TOK_NOT:
               right = this.expression(bindingPower.Not);
               return { type: 'NotExpression', children: [right] };
@@ -5407,10 +6329,8 @@ var require_jmespath = __commonJS({
                   type: 'Projection',
                   children: [{ type: 'Identity' }, right],
                 };
-              } else {
-                return this._parseMultiselectList();
               }
-              break;
+              return this._parseMultiselectList();
             case TOK_CURRENT:
               return { type: TOK_CURRENT };
             case TOK_EXPREF:
@@ -5441,12 +6361,10 @@ var require_jmespath = __commonJS({
               if (this._lookahead(0) !== TOK_STAR) {
                 right = this._parseDotRHS(rbp);
                 return { type: 'Subexpression', children: [left, right] };
-              } else {
-                this._advance();
-                right = this._parseProjectionRHS(rbp);
-                return { type: 'ValueProjection', children: [left, right] };
               }
-              break;
+              this._advance();
+              right = this._parseProjectionRHS(rbp);
+              return { type: 'ValueProjection', children: [left, right] };
             case TOK_PIPE:
               right = this.expression(bindingPower.Pipe);
               return { type: TOK_PIPE, children: [left, right] };
@@ -5500,13 +6418,11 @@ var require_jmespath = __commonJS({
               if (token.type === TOK_NUMBER || token.type === TOK_COLON) {
                 right = this._parseIndexExpression();
                 return this._projectIfSlice(left, right);
-              } else {
-                this._match(TOK_STAR);
-                this._match(TOK_RBRACKET);
-                right = this._parseProjectionRHS(bindingPower.Star);
-                return { type: 'Projection', children: [left, right] };
               }
-              break;
+              this._match(TOK_STAR);
+              this._match(TOK_RBRACKET);
+              right = this._parseProjectionRHS(bindingPower.Star);
+              return { type: 'Projection', children: [left, right] };
             default:
               this._errorToken(this._lookaheadToken(0));
           }
@@ -5662,19 +6578,15 @@ var require_jmespath = __commonJS({
           var matched, current, result, first, second, field, left, right, collected, i;
           switch (node.type) {
             case 'Field':
-              if (value === null) {
-                return null;
-              } else if (isObject(value)) {
+              if (value !== null && isObject(value)) {
                 field = value[node.name];
                 if (field === void 0) {
                   return null;
                 } else {
                   return field;
                 }
-              } else {
-                return null;
               }
-              break;
+              return null;
             case 'Subexpression':
               result = this.visit(node.children[0], value);
               for (i = 1; i < node.children.length; i++) {
@@ -6024,15 +6936,20 @@ var require_jmespath = __commonJS({
               }
             }
             if (!typeMatched) {
+              var expected = currentSpec
+                .map(function (typeIdentifier) {
+                  return TYPE_NAME_TABLE[typeIdentifier];
+                })
+                .join(',');
               throw new Error(
                 'TypeError: ' +
                   name +
                   '() expected argument ' +
                   (i + 1) +
                   ' to be type ' +
-                  currentSpec +
+                  expected +
                   ' but received type ' +
-                  actualType +
+                  TYPE_NAME_TABLE[actualType] +
                   ' instead.'
               );
             }
@@ -6385,10 +7302,10 @@ var require_jmespath = __commonJS({
 // node_modules/aws-sdk/lib/request.js
 var require_request = __commonJS({
   'node_modules/aws-sdk/lib/request.js'() {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var AcceptorStateMachine = require_state_machine();
-    var inherit = AWS3.util.inherit;
-    var domain = AWS3.util.domain;
+    var inherit = AWS2.util.inherit;
+    var domain = AWS2.util.domain;
     var jmespath = require_jmespath();
     var hardErrorStates = { success: 1, error: 1, complete: 1 };
     function isTerminalState(machine) {
@@ -6435,29 +7352,27 @@ var require_request = __commonJS({
       this.addState('complete', null, null, transition);
     };
     fsm.setupStates();
-    AWS3.Request = inherit({
+    AWS2.Request = inherit({
       constructor: function Request(service, operation, params) {
         var endpoint = service.endpoint;
         var region = service.config.region;
         var customUserAgent = service.config.customUserAgent;
-        if (service.isGlobalEndpoint) {
-          if (service.signingRegion) {
-            region = service.signingRegion;
-          } else {
-            region = 'us-east-1';
-          }
+        if (service.signingRegion) {
+          region = service.signingRegion;
+        } else if (service.isGlobalEndpoint) {
+          region = 'us-east-1';
         }
         this.domain = domain && domain.active;
         this.service = service;
         this.operation = operation;
         this.params = params || {};
-        this.httpRequest = new AWS3.HttpRequest(endpoint, region);
+        this.httpRequest = new AWS2.HttpRequest(endpoint, region);
         this.httpRequest.appendToUserAgent(customUserAgent);
         this.startTime = service.getSkewCorrectedDate();
-        this.response = new AWS3.Response(this);
+        this.response = new AWS2.Response(this);
         this._asm = new AcceptorStateMachine(fsm.states, 'validate');
         this._haltHandlersOnError = false;
-        AWS3.SequentialExecutor.call(this);
+        AWS2.SequentialExecutor.call(this);
         this.emit = this.emitEvent;
       },
       send: function send(callback) {
@@ -6481,7 +7396,7 @@ var require_request = __commonJS({
         this.removeAllListeners('validateResponse');
         this.removeAllListeners('extractError');
         this.on('validateResponse', function addAbortedError(resp) {
-          resp.error = AWS3.util.error(new Error('Request aborted by user'), {
+          resp.error = AWS2.util.error(new Error('Request aborted by user'), {
             code: 'RequestAbortedError',
             retryable: false,
           });
@@ -6497,14 +7412,14 @@ var require_request = __commonJS({
         return this;
       },
       eachPage: function eachPage(callback) {
-        callback = AWS3.util.fn.makeAsync(callback, 3);
+        callback = AWS2.util.fn.makeAsync(callback, 3);
         function wrappedCallback(response) {
           callback.call(response, response.error, response.data, function (result) {
             if (result === false) return;
             if (response.hasNextPage()) {
               response.nextPage().on('complete', wrappedCallback).send();
             } else {
-              callback.call(response, null, null, AWS3.util.fn.noop);
+              callback.call(response, null, null, AWS2.util.fn.noop);
             }
           });
         }
@@ -6520,10 +7435,10 @@ var require_request = __commonJS({
           if (Array.isArray(resultKey)) resultKey = resultKey[0];
           var items = jmespath.search(data, resultKey);
           var continueIteration = true;
-          AWS3.util.arrayEach(items, function (item) {
+          AWS2.util.arrayEach(items, function (item) {
             continueIteration = callback(null, item);
             if (continueIteration === false) {
-              return AWS3.util.abort;
+              return AWS2.util.abort;
             }
           });
           return continueIteration;
@@ -6534,10 +7449,10 @@ var require_request = __commonJS({
         return this.service.paginationConfig(this.operation) ? true : false;
       },
       createReadStream: function createReadStream() {
-        var streams = AWS3.util.stream;
+        var streams = AWS2.util.stream;
         var req = this;
         var stream = null;
-        if (AWS3.HttpClient.streamsApiVersion === 2) {
+        if (AWS2.HttpClient.streamsApiVersion === 2) {
           stream = new streams.PassThrough();
           process.nextTick(function () {
             req.send();
@@ -6560,8 +7475,8 @@ var require_request = __commonJS({
         });
         this.on('httpHeaders', function streamHeaders(statusCode, headers, resp) {
           if (statusCode < 300) {
-            req.removeListener('httpData', AWS3.EventListeners.Core.HTTP_DATA);
-            req.removeListener('httpError', AWS3.EventListeners.Core.HTTP_ERROR);
+            req.removeListener('httpData', AWS2.EventListeners.Core.HTTP_DATA);
+            req.removeListener('httpError', AWS2.EventListeners.Core.HTTP_ERROR);
             req.on('httpError', function streamHttpError(error) {
               resp.error = error;
               resp.error.retryable = false;
@@ -6579,21 +7494,21 @@ var require_request = __commonJS({
               if (shouldCheckContentLength && receivedLen !== expectedLen) {
                 stream.emit(
                   'error',
-                  AWS3.util.error(
+                  AWS2.util.error(
                     new Error(
                       'Stream content length mismatch. Received ' + receivedLen + ' of ' + expectedLen + ' bytes.'
                     ),
                     { code: 'StreamContentLengthMismatch' }
                   )
                 );
-              } else if (AWS3.HttpClient.streamsApiVersion === 2) {
+              } else if (AWS2.HttpClient.streamsApiVersion === 2) {
                 stream.end();
               } else {
                 stream.emit('end');
               }
             };
             var httpStream = resp.httpResponse.createUnbufferedStream();
-            if (AWS3.HttpClient.streamsApiVersion === 2) {
+            if (AWS2.HttpClient.streamsApiVersion === 2) {
               if (shouldCheckContentLength) {
                 var lengthAccumulator = new streams.PassThrough();
                 lengthAccumulator._write = function (chunk) {
@@ -6641,7 +7556,7 @@ var require_request = __commonJS({
         }
         if (!done) done = function () {};
         if (!args) args = this.eventParameters(eventName, this.response);
-        var origEmit = AWS3.SequentialExecutor.prototype.emit;
+        var origEmit = AWS2.SequentialExecutor.prototype.emit;
         origEmit.call(this, eventName, args, function (err) {
           if (err) this.response.error = err;
           done.call(this, err);
@@ -6667,15 +7582,15 @@ var require_request = __commonJS({
           callback = expires;
           expires = null;
         }
-        return new AWS3.Signers.Presign().sign(this.toGet(), expires, callback);
+        return new AWS2.Signers.Presign().sign(this.toGet(), expires, callback);
       },
       isPresigned: function isPresigned() {
         return Object.prototype.hasOwnProperty.call(this.httpRequest.headers, 'presigned-expires');
       },
       toUnauthenticated: function toUnauthenticated() {
         this._unAuthenticated = true;
-        this.removeListener('validate', AWS3.EventListeners.Core.VALIDATE_CREDENTIALS);
-        this.removeListener('sign', AWS3.EventListeners.Core.SIGN);
+        this.removeListener('validate', AWS2.EventListeners.Core.VALIDATE_CREDENTIALS);
+        this.removeListener('sign', AWS2.EventListeners.Core.SIGN);
         return this;
       },
       toGet: function toGet() {
@@ -6696,7 +7611,7 @@ var require_request = __commonJS({
         this._haltHandlersOnError = true;
       },
     });
-    AWS3.Request.addPromisesToClass = function addPromisesToClass(PromiseDependency) {
+    AWS2.Request.addPromisesToClass = function addPromisesToClass(PromiseDependency) {
       this.prototype.promise = function promise() {
         var self = this;
         this.httpRequest.appendToUserAgent('promise');
@@ -6712,28 +7627,28 @@ var require_request = __commonJS({
         });
       };
     };
-    AWS3.Request.deletePromisesFromClass = function deletePromisesFromClass() {
+    AWS2.Request.deletePromisesFromClass = function deletePromisesFromClass() {
       delete this.prototype.promise;
     };
-    AWS3.util.addPromises(AWS3.Request);
-    AWS3.util.mixin(AWS3.Request, AWS3.SequentialExecutor);
+    AWS2.util.addPromises(AWS2.Request);
+    AWS2.util.mixin(AWS2.Request, AWS2.SequentialExecutor);
   },
 });
 
 // node_modules/aws-sdk/lib/response.js
 var require_response = __commonJS({
   'node_modules/aws-sdk/lib/response.js'() {
-    var AWS3 = require_core();
-    var inherit = AWS3.util.inherit;
+    var AWS2 = require_core();
+    var inherit = AWS2.util.inherit;
     var jmespath = require_jmespath();
-    AWS3.Response = inherit({
+    AWS2.Response = inherit({
       constructor: function Response(request) {
         this.request = request;
         this.data = null;
         this.error = null;
         this.retryCount = 0;
         this.redirectCount = 0;
-        this.httpResponse = new AWS3.HttpResponse();
+        this.httpResponse = new AWS2.HttpResponse();
         if (request) {
           this.maxRetries = request.service.numRetries();
           this.maxRedirects = request.service.config.maxRedirects;
@@ -6753,7 +7668,7 @@ var require_response = __commonJS({
           else if (this.error) throw this.error;
           return null;
         }
-        var params = AWS3.util.copy(this.request.params);
+        var params = AWS2.util.copy(this.request.params);
         if (!this.nextPageTokens) {
           return callback ? callback(null, null) : null;
         } else {
@@ -6784,7 +7699,7 @@ var require_response = __commonJS({
         }
         var exprs = config.outputToken;
         if (typeof exprs === 'string') exprs = [exprs];
-        AWS3.util.arrayEach.call(this, exprs, function (expr) {
+        AWS2.util.arrayEach.call(this, exprs, function (expr) {
           var output = jmespath.search(this.data, expr);
           if (output) {
             this.nextPageTokens = this.nextPageTokens || [];
@@ -6800,8 +7715,8 @@ var require_response = __commonJS({
 // node_modules/aws-sdk/lib/resource_waiter.js
 var require_resource_waiter2 = __commonJS({
   'node_modules/aws-sdk/lib/resource_waiter.js'() {
-    var AWS3 = require_core();
-    var inherit = AWS3.util.inherit;
+    var AWS2 = require_core();
+    var inherit = AWS2.util.inherit;
     var jmespath = require_jmespath();
     function CHECK_ACCEPTORS(resp) {
       var waiter = resp.request._waiter;
@@ -6824,7 +7739,7 @@ var require_resource_waiter2 = __commonJS({
         waiter.setError(resp, state === 'retry');
       }
     }
-    AWS3.ResourceWaiter = inherit({
+    AWS2.ResourceWaiter = inherit({
       constructor: function constructor(service, state) {
         this.service = service;
         this.state = state;
@@ -6884,7 +7799,7 @@ var require_resource_waiter2 = __commonJS({
           return expected === !!resp.error;
         },
       },
-      listeners: new AWS3.SequentialExecutor().addNamedListeners(function (add) {
+      listeners: new AWS2.SequentialExecutor().addNamedListeners(function (add) {
         add('RETRY_CHECK', 'retry', function (resp) {
           var waiter = resp.request._waiter;
           if (resp.error && resp.error.code === 'ResourceNotReady') {
@@ -6900,7 +7815,7 @@ var require_resource_waiter2 = __commonJS({
           params = void 0;
         }
         if (params && params.$waiter) {
-          params = AWS3.util.copy(params);
+          params = AWS2.util.copy(params);
           if (typeof params.$waiter.delay === 'number') {
             this.config.delay = params.$waiter.delay;
           }
@@ -6923,7 +7838,7 @@ var require_resource_waiter2 = __commonJS({
       },
       setError: function setError(resp, retryable) {
         resp.data = null;
-        resp.error = AWS3.util.error(resp.error || new Error(), {
+        resp.error = AWS2.util.error(resp.error || new Error(), {
           code: 'ResourceNotReady',
           message: 'Resource is not in the state ' + this.state,
           retryable,
@@ -6931,12 +7846,12 @@ var require_resource_waiter2 = __commonJS({
       },
       loadWaiterConfig: function loadWaiterConfig(state) {
         if (!this.service.api.waiters[state]) {
-          throw new AWS3.util.error(new Error(), {
+          throw new AWS2.util.error(new Error(), {
             code: 'StateNotFoundError',
             message: 'State ' + state + ' not found.',
           });
         }
-        this.config = AWS3.util.copy(this.service.api.waiters[state]);
+        this.config = AWS2.util.copy(this.service.api.waiters[state]);
       },
     });
   },
@@ -6945,13 +7860,13 @@ var require_resource_waiter2 = __commonJS({
 // node_modules/aws-sdk/lib/signers/v2.js
 var require_v2 = __commonJS({
   'node_modules/aws-sdk/lib/signers/v2.js'(exports, module2) {
-    var AWS3 = require_core();
-    var inherit = AWS3.util.inherit;
-    AWS3.Signers.V2 = inherit(AWS3.Signers.RequestSigner, {
+    var AWS2 = require_core();
+    var inherit = AWS2.util.inherit;
+    AWS2.Signers.V2 = inherit(AWS2.Signers.RequestSigner, {
       addAuthorization: function addAuthorization(credentials, date) {
-        if (!date) date = AWS3.util.date.getDate();
+        if (!date) date = AWS2.util.date.getDate();
         var r = this.request;
-        r.params.Timestamp = AWS3.util.date.iso8601(date);
+        r.params.Timestamp = AWS2.util.date.iso8601(date);
         r.params.SignatureVersion = '2';
         r.params.SignatureMethod = 'HmacSHA256';
         r.params.AWSAccessKeyId = credentials.accessKeyId;
@@ -6960,33 +7875,33 @@ var require_v2 = __commonJS({
         }
         delete r.params.Signature;
         r.params.Signature = this.signature(credentials);
-        r.body = AWS3.util.queryParamsToString(r.params);
+        r.body = AWS2.util.queryParamsToString(r.params);
         r.headers['Content-Length'] = r.body.length;
       },
       signature: function signature(credentials) {
-        return AWS3.util.crypto.hmac(credentials.secretAccessKey, this.stringToSign(), 'base64');
+        return AWS2.util.crypto.hmac(credentials.secretAccessKey, this.stringToSign(), 'base64');
       },
       stringToSign: function stringToSign() {
         var parts = [];
         parts.push(this.request.method);
         parts.push(this.request.endpoint.host.toLowerCase());
         parts.push(this.request.pathname());
-        parts.push(AWS3.util.queryParamsToString(this.request.params));
+        parts.push(AWS2.util.queryParamsToString(this.request.params));
         return parts.join('\n');
       },
     });
-    module2.exports = AWS3.Signers.V2;
+    module2.exports = AWS2.Signers.V2;
   },
 });
 
 // node_modules/aws-sdk/lib/signers/v3.js
 var require_v3 = __commonJS({
   'node_modules/aws-sdk/lib/signers/v3.js'(exports, module2) {
-    var AWS3 = require_core();
-    var inherit = AWS3.util.inherit;
-    AWS3.Signers.V3 = inherit(AWS3.Signers.RequestSigner, {
+    var AWS2 = require_core();
+    var inherit = AWS2.util.inherit;
+    AWS2.Signers.V3 = inherit(AWS2.Signers.RequestSigner, {
       addAuthorization: function addAuthorization(credentials, date) {
-        var datetime = AWS3.util.date.rfc822(date);
+        var datetime = AWS2.util.date.rfc822(date);
         this.request.headers['X-Amz-Date'] = datetime;
         if (credentials.sessionToken) {
           this.request.headers['x-amz-security-token'] = credentials.sessionToken;
@@ -7005,7 +7920,7 @@ var require_v3 = __commonJS({
       },
       signedHeaders: function signedHeaders() {
         var headers = [];
-        AWS3.util.arrayEach(this.headersToSign(), function iterator(h) {
+        AWS2.util.arrayEach(this.headersToSign(), function iterator(h) {
           headers.push(h.toLowerCase());
         });
         return headers.sort().join(';');
@@ -7013,14 +7928,14 @@ var require_v3 = __commonJS({
       canonicalHeaders: function canonicalHeaders() {
         var headers = this.request.headers;
         var parts = [];
-        AWS3.util.arrayEach(this.headersToSign(), function iterator(h) {
+        AWS2.util.arrayEach(this.headersToSign(), function iterator(h) {
           parts.push(h.toLowerCase().trim() + ':' + String(headers[h]).trim());
         });
         return parts.sort().join('\n') + '\n';
       },
       headersToSign: function headersToSign() {
         var headers = [];
-        AWS3.util.each(this.request.headers, function iterator(k) {
+        AWS2.util.each(this.request.headers, function iterator(k) {
           if (k === 'Host' || k === 'Content-Encoding' || k.match(/^X-Amz/i)) {
             headers.push(k);
           }
@@ -7028,7 +7943,7 @@ var require_v3 = __commonJS({
         return headers;
       },
       signature: function signature(credentials) {
-        return AWS3.util.crypto.hmac(credentials.secretAccessKey, this.stringToSign(), 'base64');
+        return AWS2.util.crypto.hmac(credentials.secretAccessKey, this.stringToSign(), 'base64');
       },
       stringToSign: function stringToSign() {
         var parts = [];
@@ -7037,20 +7952,20 @@ var require_v3 = __commonJS({
         parts.push('');
         parts.push(this.canonicalHeaders());
         parts.push(this.request.body);
-        return AWS3.util.crypto.sha256(parts.join('\n'));
+        return AWS2.util.crypto.sha256(parts.join('\n'));
       },
     });
-    module2.exports = AWS3.Signers.V3;
+    module2.exports = AWS2.Signers.V3;
   },
 });
 
 // node_modules/aws-sdk/lib/signers/v3https.js
 var require_v3https = __commonJS({
   'node_modules/aws-sdk/lib/signers/v3https.js'(exports, module2) {
-    var AWS3 = require_core();
-    var inherit = AWS3.util.inherit;
+    var AWS2 = require_core();
+    var inherit = AWS2.util.inherit;
     require_v3();
-    AWS3.Signers.V3Https = inherit(AWS3.Signers.V3, {
+    AWS2.Signers.V3Https = inherit(AWS2.Signers.V3, {
       authorization: function authorization(credentials) {
         return (
           'AWS3-HTTPS AWSAccessKeyId=' +
@@ -7063,14 +7978,14 @@ var require_v3https = __commonJS({
         return this.request.headers['X-Amz-Date'];
       },
     });
-    module2.exports = AWS3.Signers.V3Https;
+    module2.exports = AWS2.Signers.V3Https;
   },
 });
 
 // node_modules/aws-sdk/lib/signers/v4_credentials.js
 var require_v4_credentials = __commonJS({
   'node_modules/aws-sdk/lib/signers/v4_credentials.js'(exports, module2) {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var cachedSecret = {};
     var cacheQueue = [];
     var maxCacheEntries = 50;
@@ -7080,16 +7995,16 @@ var require_v4_credentials = __commonJS({
         return [date.substr(0, 8), region, serviceName, v4Identifier].join('/');
       },
       getSigningKey: function getSigningKey(credentials, date, region, service, shouldCache) {
-        var credsIdentifier = AWS3.util.crypto.hmac(credentials.secretAccessKey, credentials.accessKeyId, 'base64');
+        var credsIdentifier = AWS2.util.crypto.hmac(credentials.secretAccessKey, credentials.accessKeyId, 'base64');
         var cacheKey = [credsIdentifier, date, region, service].join('_');
         shouldCache = shouldCache !== false;
         if (shouldCache && cacheKey in cachedSecret) {
           return cachedSecret[cacheKey];
         }
-        var kDate = AWS3.util.crypto.hmac('AWS4' + credentials.secretAccessKey, date, 'buffer');
-        var kRegion = AWS3.util.crypto.hmac(kDate, region, 'buffer');
-        var kService = AWS3.util.crypto.hmac(kRegion, service, 'buffer');
-        var signingKey = AWS3.util.crypto.hmac(kService, v4Identifier, 'buffer');
+        var kDate = AWS2.util.crypto.hmac('AWS4' + credentials.secretAccessKey, date, 'buffer');
+        var kRegion = AWS2.util.crypto.hmac(kDate, region, 'buffer');
+        var kService = AWS2.util.crypto.hmac(kRegion, service, 'buffer');
+        var signingKey = AWS2.util.crypto.hmac(kService, v4Identifier, 'buffer');
         if (shouldCache) {
           cachedSecret[cacheKey] = signingKey;
           cacheQueue.push(cacheKey);
@@ -7110,13 +8025,13 @@ var require_v4_credentials = __commonJS({
 // node_modules/aws-sdk/lib/signers/v4.js
 var require_v4 = __commonJS({
   'node_modules/aws-sdk/lib/signers/v4.js'(exports, module2) {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var v4Credentials = require_v4_credentials();
-    var inherit = AWS3.util.inherit;
+    var inherit = AWS2.util.inherit;
     var expiresHeader = 'presigned-expires';
-    AWS3.Signers.V4 = inherit(AWS3.Signers.RequestSigner, {
+    AWS2.Signers.V4 = inherit(AWS2.Signers.RequestSigner, {
       constructor: function V4(request, serviceName, options) {
-        AWS3.Signers.RequestSigner.call(this, request);
+        AWS2.Signers.RequestSigner.call(this, request);
         this.serviceName = serviceName;
         options = options || {};
         this.signatureCache = typeof options.signatureCache === 'boolean' ? options.signatureCache : true;
@@ -7125,7 +8040,7 @@ var require_v4 = __commonJS({
       },
       algorithm: 'AWS4-HMAC-SHA256',
       addAuthorization: function addAuthorization(credentials, date) {
-        var datetime = AWS3.util.date.iso8601(date).replace(/[:\-]|\.\d{3}/g, '');
+        var datetime = AWS2.util.date.iso8601(date).replace(/[:\-]|\.\d{3}/g, '');
         if (this.isPresigned()) {
           this.updateForPresigned(credentials, datetime);
         } else {
@@ -7160,7 +8075,7 @@ var require_v4 = __commonJS({
         if (this.request.headers['Cache-Control']) {
           qs['Cache-Control'] = this.request.headers['Cache-Control'];
         }
-        AWS3.util.each.call(this, this.request.headers, function (key, value) {
+        AWS2.util.each.call(this, this.request.headers, function (key, value) {
           if (key === expiresHeader) return;
           if (this.isSignableHeader(key)) {
             var lowerKey = key.toLowerCase();
@@ -7172,7 +8087,7 @@ var require_v4 = __commonJS({
           }
         });
         var sep = this.request.path.indexOf('?') >= 0 ? '&' : '?';
-        this.request.path += sep + AWS3.util.queryParamsToString(qs);
+        this.request.path += sep + AWS2.util.queryParamsToString(qs);
       },
       authorization: function authorization(credentials, datetime) {
         var parts = [];
@@ -7190,7 +8105,7 @@ var require_v4 = __commonJS({
           this.serviceName,
           this.signatureCache
         );
-        return AWS3.util.crypto.hmac(signingKey, this.stringToSign(datetime), 'hex');
+        return AWS2.util.crypto.hmac(signingKey, this.stringToSign(datetime), 'hex');
       },
       stringToSign: function stringToSign(datetime) {
         var parts = [];
@@ -7203,7 +8118,7 @@ var require_v4 = __commonJS({
       canonicalString: function canonicalString() {
         var parts = [],
           pathname = this.request.pathname();
-        if (this.serviceName !== 's3' && this.signatureVersion !== 's3v4') pathname = AWS3.util.uriEscapePath(pathname);
+        if (this.serviceName !== 's3' && this.signatureVersion !== 's3v4') pathname = AWS2.util.uriEscapePath(pathname);
         parts.push(this.request.method);
         parts.push(pathname);
         parts.push(this.request.search());
@@ -7214,19 +8129,19 @@ var require_v4 = __commonJS({
       },
       canonicalHeaders: function canonicalHeaders() {
         var headers = [];
-        AWS3.util.each.call(this, this.request.headers, function (key, item) {
+        AWS2.util.each.call(this, this.request.headers, function (key, item) {
           headers.push([key, item]);
         });
         headers.sort(function (a, b) {
           return a[0].toLowerCase() < b[0].toLowerCase() ? -1 : 1;
         });
         var parts = [];
-        AWS3.util.arrayEach.call(this, headers, function (item) {
+        AWS2.util.arrayEach.call(this, headers, function (item) {
           var key = item[0].toLowerCase();
           if (this.isSignableHeader(key)) {
             var value = item[1];
             if (typeof value === 'undefined' || value === null || typeof value.toString !== 'function') {
-              throw AWS3.util.error(new Error('Header ' + key + ' contains invalid value'), {
+              throw AWS2.util.error(new Error('Header ' + key + ' contains invalid value'), {
                 code: 'InvalidHeader',
               });
             }
@@ -7240,7 +8155,7 @@ var require_v4 = __commonJS({
       },
       signedHeaders: function signedHeaders() {
         var keys = [];
-        AWS3.util.each.call(this, this.request.headers, function (key) {
+        AWS2.util.each.call(this, this.request.headers, function (key) {
           key = key.toLowerCase();
           if (this.isSignableHeader(key)) keys.push(key);
         });
@@ -7250,11 +8165,11 @@ var require_v4 = __commonJS({
         return v4Credentials.createScope(datetime.substr(0, 8), this.request.region, this.serviceName);
       },
       hexEncodedHash: function hash(string) {
-        return AWS3.util.crypto.sha256(string, 'hex');
+        return AWS2.util.crypto.sha256(string, 'hex');
       },
       hexEncodedBodyHash: function hexEncodedBodyHash() {
         var request = this.request;
-        if (this.isPresigned() && this.serviceName === 's3' && !request.body) {
+        if (this.isPresigned() && ['s3', 's3-object-lambda'].indexOf(this.serviceName) > -1 && !request.body) {
           return 'UNSIGNED-PAYLOAD';
         } else if (request.headers['X-Amz-Content-Sha256']) {
           return request.headers['X-Amz-Content-Sha256'];
@@ -7279,16 +8194,16 @@ var require_v4 = __commonJS({
         return this.request.headers[expiresHeader] ? true : false;
       },
     });
-    module2.exports = AWS3.Signers.V4;
+    module2.exports = AWS2.Signers.V4;
   },
 });
 
 // node_modules/aws-sdk/lib/signers/s3.js
 var require_s3 = __commonJS({
   'node_modules/aws-sdk/lib/signers/s3.js'(exports, module2) {
-    var AWS3 = require_core();
-    var inherit = AWS3.util.inherit;
-    AWS3.Signers.S3 = inherit(AWS3.Signers.RequestSigner, {
+    var AWS2 = require_core();
+    var inherit = AWS2.util.inherit;
+    AWS2.Signers.S3 = inherit(AWS2.Signers.RequestSigner, {
       subResources: {
         acl: 1,
         accelerate: 1,
@@ -7325,7 +8240,7 @@ var require_s3 = __commonJS({
       },
       addAuthorization: function addAuthorization(credentials, date) {
         if (!this.request.headers['presigned-expires']) {
-          this.request.headers['X-Amz-Date'] = AWS3.util.date.rfc822(date);
+          this.request.headers['X-Amz-Date'] = AWS2.util.date.rfc822(date);
         }
         if (credentials.sessionToken) {
           this.request.headers['x-amz-security-token'] = credentials.sessionToken;
@@ -7348,14 +8263,14 @@ var require_s3 = __commonJS({
       },
       canonicalizedAmzHeaders: function canonicalizedAmzHeaders() {
         var amzHeaders = [];
-        AWS3.util.each(this.request.headers, function (name) {
+        AWS2.util.each(this.request.headers, function (name) {
           if (name.match(/^x-amz-/i)) amzHeaders.push(name);
         });
         amzHeaders.sort(function (a, b) {
           return a.toLowerCase() < b.toLowerCase() ? -1 : 1;
         });
         var parts = [];
-        AWS3.util.arrayEach.call(this, amzHeaders, function (name) {
+        AWS2.util.arrayEach.call(this, amzHeaders, function (name) {
           parts.push(name.toLowerCase() + ':' + String(this.request.headers[name]));
         });
         return parts.join('\n');
@@ -7370,7 +8285,7 @@ var require_s3 = __commonJS({
         resource += path;
         if (querystring) {
           var resources = [];
-          AWS3.util.arrayEach.call(this, querystring.split('&'), function (param) {
+          AWS2.util.arrayEach.call(this, querystring.split('&'), function (param) {
             var name = param.split('=')[0];
             var value = param.split('=')[1];
             if (this.subResources[name] || this.responseHeaders[name]) {
@@ -7390,7 +8305,7 @@ var require_s3 = __commonJS({
           });
           if (resources.length) {
             querystring = [];
-            AWS3.util.arrayEach(resources, function (res) {
+            AWS2.util.arrayEach(resources, function (res) {
               if (res.value === void 0) {
                 querystring.push(res.name);
               } else {
@@ -7403,42 +8318,42 @@ var require_s3 = __commonJS({
         return resource;
       },
       sign: function sign(secret, string) {
-        return AWS3.util.crypto.hmac(secret, string, 'base64', 'sha1');
+        return AWS2.util.crypto.hmac(secret, string, 'base64', 'sha1');
       },
     });
-    module2.exports = AWS3.Signers.S3;
+    module2.exports = AWS2.Signers.S3;
   },
 });
 
 // node_modules/aws-sdk/lib/signers/presign.js
 var require_presign = __commonJS({
   'node_modules/aws-sdk/lib/signers/presign.js'(exports, module2) {
-    var AWS3 = require_core();
-    var inherit = AWS3.util.inherit;
+    var AWS2 = require_core();
+    var inherit = AWS2.util.inherit;
     var expiresHeader = 'presigned-expires';
     function signedUrlBuilder(request) {
       var expires = request.httpRequest.headers[expiresHeader];
       var signerClass = request.service.getSignerClass(request);
       delete request.httpRequest.headers['User-Agent'];
       delete request.httpRequest.headers['X-Amz-User-Agent'];
-      if (signerClass === AWS3.Signers.V4) {
+      if (signerClass === AWS2.Signers.V4) {
         if (expires > 604800) {
           var message = 'Presigning does not support expiry time greater than a week with SigV4 signing.';
-          throw AWS3.util.error(new Error(), {
+          throw AWS2.util.error(new Error(), {
             code: 'InvalidExpiryTime',
             message,
             retryable: false,
           });
         }
         request.httpRequest.headers[expiresHeader] = expires;
-      } else if (signerClass === AWS3.Signers.S3) {
-        var now = request.service ? request.service.getSkewCorrectedDate() : AWS3.util.date.getDate();
+      } else if (signerClass === AWS2.Signers.S3) {
+        var now = request.service ? request.service.getSkewCorrectedDate() : AWS2.util.date.getDate();
         request.httpRequest.headers[expiresHeader] = parseInt(
-          AWS3.util.date.unixTimestamp(now) + expires,
+          AWS2.util.date.unixTimestamp(now) + expires,
           10
         ).toString();
       } else {
-        throw AWS3.util.error(new Error(), {
+        throw AWS2.util.error(new Error(), {
           message: 'Presigning only supports S3 or SigV4 signing.',
           code: 'UnsupportedSigner',
           retryable: false,
@@ -7447,17 +8362,17 @@ var require_presign = __commonJS({
     }
     function signedUrlSigner(request) {
       var endpoint = request.httpRequest.endpoint;
-      var parsedUrl = AWS3.util.urlParse(request.httpRequest.path);
+      var parsedUrl = AWS2.util.urlParse(request.httpRequest.path);
       var queryParams = {};
       if (parsedUrl.search) {
-        queryParams = AWS3.util.queryStringParse(parsedUrl.search.substr(1));
+        queryParams = AWS2.util.queryStringParse(parsedUrl.search.substr(1));
       }
       var auth = request.httpRequest.headers['Authorization'].split(' ');
       if (auth[0] === 'AWS') {
         auth = auth[1].split(':');
         queryParams['Signature'] = auth.pop();
         queryParams['AWSAccessKeyId'] = auth.join(':');
-        AWS3.util.each(request.httpRequest.headers, function (key, value) {
+        AWS2.util.each(request.httpRequest.headers, function (key, value) {
           if (key === expiresHeader) key = 'Expires';
           if (key.indexOf('x-amz-meta-') === 0) {
             delete queryParams[key];
@@ -7476,40 +8391,55 @@ var require_presign = __commonJS({
         delete queryParams['Expires'];
       }
       endpoint.pathname = parsedUrl.pathname;
-      endpoint.search = AWS3.util.queryParamsToString(queryParams);
+      endpoint.search = AWS2.util.queryParamsToString(queryParams);
     }
-    AWS3.Signers.Presign = inherit({
+    AWS2.Signers.Presign = inherit({
       sign: function sign(request, expireTime, callback) {
         request.httpRequest.headers[expiresHeader] = expireTime || 3600;
         request.on('build', signedUrlBuilder);
         request.on('sign', signedUrlSigner);
-        request.removeListener('afterBuild', AWS3.EventListeners.Core.SET_CONTENT_LENGTH);
-        request.removeListener('afterBuild', AWS3.EventListeners.Core.COMPUTE_SHA256);
+        request.removeListener('afterBuild', AWS2.EventListeners.Core.SET_CONTENT_LENGTH);
+        request.removeListener('afterBuild', AWS2.EventListeners.Core.COMPUTE_SHA256);
         request.emit('beforePresign', [request]);
         if (callback) {
           request.build(function () {
             if (this.response.error) callback(this.response.error);
             else {
-              callback(null, AWS3.util.urlFormat(request.httpRequest.endpoint));
+              callback(null, AWS2.util.urlFormat(request.httpRequest.endpoint));
             }
           });
         } else {
           request.build();
           if (request.response.error) throw request.response.error;
-          return AWS3.util.urlFormat(request.httpRequest.endpoint);
+          return AWS2.util.urlFormat(request.httpRequest.endpoint);
         }
       },
     });
-    module2.exports = AWS3.Signers.Presign;
+    module2.exports = AWS2.Signers.Presign;
+  },
+});
+
+// node_modules/aws-sdk/lib/signers/bearer.js
+var require_bearer = __commonJS({
+  'node_modules/aws-sdk/lib/signers/bearer.js'() {
+    var AWS2 = require_core();
+    AWS2.Signers.Bearer = AWS2.util.inherit(AWS2.Signers.RequestSigner, {
+      constructor: function Bearer(request) {
+        AWS2.Signers.RequestSigner.call(this, request);
+      },
+      addAuthorization: function addAuthorization(token) {
+        this.request.headers['Authorization'] = 'Bearer ' + token.token;
+      },
+    });
   },
 });
 
 // node_modules/aws-sdk/lib/signers/request_signer.js
 var require_request_signer = __commonJS({
   'node_modules/aws-sdk/lib/signers/request_signer.js'() {
-    var AWS3 = require_core();
-    var inherit = AWS3.util.inherit;
-    AWS3.Signers.RequestSigner = inherit({
+    var AWS2 = require_core();
+    var inherit = AWS2.util.inherit;
+    AWS2.Signers.RequestSigner = inherit({
       constructor: function RequestSigner(request) {
         this.request = request;
       },
@@ -7520,20 +8450,22 @@ var require_request_signer = __commonJS({
         return this.serviceClientId;
       },
     });
-    AWS3.Signers.RequestSigner.getVersion = function getVersion(version) {
+    AWS2.Signers.RequestSigner.getVersion = function getVersion(version) {
       switch (version) {
         case 'v2':
-          return AWS3.Signers.V2;
+          return AWS2.Signers.V2;
         case 'v3':
-          return AWS3.Signers.V3;
+          return AWS2.Signers.V3;
         case 's3v4':
-          return AWS3.Signers.V4;
+          return AWS2.Signers.V4;
         case 'v4':
-          return AWS3.Signers.V4;
+          return AWS2.Signers.V4;
         case 's3':
-          return AWS3.Signers.S3;
+          return AWS2.Signers.S3;
         case 'v3https':
-          return AWS3.Signers.V3Https;
+          return AWS2.Signers.V3Https;
+        case 'bearer':
+          return AWS2.Signers.Bearer;
       }
       throw new Error('Unknown signing version ' + version);
     };
@@ -7543,14 +8475,15 @@ var require_request_signer = __commonJS({
     require_v4();
     require_s3();
     require_presign();
+    require_bearer();
   },
 });
 
 // node_modules/aws-sdk/lib/param_validator.js
 var require_param_validator = __commonJS({
   'node_modules/aws-sdk/lib/param_validator.js'() {
-    var AWS3 = require_core();
-    AWS3.ParamValidator = AWS3.util.inherit({
+    var AWS2 = require_core();
+    AWS2.ParamValidator = AWS2.util.inherit({
       constructor: function ParamValidator(validation) {
         if (validation === true || validation === void 0) {
           validation = { min: true };
@@ -7563,7 +8496,7 @@ var require_param_validator = __commonJS({
         if (this.errors.length > 1) {
           var msg = this.errors.join('\n* ');
           msg = 'There were ' + this.errors.length + ' validation errors:\n* ' + msg;
-          throw AWS3.util.error(new Error(msg), { code: 'MultipleValidationErrors', errors: this.errors });
+          throw AWS2.util.error(new Error(msg), { code: 'MultipleValidationErrors', errors: this.errors });
         } else if (this.errors.length === 1) {
           throw this.errors[0];
         } else {
@@ -7571,9 +8504,10 @@ var require_param_validator = __commonJS({
         }
       },
       fail: function fail(code, message) {
-        this.errors.push(AWS3.util.error(new Error(message), { code }));
+        this.errors.push(AWS2.util.error(new Error(message), { code }));
       },
       validateStructure: function validateStructure(shape, params, context) {
+        if (shape.isDocument) return true;
         this.validateType(params, context, ['object'], 'structure');
         var paramName;
         for (var i = 0; shape.required && i < shape.required.length; i++) {
@@ -7590,7 +8524,7 @@ var require_param_validator = __commonJS({
           if (memberShape !== void 0) {
             var memberContext = [context, paramName].join('.');
             this.validateMember(memberShape, paramValue, memberContext);
-          } else {
+          } else if (paramValue !== void 0 && paramValue !== null) {
             this.fail('UnexpectedParameter', "Unexpected key '" + paramName + "' found in " + context);
           }
         }
@@ -7723,9 +8657,9 @@ var require_param_validator = __commonJS({
             if ((value || '').toString().match(acceptedTypes[i])) return true;
           } else {
             if (value instanceof acceptedTypes[i]) return true;
-            if (AWS3.util.isType(value, acceptedTypes[i])) return true;
+            if (AWS2.util.isType(value, acceptedTypes[i])) return true;
             if (!type && !foundInvalidType) acceptedTypes = acceptedTypes.slice();
-            acceptedTypes[i] = AWS3.util.typeName(acceptedTypes[i]);
+            acceptedTypes[i] = AWS2.util.typeName(acceptedTypes[i]);
           }
           foundInvalidType = true;
         }
@@ -7751,17 +8685,17 @@ var require_param_validator = __commonJS({
         if (value === null || value === void 0) return;
         if (typeof value === 'string') return;
         if (value && typeof value.byteLength === 'number') return;
-        if (AWS3.util.isNode()) {
-          var Stream = AWS3.util.stream.Stream;
-          if (AWS3.util.Buffer.isBuffer(value) || value instanceof Stream) return;
+        if (AWS2.util.isNode()) {
+          var Stream = AWS2.util.stream.Stream;
+          if (AWS2.util.Buffer.isBuffer(value) || value instanceof Stream) return;
         } else {
           if (typeof Blob !== void 0 && value instanceof Blob) return;
         }
         var types = ['Buffer', 'Stream', 'File', 'Blob', 'ArrayBuffer', 'DataView'];
         if (value) {
           for (var i = 0; i < types.length; i++) {
-            if (AWS3.util.isType(value, types[i])) return;
-            if (AWS3.util.typeName(value.constructor) === types[i]) return;
+            if (AWS2.util.isType(value, types[i])) return;
+            if (AWS2.util.typeName(value.constructor) === types[i]) return;
           }
         }
         this.fail(
@@ -7773,15 +8707,56 @@ var require_param_validator = __commonJS({
   },
 });
 
+// node_modules/aws-sdk/lib/maintenance_mode_message.js
+var require_maintenance_mode_message = __commonJS({
+  'node_modules/aws-sdk/lib/maintenance_mode_message.js'(exports, module2) {
+    var warning = [
+      'The AWS SDK for JavaScript (v2) will enter maintenance mode',
+      'on September 8, 2024 and reach end-of-support on September 8, 2025.\n',
+      'Please migrate your code to use AWS SDK for JavaScript (v3).',
+      'For more information, check blog post at https://a.co/cUPnyil',
+    ].join('\n');
+    module2.exports = {
+      suppress: false,
+    };
+    function emitWarning() {
+      if (typeof process === 'undefined') return;
+      if (
+        typeof process.env === 'object' &&
+        typeof process.env.AWS_EXECUTION_ENV !== 'undefined' &&
+        process.env.AWS_EXECUTION_ENV.indexOf('AWS_Lambda_') === 0
+      ) {
+        return;
+      }
+      if (
+        typeof process.env === 'object' &&
+        typeof process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE !== 'undefined'
+      ) {
+        return;
+      }
+      if (typeof process.emitWarning === 'function') {
+        process.emitWarning(warning, {
+          type: 'NOTE',
+        });
+      }
+    }
+    setTimeout(function () {
+      if (!module2.exports.suppress) {
+        emitWarning();
+      }
+    }, 0);
+  },
+});
+
 // node_modules/aws-sdk/lib/core.js
 var require_core = __commonJS({
   'node_modules/aws-sdk/lib/core.js'(exports, module2) {
-    var AWS3 = { util: require_util() };
+    var AWS2 = { util: require_util() };
     var _hidden = {};
     _hidden.toString();
-    module2.exports = AWS3;
-    AWS3.util.update(AWS3, {
-      VERSION: '2.814.0',
+    module2.exports = AWS2;
+    AWS2.util.update(AWS2, {
+      VERSION: '2.1668.0',
       Signers: {},
       Protocol: {
         Json: require_json(),
@@ -7818,12 +8793,13 @@ var require_core = __commonJS({
     require_resource_waiter2();
     require_request_signer();
     require_param_validator();
-    AWS3.events = new AWS3.SequentialExecutor();
-    AWS3.util.memoizedProperty(
-      AWS3,
+    require_maintenance_mode_message();
+    AWS2.events = new AWS2.SequentialExecutor();
+    AWS2.util.memoizedProperty(
+      AWS2,
       'endpointCache',
       function () {
-        return new AWS3.EndpointCache(AWS3.config.endpointCacheSize);
+        return new AWS2.EndpointCache(AWS2.config.endpointCacheSize);
       },
       true
     );
@@ -8345,7 +9321,7 @@ var require_dist = __commonJS({
 // node_modules/aws-sdk/lib/util.js
 var require_util = __commonJS({
   'node_modules/aws-sdk/lib/util.js'(exports, module2) {
-    var AWS3;
+    var AWS2;
     var util = {
       environment: 'nodejs',
       engine: function engine() {
@@ -8512,18 +9488,23 @@ var require_util = __commonJS({
           var currentSection,
             map = {};
           util.arrayEach(ini.split(/\r?\n/), function (line) {
-            line = line.split(/(^|\s)[;#]/)[0];
-            var section = line.match(/^\s*\[([^\[\]]+)\]\s*$/);
-            if (section) {
-              currentSection = section[1];
+            line = line.split(/(^|\s)[;#]/)[0].trim();
+            var isSection = line[0] === '[' && line[line.length - 1] === ']';
+            if (isSection) {
+              currentSection = line.substring(1, line.length - 1);
               if (currentSection === '__proto__' || currentSection.split(/\s/)[1] === '__proto__') {
                 throw util.error(new Error("Cannot load profile name '" + currentSection + "' from shared ini file."));
               }
             } else if (currentSection) {
-              var item = line.match(/^\s*(.+?)\s*=\s*(.+?)\s*$/);
-              if (item) {
+              var indexOfEqualsSign = line.indexOf('=');
+              var start = 0;
+              var end = line.length - 1;
+              var isAssignment = indexOfEqualsSign !== -1 && indexOfEqualsSign !== start && indexOfEqualsSign !== end;
+              if (isAssignment) {
+                var name = line.substring(0, indexOfEqualsSign).trim();
+                var value = line.substring(indexOfEqualsSign + 1).trim();
                 map[currentSection] = map[currentSection] || {};
-                map[currentSection][item[1]] = item[2];
+                map[currentSection][name] = value;
               }
             }
           });
@@ -8549,9 +9530,9 @@ var require_util = __commonJS({
       },
       date: {
         getDate: function getDate() {
-          if (!AWS3) AWS3 = require_core();
-          if (AWS3.config.systemClockOffset) {
-            return new Date(new Date().getTime() + AWS3.config.systemClockOffset);
+          if (!AWS2) AWS2 = require_core();
+          if (AWS2.config.systemClockOffset) {
+            return new Date(new Date().getTime() + AWS2.config.systemClockOffset);
           } else {
             return new Date();
           }
@@ -8803,7 +9784,23 @@ var require_util = __commonJS({
         }
         err.name = String((options && options.name) || err.name || err.code || 'Error');
         err.time = new Date();
-        if (originalError) err.originalError = originalError;
+        if (originalError) {
+          err.originalError = originalError;
+        }
+        for (var key in options || {}) {
+          if (key[0] === '[' && key[key.length - 1] === ']') {
+            key = key.slice(1, -1);
+            if (key === 'code' || key === 'message') {
+              continue;
+            }
+            err['[' + key + ']'] = 'See error.' + key + ' for details.';
+            Object.defineProperty(err, key, {
+              value: err[key] || (options && options[key]) || (originalError && originalError[key]),
+              enumerable: false,
+              writable: true,
+            });
+          }
+        }
         return err;
       },
       inherit: function inherit(klass, features) {
@@ -8919,12 +9916,12 @@ var require_util = __commonJS({
       },
       isClockSkewed: function isClockSkewed(serverTime) {
         if (serverTime) {
-          util.property(AWS3.config, 'isClockSkewed', Math.abs(new Date().getTime() - serverTime) >= 3e5, false);
-          return AWS3.config.isClockSkewed;
+          util.property(AWS2.config, 'isClockSkewed', Math.abs(new Date().getTime() - serverTime) >= 3e5, false);
+          return AWS2.config.isClockSkewed;
         }
       },
       applyClockOffset: function applyClockOffset(serverTime) {
-        if (serverTime) AWS3.config.systemClockOffset = serverTime - new Date().getTime();
+        if (serverTime) AWS2.config.systemClockOffset = serverTime - new Date().getTime();
       },
       extractRequestId: function extractRequestId(resp) {
         var requestId = resp.httpResponse.headers['x-amz-request-id'] || resp.httpResponse.headers['x-amzn-requestid'];
@@ -8940,8 +9937,8 @@ var require_util = __commonJS({
       },
       addPromises: function addPromises(constructors, PromiseDependency) {
         var deletePromises = false;
-        if (PromiseDependency === void 0 && AWS3 && AWS3.config) {
-          PromiseDependency = AWS3.config.getPromisesDependency();
+        if (PromiseDependency === void 0 && AWS2 && AWS2.config) {
+          PromiseDependency = AWS2.config.getPromisesDependency();
         }
         if (PromiseDependency === void 0 && typeof Promise !== 'undefined') {
           PromiseDependency = Promise;
@@ -8994,7 +9991,7 @@ var require_util = __commonJS({
       },
       handleRequestWithRetries: function handleRequestWithRetries(httpRequest, options, cb) {
         if (!options) options = {};
-        var http = AWS3.HttpClient.getInstance();
+        var http = AWS2.HttpClient.getInstance();
         var httpOptions = options.httpOptions || {};
         var retryCount = 0;
         var errCallback = function (err) {
@@ -9037,7 +10034,7 @@ var require_util = __commonJS({
             errCallback
           );
         };
-        AWS3.util.defer(sendRequest);
+        AWS2.util.defer(sendRequest);
       },
       uuid: {
         v4: function uuidV4() {
@@ -9689,7 +10686,7 @@ var require_publisher = __commonJS({
 // node_modules/aws-sdk/lib/publisher/configuration.js
 var require_configuration = __commonJS({
   'node_modules/aws-sdk/lib/publisher/configuration.js'(exports, module2) {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     function resolveMonitoringConfig() {
       var config = {
         port: void 0,
@@ -9712,11 +10709,11 @@ var require_configuration = __commonJS({
     function fromConfigFile(config) {
       var sharedFileConfig;
       try {
-        var configFile = AWS3.util.iniLoader.loadFrom({
+        var configFile = AWS2.util.iniLoader.loadFrom({
           isConfig: true,
-          filename: process.env[AWS3.util.sharedConfigFileEnv],
+          filename: process.env[AWS2.util.sharedConfigFileEnv],
         });
-        var sharedFileConfig = configFile[process.env.AWS_PROFILE || AWS3.util.defaultProfile];
+        var sharedFileConfig = configFile[process.env.AWS_PROFILE || AWS2.util.defaultProfile];
       } catch (err) {
         return false;
       }
@@ -9744,40 +10741,70 @@ var require_configuration = __commonJS({
 // node_modules/aws-sdk/lib/shared-ini/ini-loader.js
 var require_ini_loader = __commonJS({
   'node_modules/aws-sdk/lib/shared-ini/ini-loader.js'(exports, module2) {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var os = require('os');
     var path = require('path');
-    function parseFile(filename, isConfig) {
-      var content = AWS3.util.ini.parse(AWS3.util.readFileSync(filename));
+    function parseFile(filename) {
+      return AWS2.util.ini.parse(AWS2.util.readFileSync(filename));
+    }
+    function getProfiles(fileContent) {
       var tmpContent = {};
-      Object.keys(content).forEach(function (profileName) {
-        var profileContent = content[profileName];
-        profileName = isConfig ? profileName.replace(/^profile\s/, '') : profileName;
-        Object.defineProperty(tmpContent, profileName, {
-          value: profileContent,
+      Object.keys(fileContent).forEach(function (sectionName) {
+        if (/^sso-session\s/.test(sectionName)) return;
+        Object.defineProperty(tmpContent, sectionName.replace(/^profile\s/, ''), {
+          value: fileContent[sectionName],
           enumerable: true,
         });
       });
       return tmpContent;
     }
-    AWS3.IniLoader = AWS3.util.inherit({
+    function getSsoSessions(fileContent) {
+      var tmpContent = {};
+      Object.keys(fileContent).forEach(function (sectionName) {
+        if (!/^sso-session\s/.test(sectionName)) return;
+        Object.defineProperty(tmpContent, sectionName.replace(/^sso-session\s/, ''), {
+          value: fileContent[sectionName],
+          enumerable: true,
+        });
+      });
+      return tmpContent;
+    }
+    AWS2.IniLoader = AWS2.util.inherit({
       constructor: function IniLoader2() {
         this.resolvedProfiles = {};
+        this.resolvedSsoSessions = {};
       },
       clearCachedFiles: function clearCachedFiles() {
         this.resolvedProfiles = {};
+        this.resolvedSsoSessions = {};
       },
       loadFrom: function loadFrom(options) {
         options = options || {};
         var isConfig = options.isConfig === true;
         var filename = options.filename || this.getDefaultFilePath(isConfig);
         if (!this.resolvedProfiles[filename]) {
-          var fileContent = this.parseFile(filename, isConfig);
-          Object.defineProperty(this.resolvedProfiles, filename, { value: fileContent });
+          var fileContent = parseFile(filename);
+          if (isConfig) {
+            Object.defineProperty(this.resolvedProfiles, filename, {
+              value: getProfiles(fileContent),
+            });
+          } else {
+            Object.defineProperty(this.resolvedProfiles, filename, { value: fileContent });
+          }
         }
         return this.resolvedProfiles[filename];
       },
-      parseFile,
+      loadSsoSessionsFrom: function loadSsoSessionsFrom(options) {
+        options = options || {};
+        var filename = options.filename || this.getDefaultFilePath(true);
+        if (!this.resolvedSsoSessions[filename]) {
+          var fileContent = parseFile(filename);
+          Object.defineProperty(this.resolvedSsoSessions, filename, {
+            value: getSsoSessions(fileContent),
+          });
+        }
+        return this.resolvedSsoSessions[filename];
+      },
       getDefaultFilePath: function getDefaultFilePath(isConfig) {
         return path.join(this.getHomeDir(), '.aws', isConfig ? 'config' : 'credentials');
       },
@@ -9790,13 +10817,12 @@ var require_ini_loader = __commonJS({
         if (typeof os.homedir === 'function') {
           return os.homedir();
         }
-        throw AWS3.util.error(new Error('Cannot load credentials, HOME path not set'));
+        throw AWS2.util.error(new Error('Cannot load credentials, HOME path not set'));
       },
     });
-    var IniLoader = AWS3.IniLoader;
+    var IniLoader = AWS2.IniLoader;
     module2.exports = {
       IniLoader,
-      parseFile,
     };
   },
 });
@@ -9812,13 +10838,13 @@ var require_shared_ini = __commonJS({
 // node_modules/aws-sdk/lib/config_regional_endpoint.js
 var require_config_regional_endpoint = __commonJS({
   'node_modules/aws-sdk/lib/config_regional_endpoint.js'(exports, module2) {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     function validateRegionalEndpointsFlagValue(configValue, errorOptions) {
       if (typeof configValue !== 'string') return void 0;
       else if (['legacy', 'regional'].indexOf(configValue.toLowerCase()) >= 0) {
         return configValue.toLowerCase();
       } else {
-        throw AWS3.util.error(new Error(), errorOptions);
+        throw AWS2.util.error(new Error(), errorOptions);
       }
     }
     function resolveRegionalEndpointsFlag(originalConfig, options) {
@@ -9836,7 +10862,7 @@ var require_config_regional_endpoint = __commonJS({
         });
         if (resolved) return resolved;
       }
-      if (!AWS3.util.isNode()) return resolved;
+      if (!AWS2.util.isNode()) return resolved;
       if (Object.prototype.hasOwnProperty.call(process.env, options.env)) {
         var envFlag = process.env[options.env];
         resolved = validateRegionalEndpointsFlagValue(envFlag, {
@@ -9852,8 +10878,8 @@ var require_config_regional_endpoint = __commonJS({
       }
       var profile = {};
       try {
-        var profiles = AWS3.util.getProfilesFromSharedConfig(AWS3.util.iniLoader);
-        profile = profiles[process.env.AWS_PROFILE || AWS3.util.defaultProfile];
+        var profiles = AWS2.util.getProfilesFromSharedConfig(AWS2.util.iniLoader);
+        profile = profiles[process.env.AWS_PROFILE || AWS2.util.defaultProfile];
       } catch (e) {}
       if (profile && Object.prototype.hasOwnProperty.call(profile, options.sharedConfig)) {
         var fileFlag = profile[options.sharedConfig];
@@ -9877,14 +10903,14 @@ var require_config_regional_endpoint = __commonJS({
 // node_modules/aws-sdk/lib/services/sts.js
 var require_sts = __commonJS({
   'node_modules/aws-sdk/lib/services/sts.js'() {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var resolveRegionalEndpointsFlag = require_config_regional_endpoint();
     var ENV_REGIONAL_ENDPOINT_ENABLED = 'AWS_STS_REGIONAL_ENDPOINTS';
     var CONFIG_REGIONAL_ENDPOINT_ENABLED = 'sts_regional_endpoints';
-    AWS3.util.update(AWS3.STS.prototype, {
+    AWS2.util.update(AWS2.STS.prototype, {
       credentialsFrom: function credentialsFrom(data, credentials) {
         if (!data) return null;
-        if (!credentials) credentials = new AWS3.TemporaryCredentials();
+        if (!credentials) credentials = new AWS2.TemporaryCredentials();
         credentials.expired = false;
         credentials.accessKeyId = data.Credentials.AccessKeyId;
         credentials.secretAccessKey = data.Credentials.SecretAccessKey;
@@ -9911,7 +10937,7 @@ var require_sts = __commonJS({
         });
         if (config.stsRegionalEndpoints === 'regional' && service.isGlobalEndpoint) {
           if (!config.region) {
-            throw AWS3.util.error(new Error(), { code: 'ConfigError', message: 'Missing region in config' });
+            throw AWS2.util.error(new Error(), { code: 'ConfigError', message: 'Missing region in config' });
           }
           var insertPoint = config.endpoint.indexOf('.amazonaws.com');
           var regionalEndpoint =
@@ -9966,6 +10992,17 @@ var require_sts_2011_06_15_min = __commonJS({
               ExternalId: {},
               SerialNumber: {},
               TokenCode: {},
+              SourceIdentity: {},
+              ProvidedContexts: {
+                type: 'list',
+                member: {
+                  type: 'structure',
+                  members: {
+                    ProviderArn: {},
+                    ContextAssertion: {},
+                  },
+                },
+              },
             },
           },
           output: {
@@ -9973,14 +11010,15 @@ var require_sts_2011_06_15_min = __commonJS({
             type: 'structure',
             members: {
               Credentials: {
-                shape: 'Sh',
+                shape: 'Sl',
               },
               AssumedRoleUser: {
-                shape: 'Sm',
+                shape: 'Sq',
               },
               PackedPolicySize: {
                 type: 'integer',
               },
+              SourceIdentity: {},
             },
           },
         },
@@ -9991,7 +11029,10 @@ var require_sts_2011_06_15_min = __commonJS({
             members: {
               RoleArn: {},
               PrincipalArn: {},
-              SAMLAssertion: {},
+              SAMLAssertion: {
+                type: 'string',
+                sensitive: true,
+              },
               PolicyArns: {
                 shape: 'S4',
               },
@@ -10006,10 +11047,10 @@ var require_sts_2011_06_15_min = __commonJS({
             type: 'structure',
             members: {
               Credentials: {
-                shape: 'Sh',
+                shape: 'Sl',
               },
               AssumedRoleUser: {
-                shape: 'Sm',
+                shape: 'Sq',
               },
               PackedPolicySize: {
                 type: 'integer',
@@ -10019,6 +11060,7 @@ var require_sts_2011_06_15_min = __commonJS({
               Issuer: {},
               Audience: {},
               NameQualifier: {},
+              SourceIdentity: {},
             },
           },
         },
@@ -10029,7 +11071,10 @@ var require_sts_2011_06_15_min = __commonJS({
             members: {
               RoleArn: {},
               RoleSessionName: {},
-              WebIdentityToken: {},
+              WebIdentityToken: {
+                type: 'string',
+                sensitive: true,
+              },
               ProviderId: {},
               PolicyArns: {
                 shape: 'S4',
@@ -10045,17 +11090,18 @@ var require_sts_2011_06_15_min = __commonJS({
             type: 'structure',
             members: {
               Credentials: {
-                shape: 'Sh',
+                shape: 'Sl',
               },
               SubjectFromWebIdentityToken: {},
               AssumedRoleUser: {
-                shape: 'Sm',
+                shape: 'Sq',
               },
               PackedPolicySize: {
                 type: 'integer',
               },
               Provider: {},
               Audience: {},
+              SourceIdentity: {},
             },
           },
         },
@@ -10129,7 +11175,7 @@ var require_sts_2011_06_15_min = __commonJS({
             type: 'structure',
             members: {
               Credentials: {
-                shape: 'Sh',
+                shape: 'Sl',
               },
               FederatedUser: {
                 type: 'structure',
@@ -10161,7 +11207,7 @@ var require_sts_2011_06_15_min = __commonJS({
             type: 'structure',
             members: {
               Credentials: {
-                shape: 'Sh',
+                shape: 'Sl',
               },
             },
           },
@@ -10188,19 +11234,22 @@ var require_sts_2011_06_15_min = __commonJS({
             },
           },
         },
-        Sh: {
+        Sl: {
           type: 'structure',
           required: ['AccessKeyId', 'SecretAccessKey', 'SessionToken', 'Expiration'],
           members: {
             AccessKeyId: {},
-            SecretAccessKey: {},
+            SecretAccessKey: {
+              type: 'string',
+              sensitive: true,
+            },
             SessionToken: {},
             Expiration: {
               type: 'timestamp',
             },
           },
         },
-        Sm: {
+        Sq: {
           type: 'structure',
           required: ['AssumedRoleId', 'Arn'],
           members: {
@@ -10226,11 +11275,11 @@ var require_sts_2011_06_15_paginators = __commonJS({
 var require_sts2 = __commonJS({
   'node_modules/aws-sdk/clients/sts.js'(exports, module2) {
     require_node_loader();
-    var AWS3 = require_core();
-    var Service = AWS3.Service;
-    var apiLoader = AWS3.apiLoader;
+    var AWS2 = require_core();
+    var Service = AWS2.Service;
+    var apiLoader = AWS2.apiLoader;
     apiLoader.services['sts'] = {};
-    AWS3.STS = Service.defineService('sts', ['2011-06-15']);
+    AWS2.STS = Service.defineService('sts', ['2011-06-15']);
     require_sts();
     Object.defineProperty(apiLoader.services['sts'], '2011-06-15', {
       get: function get() {
@@ -10241,18 +11290,18 @@ var require_sts2 = __commonJS({
       enumerable: true,
       configurable: true,
     });
-    module2.exports = AWS3.STS;
+    module2.exports = AWS2.STS;
   },
 });
 
 // node_modules/aws-sdk/lib/credentials/temporary_credentials.js
 var require_temporary_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials/temporary_credentials.js'() {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var STS = require_sts2();
-    AWS3.TemporaryCredentials = AWS3.util.inherit(AWS3.Credentials, {
+    AWS2.TemporaryCredentials = AWS2.util.inherit(AWS2.Credentials, {
       constructor: function TemporaryCredentials(params, masterCredentials) {
-        AWS3.Credentials.call(this);
+        AWS2.Credentials.call(this);
         this.loadMasterCredentials(masterCredentials);
         this.expired = true;
         this.params = params || {};
@@ -10261,7 +11310,7 @@ var require_temporary_credentials = __commonJS({
         }
       },
       refresh: function refresh(callback) {
-        this.coalesceRefresh(callback || AWS3.util.fn.callback);
+        this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
       load: function load(callback) {
         var self = this;
@@ -10278,12 +11327,12 @@ var require_temporary_credentials = __commonJS({
         });
       },
       loadMasterCredentials: function loadMasterCredentials(masterCredentials) {
-        this.masterCredentials = masterCredentials || AWS3.config.credentials;
+        this.masterCredentials = masterCredentials || AWS2.config.credentials;
         while (this.masterCredentials.masterCredentials) {
           this.masterCredentials = this.masterCredentials.masterCredentials;
         }
         if (typeof this.masterCredentials.get !== 'function') {
-          this.masterCredentials = new AWS3.Credentials(this.masterCredentials);
+          this.masterCredentials = new AWS2.Credentials(this.masterCredentials);
         }
       },
       createClients: function () {
@@ -10296,39 +11345,39 @@ var require_temporary_credentials = __commonJS({
 // node_modules/aws-sdk/lib/credentials/chainable_temporary_credentials.js
 var require_chainable_temporary_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials/chainable_temporary_credentials.js'() {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var STS = require_sts2();
-    AWS3.ChainableTemporaryCredentials = AWS3.util.inherit(AWS3.Credentials, {
+    AWS2.ChainableTemporaryCredentials = AWS2.util.inherit(AWS2.Credentials, {
       constructor: function ChainableTemporaryCredentials(options) {
-        AWS3.Credentials.call(this);
+        AWS2.Credentials.call(this);
         options = options || {};
         this.errorCode = 'ChainableTemporaryCredentialsProviderFailure';
         this.expired = true;
         this.tokenCodeFn = null;
-        var params = AWS3.util.copy(options.params) || {};
+        var params = AWS2.util.copy(options.params) || {};
         if (params.RoleArn) {
           params.RoleSessionName = params.RoleSessionName || 'temporary-credentials';
         }
         if (params.SerialNumber) {
           if (!options.tokenCodeFn || typeof options.tokenCodeFn !== 'function') {
-            throw new AWS3.util.error(new Error('tokenCodeFn must be a function when params.SerialNumber is given'), {
+            throw new AWS2.util.error(new Error('tokenCodeFn must be a function when params.SerialNumber is given'), {
               code: this.errorCode,
             });
           } else {
             this.tokenCodeFn = options.tokenCodeFn;
           }
         }
-        var config = AWS3.util.merge(
+        var config = AWS2.util.merge(
           {
             params,
-            credentials: options.masterCredentials || AWS3.config.credentials,
+            credentials: options.masterCredentials || AWS2.config.credentials,
           },
           options.stsConfig || {}
         );
         this.service = new STS(config);
       },
       refresh: function refresh(callback) {
-        this.coalesceRefresh(callback || AWS3.util.fn.callback);
+        this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
       load: function load(callback) {
         var self = this;
@@ -10359,7 +11408,7 @@ var require_chainable_temporary_credentials = __commonJS({
               if (err instanceof Error) {
                 message = err.message;
               }
-              callback(AWS3.util.error(new Error('Error fetching MFA token: ' + message), { code: self.errorCode }));
+              callback(AWS2.util.error(new Error('Error fetching MFA token: ' + message), { code: self.errorCode }));
               return;
             }
             callback(null, token);
@@ -10375,19 +11424,19 @@ var require_chainable_temporary_credentials = __commonJS({
 // node_modules/aws-sdk/lib/credentials/web_identity_credentials.js
 var require_web_identity_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials/web_identity_credentials.js'() {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var STS = require_sts2();
-    AWS3.WebIdentityCredentials = AWS3.util.inherit(AWS3.Credentials, {
+    AWS2.WebIdentityCredentials = AWS2.util.inherit(AWS2.Credentials, {
       constructor: function WebIdentityCredentials(params, clientConfig) {
-        AWS3.Credentials.call(this);
+        AWS2.Credentials.call(this);
         this.expired = true;
         this.params = params;
         this.params.RoleSessionName = this.params.RoleSessionName || 'web-identity';
         this.data = null;
-        this._clientConfig = AWS3.util.copy(clientConfig || {});
+        this._clientConfig = AWS2.util.copy(clientConfig || {});
       },
       refresh: function refresh(callback) {
-        this.coalesceRefresh(callback || AWS3.util.fn.callback);
+        this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
       load: function load(callback) {
         var self = this;
@@ -10403,7 +11452,7 @@ var require_web_identity_credentials = __commonJS({
       },
       createClients: function () {
         if (!this.service) {
-          var stsConfig = AWS3.util.merge({}, this._clientConfig);
+          var stsConfig = AWS2.util.merge({}, this._clientConfig);
           stsConfig.params = this.params;
           this.service = new STS(stsConfig);
         }
@@ -10422,11 +11471,13 @@ var require_cognito_identity_2014_06_30_min = __commonJS({
         endpointPrefix: 'cognito-identity',
         jsonVersion: '1.1',
         protocol: 'json',
+        protocols: ['json'],
         serviceFullName: 'Amazon Cognito Identity',
         serviceId: 'Cognito Identity',
         signatureVersion: 'v4',
         targetPrefix: 'AWSCognitoIdentityService',
         uid: 'cognito-identity-2014-06-30',
+        auth: ['aws.auth#sigv4'],
       },
       operations: {
         CreateIdentityPool: {
@@ -10553,6 +11604,7 @@ var require_cognito_identity_2014_06_30_min = __commonJS({
             },
           },
           authtype: 'none',
+          auth: ['smithy.api#noAuth'],
         },
         GetId: {
           input: {
@@ -10573,6 +11625,7 @@ var require_cognito_identity_2014_06_30_min = __commonJS({
             },
           },
           authtype: 'none',
+          auth: ['smithy.api#noAuth'],
         },
         GetIdentityPoolRoles: {
           input: {
@@ -10614,6 +11667,7 @@ var require_cognito_identity_2014_06_30_min = __commonJS({
             },
           },
           authtype: 'none',
+          auth: ['smithy.api#noAuth'],
         },
         GetOpenIdTokenForDeveloperIdentity: {
           input: {
@@ -10625,6 +11679,9 @@ var require_cognito_identity_2014_06_30_min = __commonJS({
               Logins: {
                 shape: 'S10',
               },
+              PrincipalTags: {
+                shape: 'S1s',
+              },
               TokenDuration: {
                 type: 'long',
               },
@@ -10635,6 +11692,29 @@ var require_cognito_identity_2014_06_30_min = __commonJS({
             members: {
               IdentityId: {},
               Token: {},
+            },
+          },
+        },
+        GetPrincipalTagAttributeMap: {
+          input: {
+            type: 'structure',
+            required: ['IdentityPoolId', 'IdentityProviderName'],
+            members: {
+              IdentityPoolId: {},
+              IdentityProviderName: {},
+            },
+          },
+          output: {
+            type: 'structure',
+            members: {
+              IdentityPoolId: {},
+              IdentityProviderName: {},
+              UseDefaults: {
+                type: 'boolean',
+              },
+              PrincipalTags: {
+                shape: 'S1s',
+              },
             },
           },
         },
@@ -10771,6 +11851,35 @@ var require_cognito_identity_2014_06_30_min = __commonJS({
             },
           },
         },
+        SetPrincipalTagAttributeMap: {
+          input: {
+            type: 'structure',
+            required: ['IdentityPoolId', 'IdentityProviderName'],
+            members: {
+              IdentityPoolId: {},
+              IdentityProviderName: {},
+              UseDefaults: {
+                type: 'boolean',
+              },
+              PrincipalTags: {
+                shape: 'S1s',
+              },
+            },
+          },
+          output: {
+            type: 'structure',
+            members: {
+              IdentityPoolId: {},
+              IdentityProviderName: {},
+              UseDefaults: {
+                type: 'boolean',
+              },
+              PrincipalTags: {
+                shape: 'S1s',
+              },
+            },
+          },
+        },
         TagResource: {
           input: {
             type: 'structure',
@@ -10814,6 +11923,7 @@ var require_cognito_identity_2014_06_30_min = __commonJS({
             },
           },
           authtype: 'none',
+          auth: ['smithy.api#noAuth'],
         },
         UntagResource: {
           input: {
@@ -10963,6 +12073,11 @@ var require_cognito_identity_2014_06_30_min = __commonJS({
             },
           },
         },
+        S1s: {
+          type: 'map',
+          key: {},
+          value: {},
+        },
       },
     };
   },
@@ -10988,11 +12103,11 @@ var require_cognito_identity_2014_06_30_paginators = __commonJS({
 var require_cognitoidentity = __commonJS({
   'node_modules/aws-sdk/clients/cognitoidentity.js'(exports, module2) {
     require_node_loader();
-    var AWS3 = require_core();
-    var Service = AWS3.Service;
-    var apiLoader = AWS3.apiLoader;
+    var AWS2 = require_core();
+    var Service = AWS2.Service;
+    var apiLoader = AWS2.apiLoader;
     apiLoader.services['cognitoidentity'] = {};
-    AWS3.CognitoIdentity = Service.defineService('cognitoidentity', ['2014-06-30']);
+    AWS2.CognitoIdentity = Service.defineService('cognitoidentity', ['2014-06-30']);
     Object.defineProperty(apiLoader.services['cognitoidentity'], '2014-06-30', {
       get: function get() {
         var model = require_cognito_identity_2014_06_30_min();
@@ -11002,28 +12117,28 @@ var require_cognitoidentity = __commonJS({
       enumerable: true,
       configurable: true,
     });
-    module2.exports = AWS3.CognitoIdentity;
+    module2.exports = AWS2.CognitoIdentity;
   },
 });
 
 // node_modules/aws-sdk/lib/credentials/cognito_identity_credentials.js
 var require_cognito_identity_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials/cognito_identity_credentials.js'() {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var CognitoIdentity = require_cognitoidentity();
     var STS = require_sts2();
-    AWS3.CognitoIdentityCredentials = AWS3.util.inherit(AWS3.Credentials, {
+    AWS2.CognitoIdentityCredentials = AWS2.util.inherit(AWS2.Credentials, {
       localStorageKey: {
         id: 'aws.cognito.identity-id.',
         providers: 'aws.cognito.identity-providers.',
       },
       constructor: function CognitoIdentityCredentials(params, clientConfig) {
-        AWS3.Credentials.call(this);
+        AWS2.Credentials.call(this);
         this.expired = true;
         this.params = params;
         this.data = null;
         this._identityId = null;
-        this._clientConfig = AWS3.util.copy(clientConfig || {});
+        this._clientConfig = AWS2.util.copy(clientConfig || {});
         this.loadCachedId();
         var self = this;
         Object.defineProperty(this, 'identityId', {
@@ -11037,7 +12152,7 @@ var require_cognito_identity_credentials = __commonJS({
         });
       },
       refresh: function refresh(callback) {
-        this.coalesceRefresh(callback || AWS3.util.fn.callback);
+        this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
       load: function load(callback) {
         var self = this;
@@ -11127,7 +12242,7 @@ var require_cognito_identity_credentials = __commonJS({
       },
       loadCachedId: function loadCachedId() {
         var self = this;
-        if (AWS3.util.isBrowser() && !self.params.IdentityId) {
+        if (AWS2.util.isBrowser() && !self.params.IdentityId) {
           var id = self.getStorage('id');
           if (id && self.params.Logins) {
             var actualProviders = Object.keys(self.params.Logins);
@@ -11146,9 +12261,9 @@ var require_cognito_identity_credentials = __commonJS({
       createClients: function () {
         var clientConfig = this._clientConfig;
         this.webIdentityCredentials =
-          this.webIdentityCredentials || new AWS3.WebIdentityCredentials(this.params, clientConfig);
+          this.webIdentityCredentials || new AWS2.WebIdentityCredentials(this.params, clientConfig);
         if (!this.cognito) {
-          var cognitoConfig = AWS3.util.merge({}, clientConfig);
+          var cognitoConfig = AWS2.util.merge({}, clientConfig);
           cognitoConfig.params = this.params;
           this.cognito = new CognitoIdentity(cognitoConfig);
         }
@@ -11157,7 +12272,7 @@ var require_cognito_identity_credentials = __commonJS({
       cacheId: function cacheId(data) {
         this._identityId = data.IdentityId;
         this.params.IdentityId = this._identityId;
-        if (AWS3.util.isBrowser()) {
+        if (AWS2.util.isBrowser()) {
           this.setStorage('id', data.IdentityId);
           if (this.params.Logins) {
             this.setStorage('providers', Object.keys(this.params.Logins).join(','));
@@ -11175,7 +12290,7 @@ var require_cognito_identity_credentials = __commonJS({
       storage: (function () {
         try {
           var storage =
-            AWS3.util.isBrowser() && window.localStorage !== null && typeof window.localStorage === 'object'
+            AWS2.util.isBrowser() && window.localStorage !== null && typeof window.localStorage === 'object'
               ? window.localStorage
               : {};
           storage['aws.test-storage'] = 'foobar';
@@ -11192,16 +12307,16 @@ var require_cognito_identity_credentials = __commonJS({
 // node_modules/aws-sdk/lib/credentials/saml_credentials.js
 var require_saml_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials/saml_credentials.js'() {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var STS = require_sts2();
-    AWS3.SAMLCredentials = AWS3.util.inherit(AWS3.Credentials, {
+    AWS2.SAMLCredentials = AWS2.util.inherit(AWS2.Credentials, {
       constructor: function SAMLCredentials(params) {
-        AWS3.Credentials.call(this);
+        AWS2.Credentials.call(this);
         this.expired = true;
         this.params = params;
       },
       refresh: function refresh(callback) {
-        this.coalesceRefresh(callback || AWS3.util.fn.callback);
+        this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
       load: function load(callback) {
         var self = this;
@@ -11223,24 +12338,24 @@ var require_saml_credentials = __commonJS({
 // node_modules/aws-sdk/lib/credentials/process_credentials.js
 var require_process_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials/process_credentials.js'() {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var proc = require('child_process');
-    var iniLoader = AWS3.util.iniLoader;
-    AWS3.ProcessCredentials = AWS3.util.inherit(AWS3.Credentials, {
+    var iniLoader = AWS2.util.iniLoader;
+    AWS2.ProcessCredentials = AWS2.util.inherit(AWS2.Credentials, {
       constructor: function ProcessCredentials(options) {
-        AWS3.Credentials.call(this);
+        AWS2.Credentials.call(this);
         options = options || {};
         this.filename = options.filename;
-        this.profile = options.profile || process.env.AWS_PROFILE || AWS3.util.defaultProfile;
-        this.get(options.callback || AWS3.util.fn.noop);
+        this.profile = options.profile || process.env.AWS_PROFILE || AWS2.util.defaultProfile;
+        this.get(options.callback || AWS2.util.fn.noop);
       },
       load: function load(callback) {
         var self = this;
         try {
-          var profiles = AWS3.util.getProfilesFromSharedConfig(iniLoader, this.filename);
+          var profiles = AWS2.util.getProfilesFromSharedConfig(iniLoader, this.filename);
           var profile = profiles[this.profile] || {};
           if (Object.keys(profile).length === 0) {
-            throw AWS3.util.error(new Error('Profile ' + this.profile + ' not found'), {
+            throw AWS2.util.error(new Error('Profile ' + this.profile + ' not found'), {
               code: 'ProcessCredentialsProviderFailure',
             });
           }
@@ -11260,7 +12375,7 @@ var require_process_credentials = __commonJS({
               }
             });
           } else {
-            throw AWS3.util.error(new Error('Profile ' + this.profile + ' did not include credential process'), {
+            throw AWS2.util.error(new Error('Profile ' + this.profile + ' did not include credential process'), {
               code: 'ProcessCredentialsProviderFailure',
             });
           }
@@ -11269,10 +12384,10 @@ var require_process_credentials = __commonJS({
         }
       },
       loadViaCredentialProcess: function loadViaCredentialProcess(profile, callback) {
-        proc.exec(profile['credential_process'], function (err, stdOut, stdErr) {
+        proc.exec(profile['credential_process'], { env: process.env }, function (err, stdOut, stdErr) {
           if (err) {
             callback(
-              AWS3.util.error(new Error('credential_process returned error'), {
+              AWS2.util.error(new Error('credential_process returned error'), {
                 code: 'ProcessCredentialsProviderFailure',
               }),
               null
@@ -11281,7 +12396,7 @@ var require_process_credentials = __commonJS({
             try {
               var credData = JSON.parse(stdOut);
               if (credData.Expiration) {
-                var currentTime = AWS3.util.date.getDate();
+                var currentTime = AWS2.util.date.getDate();
                 var expireTime = new Date(credData.Expiration);
                 if (expireTime < currentTime) {
                   throw Error('credential_process returned expired credentials');
@@ -11292,14 +12407,14 @@ var require_process_credentials = __commonJS({
               }
               callback(null, credData);
             } catch (err2) {
-              callback(AWS3.util.error(new Error(err2.message), { code: 'ProcessCredentialsProviderFailure' }), null);
+              callback(AWS2.util.error(new Error(err2.message), { code: 'ProcessCredentialsProviderFailure' }), null);
             }
           }
         });
       },
       refresh: function refresh(callback) {
         iniLoader.clearCachedFiles();
-        this.coalesceRefresh(callback || AWS3.util.fn.callback);
+        this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
     });
   },
@@ -11386,6 +12501,7 @@ var require_Utility = __commonJS({
   'node_modules/xmlbuilder/lib/Utility.js'(exports, module2) {
     (function () {
       var assign,
+        getValue,
         isArray,
         isEmpty,
         isFunction,
@@ -11448,12 +12564,176 @@ var require_Utility = __commonJS({
           Function.prototype.toString.call(ctor) === Function.prototype.toString.call(Object)
         );
       };
+      getValue = function (obj) {
+        if (isFunction(obj.valueOf)) {
+          return obj.valueOf();
+        } else {
+          return obj;
+        }
+      };
       module2.exports.assign = assign;
       module2.exports.isFunction = isFunction;
       module2.exports.isObject = isObject;
       module2.exports.isArray = isArray;
       module2.exports.isEmpty = isEmpty;
       module2.exports.isPlainObject = isPlainObject;
+      module2.exports.getValue = getValue;
+    }.call(exports));
+  },
+});
+
+// node_modules/xmlbuilder/lib/XMLDOMImplementation.js
+var require_XMLDOMImplementation = __commonJS({
+  'node_modules/xmlbuilder/lib/XMLDOMImplementation.js'(exports, module2) {
+    (function () {
+      var XMLDOMImplementation;
+      module2.exports = XMLDOMImplementation = (function () {
+        function XMLDOMImplementation2() {}
+        XMLDOMImplementation2.prototype.hasFeature = function (feature, version) {
+          return true;
+        };
+        XMLDOMImplementation2.prototype.createDocumentType = function (qualifiedName, publicId, systemId) {
+          throw new Error('This DOM method is not implemented.');
+        };
+        XMLDOMImplementation2.prototype.createDocument = function (namespaceURI, qualifiedName, doctype) {
+          throw new Error('This DOM method is not implemented.');
+        };
+        XMLDOMImplementation2.prototype.createHTMLDocument = function (title) {
+          throw new Error('This DOM method is not implemented.');
+        };
+        XMLDOMImplementation2.prototype.getFeature = function (feature, version) {
+          throw new Error('This DOM method is not implemented.');
+        };
+        return XMLDOMImplementation2;
+      })();
+    }.call(exports));
+  },
+});
+
+// node_modules/xmlbuilder/lib/XMLDOMErrorHandler.js
+var require_XMLDOMErrorHandler = __commonJS({
+  'node_modules/xmlbuilder/lib/XMLDOMErrorHandler.js'(exports, module2) {
+    (function () {
+      var XMLDOMErrorHandler;
+      module2.exports = XMLDOMErrorHandler = (function () {
+        function XMLDOMErrorHandler2() {}
+        XMLDOMErrorHandler2.prototype.handleError = function (error) {
+          throw new Error(error);
+        };
+        return XMLDOMErrorHandler2;
+      })();
+    }.call(exports));
+  },
+});
+
+// node_modules/xmlbuilder/lib/XMLDOMStringList.js
+var require_XMLDOMStringList = __commonJS({
+  'node_modules/xmlbuilder/lib/XMLDOMStringList.js'(exports, module2) {
+    (function () {
+      var XMLDOMStringList;
+      module2.exports = XMLDOMStringList = (function () {
+        function XMLDOMStringList2(arr) {
+          this.arr = arr || [];
+        }
+        Object.defineProperty(XMLDOMStringList2.prototype, 'length', {
+          get: function () {
+            return this.arr.length;
+          },
+        });
+        XMLDOMStringList2.prototype.item = function (index) {
+          return this.arr[index] || null;
+        };
+        XMLDOMStringList2.prototype.contains = function (str) {
+          return this.arr.indexOf(str) !== -1;
+        };
+        return XMLDOMStringList2;
+      })();
+    }.call(exports));
+  },
+});
+
+// node_modules/xmlbuilder/lib/XMLDOMConfiguration.js
+var require_XMLDOMConfiguration = __commonJS({
+  'node_modules/xmlbuilder/lib/XMLDOMConfiguration.js'(exports, module2) {
+    (function () {
+      var XMLDOMConfiguration, XMLDOMErrorHandler, XMLDOMStringList;
+      XMLDOMErrorHandler = require_XMLDOMErrorHandler();
+      XMLDOMStringList = require_XMLDOMStringList();
+      module2.exports = XMLDOMConfiguration = (function () {
+        function XMLDOMConfiguration2() {
+          var clonedSelf;
+          this.defaultParams = {
+            'canonical-form': false,
+            'cdata-sections': false,
+            comments: false,
+            'datatype-normalization': false,
+            'element-content-whitespace': true,
+            entities: true,
+            'error-handler': new XMLDOMErrorHandler(),
+            infoset: true,
+            'validate-if-schema': false,
+            namespaces: true,
+            'namespace-declarations': true,
+            'normalize-characters': false,
+            'schema-location': '',
+            'schema-type': '',
+            'split-cdata-sections': true,
+            validate: false,
+            'well-formed': true,
+          };
+          this.params = clonedSelf = Object.create(this.defaultParams);
+        }
+        Object.defineProperty(XMLDOMConfiguration2.prototype, 'parameterNames', {
+          get: function () {
+            return new XMLDOMStringList(Object.keys(this.defaultParams));
+          },
+        });
+        XMLDOMConfiguration2.prototype.getParameter = function (name) {
+          if (this.params.hasOwnProperty(name)) {
+            return this.params[name];
+          } else {
+            return null;
+          }
+        };
+        XMLDOMConfiguration2.prototype.canSetParameter = function (name, value) {
+          return true;
+        };
+        XMLDOMConfiguration2.prototype.setParameter = function (name, value) {
+          if (value != null) {
+            return (this.params[name] = value);
+          } else {
+            return delete this.params[name];
+          }
+        };
+        return XMLDOMConfiguration2;
+      })();
+    }.call(exports));
+  },
+});
+
+// node_modules/xmlbuilder/lib/NodeType.js
+var require_NodeType = __commonJS({
+  'node_modules/xmlbuilder/lib/NodeType.js'(exports, module2) {
+    (function () {
+      module2.exports = {
+        Element: 1,
+        Attribute: 2,
+        Text: 3,
+        CData: 4,
+        EntityReference: 5,
+        EntityDeclaration: 6,
+        ProcessingInstruction: 7,
+        Comment: 8,
+        Document: 9,
+        DocType: 10,
+        DocumentFragment: 11,
+        NotationDeclaration: 12,
+        Declaration: 201,
+        Raw: 202,
+        AttributeDeclaration: 203,
+        ElementDeclaration: 204,
+        Dummy: 205,
+      };
     }.call(exports));
   },
 });
@@ -11462,27 +12742,143 @@ var require_Utility = __commonJS({
 var require_XMLAttribute = __commonJS({
   'node_modules/xmlbuilder/lib/XMLAttribute.js'(exports, module2) {
     (function () {
-      var XMLAttribute;
+      var NodeType, XMLAttribute, XMLNode;
+      NodeType = require_NodeType();
+      XMLNode = require_XMLNode();
       module2.exports = XMLAttribute = (function () {
         function XMLAttribute2(parent, name, value) {
-          this.options = parent.options;
-          this.stringify = parent.stringify;
+          this.parent = parent;
+          if (this.parent) {
+            this.options = this.parent.options;
+            this.stringify = this.parent.stringify;
+          }
           if (name == null) {
-            throw new Error('Missing attribute name of element ' + parent.name);
+            throw new Error('Missing attribute name. ' + this.debugInfo(name));
           }
-          if (value == null) {
-            throw new Error('Missing attribute value for attribute ' + name + ' of element ' + parent.name);
-          }
-          this.name = this.stringify.attName(name);
+          this.name = this.stringify.name(name);
           this.value = this.stringify.attValue(value);
+          this.type = NodeType.Attribute;
+          this.isId = false;
+          this.schemaTypeInfo = null;
         }
+        Object.defineProperty(XMLAttribute2.prototype, 'nodeType', {
+          get: function () {
+            return this.type;
+          },
+        });
+        Object.defineProperty(XMLAttribute2.prototype, 'ownerElement', {
+          get: function () {
+            return this.parent;
+          },
+        });
+        Object.defineProperty(XMLAttribute2.prototype, 'textContent', {
+          get: function () {
+            return this.value;
+          },
+          set: function (value) {
+            return (this.value = value || '');
+          },
+        });
+        Object.defineProperty(XMLAttribute2.prototype, 'namespaceURI', {
+          get: function () {
+            return '';
+          },
+        });
+        Object.defineProperty(XMLAttribute2.prototype, 'prefix', {
+          get: function () {
+            return '';
+          },
+        });
+        Object.defineProperty(XMLAttribute2.prototype, 'localName', {
+          get: function () {
+            return this.name;
+          },
+        });
+        Object.defineProperty(XMLAttribute2.prototype, 'specified', {
+          get: function () {
+            return true;
+          },
+        });
         XMLAttribute2.prototype.clone = function () {
           return Object.create(this);
         };
         XMLAttribute2.prototype.toString = function (options) {
-          return this.options.writer.set(options).attribute(this);
+          return this.options.writer.attribute(this, this.options.writer.filterOptions(options));
+        };
+        XMLAttribute2.prototype.debugInfo = function (name) {
+          name = name || this.name;
+          if (name == null) {
+            return 'parent: <' + this.parent.name + '>';
+          } else {
+            return 'attribute: {' + name + '}, parent: <' + this.parent.name + '>';
+          }
+        };
+        XMLAttribute2.prototype.isEqualNode = function (node) {
+          if (node.namespaceURI !== this.namespaceURI) {
+            return false;
+          }
+          if (node.prefix !== this.prefix) {
+            return false;
+          }
+          if (node.localName !== this.localName) {
+            return false;
+          }
+          if (node.value !== this.value) {
+            return false;
+          }
+          return true;
         };
         return XMLAttribute2;
+      })();
+    }.call(exports));
+  },
+});
+
+// node_modules/xmlbuilder/lib/XMLNamedNodeMap.js
+var require_XMLNamedNodeMap = __commonJS({
+  'node_modules/xmlbuilder/lib/XMLNamedNodeMap.js'(exports, module2) {
+    (function () {
+      var XMLNamedNodeMap;
+      module2.exports = XMLNamedNodeMap = (function () {
+        function XMLNamedNodeMap2(nodes) {
+          this.nodes = nodes;
+        }
+        Object.defineProperty(XMLNamedNodeMap2.prototype, 'length', {
+          get: function () {
+            return Object.keys(this.nodes).length || 0;
+          },
+        });
+        XMLNamedNodeMap2.prototype.clone = function () {
+          return (this.nodes = null);
+        };
+        XMLNamedNodeMap2.prototype.getNamedItem = function (name) {
+          return this.nodes[name];
+        };
+        XMLNamedNodeMap2.prototype.setNamedItem = function (node) {
+          var oldNode;
+          oldNode = this.nodes[node.nodeName];
+          this.nodes[node.nodeName] = node;
+          return oldNode || null;
+        };
+        XMLNamedNodeMap2.prototype.removeNamedItem = function (name) {
+          var oldNode;
+          oldNode = this.nodes[name];
+          delete this.nodes[name];
+          return oldNode || null;
+        };
+        XMLNamedNodeMap2.prototype.item = function (index) {
+          return this.nodes[Object.keys(this.nodes)[index]] || null;
+        };
+        XMLNamedNodeMap2.prototype.getNamedItemNS = function (namespaceURI, localName) {
+          throw new Error('This DOM method is not implemented.');
+        };
+        XMLNamedNodeMap2.prototype.setNamedItemNS = function (node) {
+          throw new Error('This DOM method is not implemented.');
+        };
+        XMLNamedNodeMap2.prototype.removeNamedItemNS = function (namespaceURI, localName) {
+          throw new Error('This DOM method is not implemented.');
+        };
+        return XMLNamedNodeMap2;
       })();
     }.call(exports));
   },
@@ -11492,9 +12888,12 @@ var require_XMLAttribute = __commonJS({
 var require_XMLElement = __commonJS({
   'node_modules/xmlbuilder/lib/XMLElement.js'(exports, module2) {
     (function () {
-      var XMLAttribute,
+      var NodeType,
+        XMLAttribute,
         XMLElement,
+        XMLNamedNodeMap,
         XMLNode,
+        getValue,
         isFunction,
         isObject,
         ref,
@@ -11511,39 +12910,97 @@ var require_XMLElement = __commonJS({
           return child;
         },
         hasProp = {}.hasOwnProperty;
-      (ref = require_Utility()), (isObject = ref.isObject), (isFunction = ref.isFunction);
+      (ref = require_Utility()), (isObject = ref.isObject), (isFunction = ref.isFunction), (getValue = ref.getValue);
       XMLNode = require_XMLNode();
+      NodeType = require_NodeType();
       XMLAttribute = require_XMLAttribute();
+      XMLNamedNodeMap = require_XMLNamedNodeMap();
       module2.exports = XMLElement = (function (superClass) {
         extend(XMLElement2, superClass);
         function XMLElement2(parent, name, attributes) {
+          var child, j, len, ref1;
           XMLElement2.__super__.constructor.call(this, parent);
           if (name == null) {
-            throw new Error('Missing element name');
+            throw new Error('Missing element name. ' + this.debugInfo());
           }
-          this.name = this.stringify.eleName(name);
-          this.attributes = {};
+          this.name = this.stringify.name(name);
+          this.type = NodeType.Element;
+          this.attribs = {};
+          this.schemaTypeInfo = null;
           if (attributes != null) {
             this.attribute(attributes);
           }
-          if (parent.isDocument) {
+          if (parent.type === NodeType.Document) {
             this.isRoot = true;
             this.documentObject = parent;
             parent.rootObject = this;
+            if (parent.children) {
+              ref1 = parent.children;
+              for (j = 0, len = ref1.length; j < len; j++) {
+                child = ref1[j];
+                if (child.type === NodeType.DocType) {
+                  child.name = this.name;
+                  break;
+                }
+              }
+            }
           }
         }
+        Object.defineProperty(XMLElement2.prototype, 'tagName', {
+          get: function () {
+            return this.name;
+          },
+        });
+        Object.defineProperty(XMLElement2.prototype, 'namespaceURI', {
+          get: function () {
+            return '';
+          },
+        });
+        Object.defineProperty(XMLElement2.prototype, 'prefix', {
+          get: function () {
+            return '';
+          },
+        });
+        Object.defineProperty(XMLElement2.prototype, 'localName', {
+          get: function () {
+            return this.name;
+          },
+        });
+        Object.defineProperty(XMLElement2.prototype, 'id', {
+          get: function () {
+            throw new Error('This DOM method is not implemented.' + this.debugInfo());
+          },
+        });
+        Object.defineProperty(XMLElement2.prototype, 'className', {
+          get: function () {
+            throw new Error('This DOM method is not implemented.' + this.debugInfo());
+          },
+        });
+        Object.defineProperty(XMLElement2.prototype, 'classList', {
+          get: function () {
+            throw new Error('This DOM method is not implemented.' + this.debugInfo());
+          },
+        });
+        Object.defineProperty(XMLElement2.prototype, 'attributes', {
+          get: function () {
+            if (!this.attributeMap || !this.attributeMap.nodes) {
+              this.attributeMap = new XMLNamedNodeMap(this.attribs);
+            }
+            return this.attributeMap;
+          },
+        });
         XMLElement2.prototype.clone = function () {
           var att, attName, clonedSelf, ref1;
           clonedSelf = Object.create(this);
           if (clonedSelf.isRoot) {
             clonedSelf.documentObject = null;
           }
-          clonedSelf.attributes = {};
-          ref1 = this.attributes;
+          clonedSelf.attribs = {};
+          ref1 = this.attribs;
           for (attName in ref1) {
             if (!hasProp.call(ref1, attName)) continue;
             att = ref1[attName];
-            clonedSelf.attributes[attName] = att.clone();
+            clonedSelf.attribs[attName] = att.clone();
           }
           clonedSelf.children = [];
           this.children.forEach(function (child) {
@@ -11557,7 +13014,7 @@ var require_XMLElement = __commonJS({
         XMLElement2.prototype.attribute = function (name, value) {
           var attName, attValue;
           if (name != null) {
-            name = name.valueOf();
+            name = getValue(name);
           }
           if (isObject(name)) {
             for (attName in name) {
@@ -11569,30 +13026,32 @@ var require_XMLElement = __commonJS({
             if (isFunction(value)) {
               value = value.apply();
             }
-            if (!this.options.skipNullAttributes || value != null) {
-              this.attributes[name] = new XMLAttribute(this, name, value);
+            if (this.options.keepNullAttributes && value == null) {
+              this.attribs[name] = new XMLAttribute(this, name, '');
+            } else if (value != null) {
+              this.attribs[name] = new XMLAttribute(this, name, value);
             }
           }
           return this;
         };
         XMLElement2.prototype.removeAttribute = function (name) {
-          var attName, i, len;
+          var attName, j, len;
           if (name == null) {
-            throw new Error('Missing attribute name');
+            throw new Error('Missing attribute name. ' + this.debugInfo());
           }
-          name = name.valueOf();
+          name = getValue(name);
           if (Array.isArray(name)) {
-            for (i = 0, len = name.length; i < len; i++) {
-              attName = name[i];
-              delete this.attributes[attName];
+            for (j = 0, len = name.length; j < len; j++) {
+              attName = name[j];
+              delete this.attribs[attName];
             }
           } else {
-            delete this.attributes[name];
+            delete this.attribs[name];
           }
           return this;
         };
         XMLElement2.prototype.toString = function (options) {
-          return this.options.writer.set(options).element(this);
+          return this.options.writer.element(this, this.options.writer.filterOptions(options));
         };
         XMLElement2.prototype.att = function (name, value) {
           return this.attribute(name, value);
@@ -11600,7 +13059,187 @@ var require_XMLElement = __commonJS({
         XMLElement2.prototype.a = function (name, value) {
           return this.attribute(name, value);
         };
+        XMLElement2.prototype.getAttribute = function (name) {
+          if (this.attribs.hasOwnProperty(name)) {
+            return this.attribs[name].value;
+          } else {
+            return null;
+          }
+        };
+        XMLElement2.prototype.setAttribute = function (name, value) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLElement2.prototype.getAttributeNode = function (name) {
+          if (this.attribs.hasOwnProperty(name)) {
+            return this.attribs[name];
+          } else {
+            return null;
+          }
+        };
+        XMLElement2.prototype.setAttributeNode = function (newAttr) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLElement2.prototype.removeAttributeNode = function (oldAttr) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLElement2.prototype.getElementsByTagName = function (name) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLElement2.prototype.getAttributeNS = function (namespaceURI, localName) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLElement2.prototype.setAttributeNS = function (namespaceURI, qualifiedName, value) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLElement2.prototype.removeAttributeNS = function (namespaceURI, localName) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLElement2.prototype.getAttributeNodeNS = function (namespaceURI, localName) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLElement2.prototype.setAttributeNodeNS = function (newAttr) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLElement2.prototype.getElementsByTagNameNS = function (namespaceURI, localName) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLElement2.prototype.hasAttribute = function (name) {
+          return this.attribs.hasOwnProperty(name);
+        };
+        XMLElement2.prototype.hasAttributeNS = function (namespaceURI, localName) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLElement2.prototype.setIdAttribute = function (name, isId) {
+          if (this.attribs.hasOwnProperty(name)) {
+            return this.attribs[name].isId;
+          } else {
+            return isId;
+          }
+        };
+        XMLElement2.prototype.setIdAttributeNS = function (namespaceURI, localName, isId) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLElement2.prototype.setIdAttributeNode = function (idAttr, isId) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLElement2.prototype.getElementsByTagName = function (tagname) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLElement2.prototype.getElementsByTagNameNS = function (namespaceURI, localName) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLElement2.prototype.getElementsByClassName = function (classNames) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLElement2.prototype.isEqualNode = function (node) {
+          var i, j, ref1;
+          if (!XMLElement2.__super__.isEqualNode.apply(this, arguments).isEqualNode(node)) {
+            return false;
+          }
+          if (node.namespaceURI !== this.namespaceURI) {
+            return false;
+          }
+          if (node.prefix !== this.prefix) {
+            return false;
+          }
+          if (node.localName !== this.localName) {
+            return false;
+          }
+          if (node.attribs.length !== this.attribs.length) {
+            return false;
+          }
+          for (
+            i = j = 0, ref1 = this.attribs.length - 1;
+            0 <= ref1 ? j <= ref1 : j >= ref1;
+            i = 0 <= ref1 ? ++j : --j
+          ) {
+            if (!this.attribs[i].isEqualNode(node.attribs[i])) {
+              return false;
+            }
+          }
+          return true;
+        };
         return XMLElement2;
+      })(XMLNode);
+    }.call(exports));
+  },
+});
+
+// node_modules/xmlbuilder/lib/XMLCharacterData.js
+var require_XMLCharacterData = __commonJS({
+  'node_modules/xmlbuilder/lib/XMLCharacterData.js'(exports, module2) {
+    (function () {
+      var XMLCharacterData,
+        XMLNode,
+        extend = function (child, parent) {
+          for (var key in parent) {
+            if (hasProp.call(parent, key)) child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor();
+          child.__super__ = parent.prototype;
+          return child;
+        },
+        hasProp = {}.hasOwnProperty;
+      XMLNode = require_XMLNode();
+      module2.exports = XMLCharacterData = (function (superClass) {
+        extend(XMLCharacterData2, superClass);
+        function XMLCharacterData2(parent) {
+          XMLCharacterData2.__super__.constructor.call(this, parent);
+          this.value = '';
+        }
+        Object.defineProperty(XMLCharacterData2.prototype, 'data', {
+          get: function () {
+            return this.value;
+          },
+          set: function (value) {
+            return (this.value = value || '');
+          },
+        });
+        Object.defineProperty(XMLCharacterData2.prototype, 'length', {
+          get: function () {
+            return this.value.length;
+          },
+        });
+        Object.defineProperty(XMLCharacterData2.prototype, 'textContent', {
+          get: function () {
+            return this.value;
+          },
+          set: function (value) {
+            return (this.value = value || '');
+          },
+        });
+        XMLCharacterData2.prototype.clone = function () {
+          return Object.create(this);
+        };
+        XMLCharacterData2.prototype.substringData = function (offset, count) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLCharacterData2.prototype.appendData = function (arg) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLCharacterData2.prototype.insertData = function (offset, arg) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLCharacterData2.prototype.deleteData = function (offset, count) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLCharacterData2.prototype.replaceData = function (offset, count, arg) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLCharacterData2.prototype.isEqualNode = function (node) {
+          if (!XMLCharacterData2.__super__.isEqualNode.apply(this, arguments).isEqualNode(node)) {
+            return false;
+          }
+          if (node.data !== this.data) {
+            return false;
+          }
+          return true;
+        };
+        return XMLCharacterData2;
       })(XMLNode);
     }.call(exports));
   },
@@ -11610,8 +13249,9 @@ var require_XMLElement = __commonJS({
 var require_XMLCData = __commonJS({
   'node_modules/xmlbuilder/lib/XMLCData.js'(exports, module2) {
     (function () {
-      var XMLCData,
-        XMLNode,
+      var NodeType,
+        XMLCData,
+        XMLCharacterData,
         extend = function (child, parent) {
           for (var key in parent) {
             if (hasProp.call(parent, key)) child[key] = parent[key];
@@ -11625,24 +13265,27 @@ var require_XMLCData = __commonJS({
           return child;
         },
         hasProp = {}.hasOwnProperty;
-      XMLNode = require_XMLNode();
+      NodeType = require_NodeType();
+      XMLCharacterData = require_XMLCharacterData();
       module2.exports = XMLCData = (function (superClass) {
         extend(XMLCData2, superClass);
         function XMLCData2(parent, text) {
           XMLCData2.__super__.constructor.call(this, parent);
           if (text == null) {
-            throw new Error('Missing CDATA text');
+            throw new Error('Missing CDATA text. ' + this.debugInfo());
           }
-          this.text = this.stringify.cdata(text);
+          this.name = '#cdata-section';
+          this.type = NodeType.CData;
+          this.value = this.stringify.cdata(text);
         }
         XMLCData2.prototype.clone = function () {
           return Object.create(this);
         };
         XMLCData2.prototype.toString = function (options) {
-          return this.options.writer.set(options).cdata(this);
+          return this.options.writer.cdata(this, this.options.writer.filterOptions(options));
         };
         return XMLCData2;
-      })(XMLNode);
+      })(XMLCharacterData);
     }.call(exports));
   },
 });
@@ -11651,8 +13294,9 @@ var require_XMLCData = __commonJS({
 var require_XMLComment = __commonJS({
   'node_modules/xmlbuilder/lib/XMLComment.js'(exports, module2) {
     (function () {
-      var XMLComment,
-        XMLNode,
+      var NodeType,
+        XMLCharacterData,
+        XMLComment,
         extend = function (child, parent) {
           for (var key in parent) {
             if (hasProp.call(parent, key)) child[key] = parent[key];
@@ -11666,24 +13310,27 @@ var require_XMLComment = __commonJS({
           return child;
         },
         hasProp = {}.hasOwnProperty;
-      XMLNode = require_XMLNode();
+      NodeType = require_NodeType();
+      XMLCharacterData = require_XMLCharacterData();
       module2.exports = XMLComment = (function (superClass) {
         extend(XMLComment2, superClass);
         function XMLComment2(parent, text) {
           XMLComment2.__super__.constructor.call(this, parent);
           if (text == null) {
-            throw new Error('Missing comment text');
+            throw new Error('Missing comment text. ' + this.debugInfo());
           }
-          this.text = this.stringify.comment(text);
+          this.name = '#comment';
+          this.type = NodeType.Comment;
+          this.value = this.stringify.comment(text);
         }
         XMLComment2.prototype.clone = function () {
           return Object.create(this);
         };
         XMLComment2.prototype.toString = function (options) {
-          return this.options.writer.set(options).comment(this);
+          return this.options.writer.comment(this, this.options.writer.filterOptions(options));
         };
         return XMLComment2;
-      })(XMLNode);
+      })(XMLCharacterData);
     }.call(exports));
   },
 });
@@ -11692,7 +13339,8 @@ var require_XMLComment = __commonJS({
 var require_XMLDeclaration = __commonJS({
   'node_modules/xmlbuilder/lib/XMLDeclaration.js'(exports, module2) {
     (function () {
-      var XMLDeclaration,
+      var NodeType,
+        XMLDeclaration,
         XMLNode,
         isObject,
         extend = function (child, parent) {
@@ -11710,6 +13358,7 @@ var require_XMLDeclaration = __commonJS({
         hasProp = {}.hasOwnProperty;
       isObject = require_Utility().isObject;
       XMLNode = require_XMLNode();
+      NodeType = require_NodeType();
       module2.exports = XMLDeclaration = (function (superClass) {
         extend(XMLDeclaration2, superClass);
         function XMLDeclaration2(parent, version, encoding, standalone) {
@@ -11721,6 +13370,7 @@ var require_XMLDeclaration = __commonJS({
           if (!version) {
             version = '1.0';
           }
+          this.type = NodeType.Declaration;
           this.version = this.stringify.xmlVersion(version);
           if (encoding != null) {
             this.encoding = this.stringify.xmlEncoding(encoding);
@@ -11730,7 +13380,7 @@ var require_XMLDeclaration = __commonJS({
           }
         }
         XMLDeclaration2.prototype.toString = function (options) {
-          return this.options.writer.set(options).declaration(this);
+          return this.options.writer.declaration(this, this.options.writer.filterOptions(options));
         };
         return XMLDeclaration2;
       })(XMLNode);
@@ -11742,7 +13392,8 @@ var require_XMLDeclaration = __commonJS({
 var require_XMLDTDAttList = __commonJS({
   'node_modules/xmlbuilder/lib/XMLDTDAttList.js'(exports, module2) {
     (function () {
-      var XMLDTDAttList,
+      var NodeType,
+        XMLDTDAttList,
         XMLNode,
         extend = function (child, parent) {
           for (var key in parent) {
@@ -11758,39 +13409,46 @@ var require_XMLDTDAttList = __commonJS({
         },
         hasProp = {}.hasOwnProperty;
       XMLNode = require_XMLNode();
+      NodeType = require_NodeType();
       module2.exports = XMLDTDAttList = (function (superClass) {
         extend(XMLDTDAttList2, superClass);
         function XMLDTDAttList2(parent, elementName, attributeName, attributeType, defaultValueType, defaultValue) {
           XMLDTDAttList2.__super__.constructor.call(this, parent);
           if (elementName == null) {
-            throw new Error('Missing DTD element name');
+            throw new Error('Missing DTD element name. ' + this.debugInfo());
           }
           if (attributeName == null) {
-            throw new Error('Missing DTD attribute name');
+            throw new Error('Missing DTD attribute name. ' + this.debugInfo(elementName));
           }
           if (!attributeType) {
-            throw new Error('Missing DTD attribute type');
+            throw new Error('Missing DTD attribute type. ' + this.debugInfo(elementName));
           }
           if (!defaultValueType) {
-            throw new Error('Missing DTD attribute default');
+            throw new Error('Missing DTD attribute default. ' + this.debugInfo(elementName));
           }
           if (defaultValueType.indexOf('#') !== 0) {
             defaultValueType = '#' + defaultValueType;
           }
           if (!defaultValueType.match(/^(#REQUIRED|#IMPLIED|#FIXED|#DEFAULT)$/)) {
-            throw new Error('Invalid default value type; expected: #REQUIRED, #IMPLIED, #FIXED or #DEFAULT');
+            throw new Error(
+              'Invalid default value type; expected: #REQUIRED, #IMPLIED, #FIXED or #DEFAULT. ' +
+                this.debugInfo(elementName)
+            );
           }
           if (defaultValue && !defaultValueType.match(/^(#FIXED|#DEFAULT)$/)) {
-            throw new Error('Default value only applies to #FIXED or #DEFAULT');
+            throw new Error('Default value only applies to #FIXED or #DEFAULT. ' + this.debugInfo(elementName));
           }
-          this.elementName = this.stringify.eleName(elementName);
-          this.attributeName = this.stringify.attName(attributeName);
+          this.elementName = this.stringify.name(elementName);
+          this.type = NodeType.AttributeDeclaration;
+          this.attributeName = this.stringify.name(attributeName);
           this.attributeType = this.stringify.dtdAttType(attributeType);
-          this.defaultValue = this.stringify.dtdAttDefault(defaultValue);
+          if (defaultValue) {
+            this.defaultValue = this.stringify.dtdAttDefault(defaultValue);
+          }
           this.defaultValueType = defaultValueType;
         }
         XMLDTDAttList2.prototype.toString = function (options) {
-          return this.options.writer.set(options).dtdAttList(this);
+          return this.options.writer.dtdAttList(this, this.options.writer.filterOptions(options));
         };
         return XMLDTDAttList2;
       })(XMLNode);
@@ -11802,7 +13460,8 @@ var require_XMLDTDAttList = __commonJS({
 var require_XMLDTDEntity = __commonJS({
   'node_modules/xmlbuilder/lib/XMLDTDEntity.js'(exports, module2) {
     (function () {
-      var XMLDTDEntity,
+      var NodeType,
+        XMLDTDEntity,
         XMLNode,
         isObject,
         extend = function (child, parent) {
@@ -11820,27 +13479,33 @@ var require_XMLDTDEntity = __commonJS({
         hasProp = {}.hasOwnProperty;
       isObject = require_Utility().isObject;
       XMLNode = require_XMLNode();
+      NodeType = require_NodeType();
       module2.exports = XMLDTDEntity = (function (superClass) {
         extend(XMLDTDEntity2, superClass);
         function XMLDTDEntity2(parent, pe, name, value) {
           XMLDTDEntity2.__super__.constructor.call(this, parent);
           if (name == null) {
-            throw new Error('Missing entity name');
+            throw new Error('Missing DTD entity name. ' + this.debugInfo(name));
           }
           if (value == null) {
-            throw new Error('Missing entity value');
+            throw new Error('Missing DTD entity value. ' + this.debugInfo(name));
           }
           this.pe = !!pe;
-          this.name = this.stringify.eleName(name);
+          this.name = this.stringify.name(name);
+          this.type = NodeType.EntityDeclaration;
           if (!isObject(value)) {
             this.value = this.stringify.dtdEntityValue(value);
+            this.internal = true;
           } else {
             if (!value.pubID && !value.sysID) {
-              throw new Error('Public and/or system identifiers are required for an external entity');
+              throw new Error(
+                'Public and/or system identifiers are required for an external entity. ' + this.debugInfo(name)
+              );
             }
             if (value.pubID && !value.sysID) {
-              throw new Error('System identifier is required for a public external entity');
+              throw new Error('System identifier is required for a public external entity. ' + this.debugInfo(name));
             }
+            this.internal = false;
             if (value.pubID != null) {
               this.pubID = this.stringify.dtdPubID(value.pubID);
             }
@@ -11851,12 +13516,42 @@ var require_XMLDTDEntity = __commonJS({
               this.nData = this.stringify.dtdNData(value.nData);
             }
             if (this.pe && this.nData) {
-              throw new Error('Notation declaration is not allowed in a parameter entity');
+              throw new Error('Notation declaration is not allowed in a parameter entity. ' + this.debugInfo(name));
             }
           }
         }
+        Object.defineProperty(XMLDTDEntity2.prototype, 'publicId', {
+          get: function () {
+            return this.pubID;
+          },
+        });
+        Object.defineProperty(XMLDTDEntity2.prototype, 'systemId', {
+          get: function () {
+            return this.sysID;
+          },
+        });
+        Object.defineProperty(XMLDTDEntity2.prototype, 'notationName', {
+          get: function () {
+            return this.nData || null;
+          },
+        });
+        Object.defineProperty(XMLDTDEntity2.prototype, 'inputEncoding', {
+          get: function () {
+            return null;
+          },
+        });
+        Object.defineProperty(XMLDTDEntity2.prototype, 'xmlEncoding', {
+          get: function () {
+            return null;
+          },
+        });
+        Object.defineProperty(XMLDTDEntity2.prototype, 'xmlVersion', {
+          get: function () {
+            return null;
+          },
+        });
         XMLDTDEntity2.prototype.toString = function (options) {
-          return this.options.writer.set(options).dtdEntity(this);
+          return this.options.writer.dtdEntity(this, this.options.writer.filterOptions(options));
         };
         return XMLDTDEntity2;
       })(XMLNode);
@@ -11868,7 +13563,8 @@ var require_XMLDTDEntity = __commonJS({
 var require_XMLDTDElement = __commonJS({
   'node_modules/xmlbuilder/lib/XMLDTDElement.js'(exports, module2) {
     (function () {
-      var XMLDTDElement,
+      var NodeType,
+        XMLDTDElement,
         XMLNode,
         extend = function (child, parent) {
           for (var key in parent) {
@@ -11884,12 +13580,13 @@ var require_XMLDTDElement = __commonJS({
         },
         hasProp = {}.hasOwnProperty;
       XMLNode = require_XMLNode();
+      NodeType = require_NodeType();
       module2.exports = XMLDTDElement = (function (superClass) {
         extend(XMLDTDElement2, superClass);
         function XMLDTDElement2(parent, name, value) {
           XMLDTDElement2.__super__.constructor.call(this, parent);
           if (name == null) {
-            throw new Error('Missing DTD element name');
+            throw new Error('Missing DTD element name. ' + this.debugInfo());
           }
           if (!value) {
             value = '(#PCDATA)';
@@ -11897,11 +13594,12 @@ var require_XMLDTDElement = __commonJS({
           if (Array.isArray(value)) {
             value = '(' + value.join(',') + ')';
           }
-          this.name = this.stringify.eleName(name);
+          this.name = this.stringify.name(name);
+          this.type = NodeType.ElementDeclaration;
           this.value = this.stringify.dtdElementValue(value);
         }
         XMLDTDElement2.prototype.toString = function (options) {
-          return this.options.writer.set(options).dtdElement(this);
+          return this.options.writer.dtdElement(this, this.options.writer.filterOptions(options));
         };
         return XMLDTDElement2;
       })(XMLNode);
@@ -11913,7 +13611,8 @@ var require_XMLDTDElement = __commonJS({
 var require_XMLDTDNotation = __commonJS({
   'node_modules/xmlbuilder/lib/XMLDTDNotation.js'(exports, module2) {
     (function () {
-      var XMLDTDNotation,
+      var NodeType,
+        XMLDTDNotation,
         XMLNode,
         extend = function (child, parent) {
           for (var key in parent) {
@@ -11929,17 +13628,21 @@ var require_XMLDTDNotation = __commonJS({
         },
         hasProp = {}.hasOwnProperty;
       XMLNode = require_XMLNode();
+      NodeType = require_NodeType();
       module2.exports = XMLDTDNotation = (function (superClass) {
         extend(XMLDTDNotation2, superClass);
         function XMLDTDNotation2(parent, name, value) {
           XMLDTDNotation2.__super__.constructor.call(this, parent);
           if (name == null) {
-            throw new Error('Missing notation name');
+            throw new Error('Missing DTD notation name. ' + this.debugInfo(name));
           }
           if (!value.pubID && !value.sysID) {
-            throw new Error('Public or system identifiers are required for an external entity');
+            throw new Error(
+              'Public or system identifiers are required for an external entity. ' + this.debugInfo(name)
+            );
           }
-          this.name = this.stringify.eleName(name);
+          this.name = this.stringify.name(name);
+          this.type = NodeType.NotationDeclaration;
           if (value.pubID != null) {
             this.pubID = this.stringify.dtdPubID(value.pubID);
           }
@@ -11947,8 +13650,18 @@ var require_XMLDTDNotation = __commonJS({
             this.sysID = this.stringify.dtdSysID(value.sysID);
           }
         }
+        Object.defineProperty(XMLDTDNotation2.prototype, 'publicId', {
+          get: function () {
+            return this.pubID;
+          },
+        });
+        Object.defineProperty(XMLDTDNotation2.prototype, 'systemId', {
+          get: function () {
+            return this.sysID;
+          },
+        });
         XMLDTDNotation2.prototype.toString = function (options) {
-          return this.options.writer.set(options).dtdNotation(this);
+          return this.options.writer.dtdNotation(this, this.options.writer.filterOptions(options));
         };
         return XMLDTDNotation2;
       })(XMLNode);
@@ -11960,11 +13673,13 @@ var require_XMLDTDNotation = __commonJS({
 var require_XMLDocType = __commonJS({
   'node_modules/xmlbuilder/lib/XMLDocType.js'(exports, module2) {
     (function () {
-      var XMLDTDAttList,
+      var NodeType,
+        XMLDTDAttList,
         XMLDTDElement,
         XMLDTDEntity,
         XMLDTDNotation,
         XMLDocType,
+        XMLNamedNodeMap,
         XMLNode,
         isObject,
         extend = function (child, parent) {
@@ -11982,21 +13697,34 @@ var require_XMLDocType = __commonJS({
         hasProp = {}.hasOwnProperty;
       isObject = require_Utility().isObject;
       XMLNode = require_XMLNode();
+      NodeType = require_NodeType();
       XMLDTDAttList = require_XMLDTDAttList();
       XMLDTDEntity = require_XMLDTDEntity();
       XMLDTDElement = require_XMLDTDElement();
       XMLDTDNotation = require_XMLDTDNotation();
+      XMLNamedNodeMap = require_XMLNamedNodeMap();
       module2.exports = XMLDocType = (function (superClass) {
         extend(XMLDocType2, superClass);
         function XMLDocType2(parent, pubID, sysID) {
-          var ref, ref1;
+          var child, i, len, ref, ref1, ref2;
           XMLDocType2.__super__.constructor.call(this, parent);
+          this.type = NodeType.DocType;
+          if (parent.children) {
+            ref = parent.children;
+            for (i = 0, len = ref.length; i < len; i++) {
+              child = ref[i];
+              if (child.type === NodeType.Element) {
+                this.name = child.name;
+                break;
+              }
+            }
+          }
           this.documentObject = parent;
           if (isObject(pubID)) {
-            (ref = pubID), (pubID = ref.pubID), (sysID = ref.sysID);
+            (ref1 = pubID), (pubID = ref1.pubID), (sysID = ref1.sysID);
           }
           if (sysID == null) {
-            (ref1 = [pubID, sysID]), (sysID = ref1[0]), (pubID = ref1[1]);
+            (ref2 = [pubID, sysID]), (sysID = ref2[0]), (pubID = ref2[1]);
           }
           if (pubID != null) {
             this.pubID = this.stringify.dtdPubID(pubID);
@@ -12005,6 +13733,49 @@ var require_XMLDocType = __commonJS({
             this.sysID = this.stringify.dtdSysID(sysID);
           }
         }
+        Object.defineProperty(XMLDocType2.prototype, 'entities', {
+          get: function () {
+            var child, i, len, nodes, ref;
+            nodes = {};
+            ref = this.children;
+            for (i = 0, len = ref.length; i < len; i++) {
+              child = ref[i];
+              if (child.type === NodeType.EntityDeclaration && !child.pe) {
+                nodes[child.name] = child;
+              }
+            }
+            return new XMLNamedNodeMap(nodes);
+          },
+        });
+        Object.defineProperty(XMLDocType2.prototype, 'notations', {
+          get: function () {
+            var child, i, len, nodes, ref;
+            nodes = {};
+            ref = this.children;
+            for (i = 0, len = ref.length; i < len; i++) {
+              child = ref[i];
+              if (child.type === NodeType.NotationDeclaration) {
+                nodes[child.name] = child;
+              }
+            }
+            return new XMLNamedNodeMap(nodes);
+          },
+        });
+        Object.defineProperty(XMLDocType2.prototype, 'publicId', {
+          get: function () {
+            return this.pubID;
+          },
+        });
+        Object.defineProperty(XMLDocType2.prototype, 'systemId', {
+          get: function () {
+            return this.sysID;
+          },
+        });
+        Object.defineProperty(XMLDocType2.prototype, 'internalSubset', {
+          get: function () {
+            throw new Error('This DOM method is not implemented.' + this.debugInfo());
+          },
+        });
         XMLDocType2.prototype.element = function (name, value) {
           var child;
           child = new XMLDTDElement(this, name, value);
@@ -12042,7 +13813,7 @@ var require_XMLDocType = __commonJS({
           return this;
         };
         XMLDocType2.prototype.toString = function (options) {
-          return this.options.writer.set(options).docType(this);
+          return this.options.writer.docType(this, this.options.writer.filterOptions(options));
         };
         XMLDocType2.prototype.ele = function (name, value) {
           return this.element(name, value);
@@ -12068,6 +13839,21 @@ var require_XMLDocType = __commonJS({
         XMLDocType2.prototype.up = function () {
           return this.root() || this.documentObject;
         };
+        XMLDocType2.prototype.isEqualNode = function (node) {
+          if (!XMLDocType2.__super__.isEqualNode.apply(this, arguments).isEqualNode(node)) {
+            return false;
+          }
+          if (node.name !== this.name) {
+            return false;
+          }
+          if (node.publicId !== this.publicId) {
+            return false;
+          }
+          if (node.systemId !== this.systemId) {
+            return false;
+          }
+          return true;
+        };
         return XMLDocType2;
       })(XMLNode);
     }.call(exports));
@@ -12078,7 +13864,8 @@ var require_XMLDocType = __commonJS({
 var require_XMLRaw = __commonJS({
   'node_modules/xmlbuilder/lib/XMLRaw.js'(exports, module2) {
     (function () {
-      var XMLNode,
+      var NodeType,
+        XMLNode,
         XMLRaw,
         extend = function (child, parent) {
           for (var key in parent) {
@@ -12093,21 +13880,23 @@ var require_XMLRaw = __commonJS({
           return child;
         },
         hasProp = {}.hasOwnProperty;
+      NodeType = require_NodeType();
       XMLNode = require_XMLNode();
       module2.exports = XMLRaw = (function (superClass) {
         extend(XMLRaw2, superClass);
         function XMLRaw2(parent, text) {
           XMLRaw2.__super__.constructor.call(this, parent);
           if (text == null) {
-            throw new Error('Missing raw text');
+            throw new Error('Missing raw text. ' + this.debugInfo());
           }
+          this.type = NodeType.Raw;
           this.value = this.stringify.raw(text);
         }
         XMLRaw2.prototype.clone = function () {
           return Object.create(this);
         };
         XMLRaw2.prototype.toString = function (options) {
-          return this.options.writer.set(options).raw(this);
+          return this.options.writer.raw(this, this.options.writer.filterOptions(options));
         };
         return XMLRaw2;
       })(XMLNode);
@@ -12119,7 +13908,8 @@ var require_XMLRaw = __commonJS({
 var require_XMLText = __commonJS({
   'node_modules/xmlbuilder/lib/XMLText.js'(exports, module2) {
     (function () {
-      var XMLNode,
+      var NodeType,
+        XMLCharacterData,
         XMLText,
         extend = function (child, parent) {
           for (var key in parent) {
@@ -12134,24 +13924,56 @@ var require_XMLText = __commonJS({
           return child;
         },
         hasProp = {}.hasOwnProperty;
-      XMLNode = require_XMLNode();
+      NodeType = require_NodeType();
+      XMLCharacterData = require_XMLCharacterData();
       module2.exports = XMLText = (function (superClass) {
         extend(XMLText2, superClass);
         function XMLText2(parent, text) {
           XMLText2.__super__.constructor.call(this, parent);
           if (text == null) {
-            throw new Error('Missing element text');
+            throw new Error('Missing element text. ' + this.debugInfo());
           }
-          this.value = this.stringify.eleText(text);
+          this.name = '#text';
+          this.type = NodeType.Text;
+          this.value = this.stringify.text(text);
         }
+        Object.defineProperty(XMLText2.prototype, 'isElementContentWhitespace', {
+          get: function () {
+            throw new Error('This DOM method is not implemented.' + this.debugInfo());
+          },
+        });
+        Object.defineProperty(XMLText2.prototype, 'wholeText', {
+          get: function () {
+            var next, prev, str;
+            str = '';
+            prev = this.previousSibling;
+            while (prev) {
+              str = prev.data + str;
+              prev = prev.previousSibling;
+            }
+            str += this.data;
+            next = this.nextSibling;
+            while (next) {
+              str = str + next.data;
+              next = next.nextSibling;
+            }
+            return str;
+          },
+        });
         XMLText2.prototype.clone = function () {
           return Object.create(this);
         };
         XMLText2.prototype.toString = function (options) {
-          return this.options.writer.set(options).text(this);
+          return this.options.writer.text(this, this.options.writer.filterOptions(options));
+        };
+        XMLText2.prototype.splitText = function (offset) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLText2.prototype.replaceWholeText = function (content) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
         };
         return XMLText2;
-      })(XMLNode);
+      })(XMLCharacterData);
     }.call(exports));
   },
 });
@@ -12160,7 +13982,8 @@ var require_XMLText = __commonJS({
 var require_XMLProcessingInstruction = __commonJS({
   'node_modules/xmlbuilder/lib/XMLProcessingInstruction.js'(exports, module2) {
     (function () {
-      var XMLNode,
+      var NodeType,
+        XMLCharacterData,
         XMLProcessingInstruction,
         extend = function (child, parent) {
           for (var key in parent) {
@@ -12175,15 +13998,18 @@ var require_XMLProcessingInstruction = __commonJS({
           return child;
         },
         hasProp = {}.hasOwnProperty;
-      XMLNode = require_XMLNode();
+      NodeType = require_NodeType();
+      XMLCharacterData = require_XMLCharacterData();
       module2.exports = XMLProcessingInstruction = (function (superClass) {
         extend(XMLProcessingInstruction2, superClass);
         function XMLProcessingInstruction2(parent, target, value) {
           XMLProcessingInstruction2.__super__.constructor.call(this, parent);
           if (target == null) {
-            throw new Error('Missing instruction target');
+            throw new Error('Missing instruction target. ' + this.debugInfo());
           }
+          this.type = NodeType.ProcessingInstruction;
           this.target = this.stringify.insTarget(target);
+          this.name = this.target;
           if (value) {
             this.value = this.stringify.insValue(value);
           }
@@ -12192,10 +14018,101 @@ var require_XMLProcessingInstruction = __commonJS({
           return Object.create(this);
         };
         XMLProcessingInstruction2.prototype.toString = function (options) {
-          return this.options.writer.set(options).processingInstruction(this);
+          return this.options.writer.processingInstruction(this, this.options.writer.filterOptions(options));
+        };
+        XMLProcessingInstruction2.prototype.isEqualNode = function (node) {
+          if (!XMLProcessingInstruction2.__super__.isEqualNode.apply(this, arguments).isEqualNode(node)) {
+            return false;
+          }
+          if (node.target !== this.target) {
+            return false;
+          }
+          return true;
         };
         return XMLProcessingInstruction2;
+      })(XMLCharacterData);
+    }.call(exports));
+  },
+});
+
+// node_modules/xmlbuilder/lib/XMLDummy.js
+var require_XMLDummy = __commonJS({
+  'node_modules/xmlbuilder/lib/XMLDummy.js'(exports, module2) {
+    (function () {
+      var NodeType,
+        XMLDummy,
+        XMLNode,
+        extend = function (child, parent) {
+          for (var key in parent) {
+            if (hasProp.call(parent, key)) child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor();
+          child.__super__ = parent.prototype;
+          return child;
+        },
+        hasProp = {}.hasOwnProperty;
+      XMLNode = require_XMLNode();
+      NodeType = require_NodeType();
+      module2.exports = XMLDummy = (function (superClass) {
+        extend(XMLDummy2, superClass);
+        function XMLDummy2(parent) {
+          XMLDummy2.__super__.constructor.call(this, parent);
+          this.type = NodeType.Dummy;
+        }
+        XMLDummy2.prototype.clone = function () {
+          return Object.create(this);
+        };
+        XMLDummy2.prototype.toString = function (options) {
+          return '';
+        };
+        return XMLDummy2;
       })(XMLNode);
+    }.call(exports));
+  },
+});
+
+// node_modules/xmlbuilder/lib/XMLNodeList.js
+var require_XMLNodeList = __commonJS({
+  'node_modules/xmlbuilder/lib/XMLNodeList.js'(exports, module2) {
+    (function () {
+      var XMLNodeList;
+      module2.exports = XMLNodeList = (function () {
+        function XMLNodeList2(nodes) {
+          this.nodes = nodes;
+        }
+        Object.defineProperty(XMLNodeList2.prototype, 'length', {
+          get: function () {
+            return this.nodes.length || 0;
+          },
+        });
+        XMLNodeList2.prototype.clone = function () {
+          return (this.nodes = null);
+        };
+        XMLNodeList2.prototype.item = function (index) {
+          return this.nodes[index] || null;
+        };
+        return XMLNodeList2;
+      })();
+    }.call(exports));
+  },
+});
+
+// node_modules/xmlbuilder/lib/DocumentPosition.js
+var require_DocumentPosition = __commonJS({
+  'node_modules/xmlbuilder/lib/DocumentPosition.js'(exports, module2) {
+    (function () {
+      module2.exports = {
+        Disconnected: 1,
+        Preceding: 2,
+        Following: 4,
+        Contains: 8,
+        ContainedBy: 16,
+        ImplementationSpecific: 32,
+      };
     }.call(exports));
   },
 });
@@ -12204,21 +14121,31 @@ var require_XMLProcessingInstruction = __commonJS({
 var require_XMLNode = __commonJS({
   'node_modules/xmlbuilder/lib/XMLNode.js'(exports, module2) {
     (function () {
-      var XMLCData,
+      var DocumentPosition,
+        NodeType,
+        XMLCData,
         XMLComment,
         XMLDeclaration,
         XMLDocType,
+        XMLDummy,
         XMLElement,
+        XMLNamedNodeMap,
         XMLNode,
+        XMLNodeList,
         XMLProcessingInstruction,
         XMLRaw,
         XMLText,
+        getValue,
         isEmpty,
         isFunction,
         isObject,
-        ref,
+        ref1,
         hasProp = {}.hasOwnProperty;
-      (ref = require_Utility()), (isObject = ref.isObject), (isFunction = ref.isFunction), (isEmpty = ref.isEmpty);
+      (ref1 = require_Utility()),
+        (isObject = ref1.isObject),
+        (isFunction = ref1.isFunction),
+        (isEmpty = ref1.isEmpty),
+        (getValue = ref1.getValue);
       XMLElement = null;
       XMLCData = null;
       XMLComment = null;
@@ -12227,14 +14154,21 @@ var require_XMLNode = __commonJS({
       XMLRaw = null;
       XMLText = null;
       XMLProcessingInstruction = null;
+      XMLDummy = null;
+      NodeType = null;
+      XMLNodeList = null;
+      XMLNamedNodeMap = null;
+      DocumentPosition = null;
       module2.exports = XMLNode = (function () {
-        function XMLNode2(parent) {
-          this.parent = parent;
+        function XMLNode2(parent1) {
+          this.parent = parent1;
           if (this.parent) {
             this.options = this.parent.options;
             this.stringify = this.parent.stringify;
           }
+          this.value = null;
           this.children = [];
+          this.baseURI = null;
           if (!XMLElement) {
             XMLElement = require_XMLElement();
             XMLCData = require_XMLCData();
@@ -12244,20 +14178,121 @@ var require_XMLNode = __commonJS({
             XMLRaw = require_XMLRaw();
             XMLText = require_XMLText();
             XMLProcessingInstruction = require_XMLProcessingInstruction();
+            XMLDummy = require_XMLDummy();
+            NodeType = require_NodeType();
+            XMLNodeList = require_XMLNodeList();
+            XMLNamedNodeMap = require_XMLNamedNodeMap();
+            DocumentPosition = require_DocumentPosition();
           }
         }
+        Object.defineProperty(XMLNode2.prototype, 'nodeName', {
+          get: function () {
+            return this.name;
+          },
+        });
+        Object.defineProperty(XMLNode2.prototype, 'nodeType', {
+          get: function () {
+            return this.type;
+          },
+        });
+        Object.defineProperty(XMLNode2.prototype, 'nodeValue', {
+          get: function () {
+            return this.value;
+          },
+        });
+        Object.defineProperty(XMLNode2.prototype, 'parentNode', {
+          get: function () {
+            return this.parent;
+          },
+        });
+        Object.defineProperty(XMLNode2.prototype, 'childNodes', {
+          get: function () {
+            if (!this.childNodeList || !this.childNodeList.nodes) {
+              this.childNodeList = new XMLNodeList(this.children);
+            }
+            return this.childNodeList;
+          },
+        });
+        Object.defineProperty(XMLNode2.prototype, 'firstChild', {
+          get: function () {
+            return this.children[0] || null;
+          },
+        });
+        Object.defineProperty(XMLNode2.prototype, 'lastChild', {
+          get: function () {
+            return this.children[this.children.length - 1] || null;
+          },
+        });
+        Object.defineProperty(XMLNode2.prototype, 'previousSibling', {
+          get: function () {
+            var i;
+            i = this.parent.children.indexOf(this);
+            return this.parent.children[i - 1] || null;
+          },
+        });
+        Object.defineProperty(XMLNode2.prototype, 'nextSibling', {
+          get: function () {
+            var i;
+            i = this.parent.children.indexOf(this);
+            return this.parent.children[i + 1] || null;
+          },
+        });
+        Object.defineProperty(XMLNode2.prototype, 'ownerDocument', {
+          get: function () {
+            return this.document() || null;
+          },
+        });
+        Object.defineProperty(XMLNode2.prototype, 'textContent', {
+          get: function () {
+            var child, j, len, ref2, str;
+            if (this.nodeType === NodeType.Element || this.nodeType === NodeType.DocumentFragment) {
+              str = '';
+              ref2 = this.children;
+              for (j = 0, len = ref2.length; j < len; j++) {
+                child = ref2[j];
+                if (child.textContent) {
+                  str += child.textContent;
+                }
+              }
+              return str;
+            } else {
+              return null;
+            }
+          },
+          set: function (value) {
+            throw new Error('This DOM method is not implemented.' + this.debugInfo());
+          },
+        });
+        XMLNode2.prototype.setParent = function (parent) {
+          var child, j, len, ref2, results;
+          this.parent = parent;
+          if (parent) {
+            this.options = parent.options;
+            this.stringify = parent.stringify;
+          }
+          ref2 = this.children;
+          results = [];
+          for (j = 0, len = ref2.length; j < len; j++) {
+            child = ref2[j];
+            results.push(child.setParent(this));
+          }
+          return results;
+        };
         XMLNode2.prototype.element = function (name, attributes, text) {
-          var childNode, item, j, k, key, lastChild, len, len1, ref1, val;
+          var childNode, item, j, k, key, lastChild, len, len1, ref2, ref3, val;
           lastChild = null;
+          if (attributes === null && text == null) {
+            (ref2 = [{}, null]), (attributes = ref2[0]), (text = ref2[1]);
+          }
           if (attributes == null) {
             attributes = {};
           }
-          attributes = attributes.valueOf();
+          attributes = getValue(attributes);
           if (!isObject(attributes)) {
-            (ref1 = [attributes, text]), (text = ref1[0]), (attributes = ref1[1]);
+            (ref3 = [attributes, text]), (text = ref3[0]), (attributes = ref3[1]);
           }
           if (name != null) {
-            name = name.valueOf();
+            name = getValue(name);
           }
           if (Array.isArray(name)) {
             for (j = 0, len = name.length; j < len; j++) {
@@ -12273,15 +14308,18 @@ var require_XMLNode = __commonJS({
               if (isFunction(val)) {
                 val = val.apply();
               }
-              if (isObject(val) && isEmpty(val)) {
-                val = null;
-              }
               if (
                 !this.options.ignoreDecorators &&
                 this.stringify.convertAttKey &&
                 key.indexOf(this.stringify.convertAttKey) === 0
               ) {
                 lastChild = this.attribute(key.substr(this.stringify.convertAttKey.length), val);
+              } else if (!this.options.separateArrayItems && Array.isArray(val) && isEmpty(val)) {
+                lastChild = this.dummy();
+              } else if (isObject(val) && isEmpty(val)) {
+                lastChild = this.element(key);
+              } else if (!this.options.keepNullNodes && val == null) {
+                lastChild = this.dummy();
               } else if (!this.options.separateArrayItems && Array.isArray(val)) {
                 for (k = 0, len1 = val.length; k < len1; k++) {
                   item = val[k];
@@ -12290,12 +14328,22 @@ var require_XMLNode = __commonJS({
                   lastChild = this.element(childNode);
                 }
               } else if (isObject(val)) {
-                lastChild = this.element(key);
-                lastChild.element(val);
+                if (
+                  !this.options.ignoreDecorators &&
+                  this.stringify.convertTextKey &&
+                  key.indexOf(this.stringify.convertTextKey) === 0
+                ) {
+                  lastChild = this.element(val);
+                } else {
+                  lastChild = this.element(key);
+                  lastChild.element(val);
+                }
               } else {
                 lastChild = this.element(key, val);
               }
             }
+          } else if (!this.options.keepNullNodes && text === null) {
+            lastChild = this.dummy();
           } else {
             if (
               !this.options.ignoreDecorators &&
@@ -12332,25 +14380,40 @@ var require_XMLNode = __commonJS({
             }
           }
           if (lastChild == null) {
-            throw new Error('Could not create any elements with: ' + name);
+            throw new Error('Could not create any elements with: ' + name + '. ' + this.debugInfo());
           }
           return lastChild;
         };
         XMLNode2.prototype.insertBefore = function (name, attributes, text) {
-          var child, i, removed;
-          if (this.isRoot) {
-            throw new Error('Cannot insert elements at root level');
+          var child, i, newChild, refChild, removed;
+          if (name != null ? name.type : void 0) {
+            newChild = name;
+            refChild = attributes;
+            newChild.setParent(this);
+            if (refChild) {
+              i = children.indexOf(refChild);
+              removed = children.splice(i);
+              children.push(newChild);
+              Array.prototype.push.apply(children, removed);
+            } else {
+              children.push(newChild);
+            }
+            return newChild;
+          } else {
+            if (this.isRoot) {
+              throw new Error('Cannot insert elements at root level. ' + this.debugInfo(name));
+            }
+            i = this.parent.children.indexOf(this);
+            removed = this.parent.children.splice(i);
+            child = this.parent.element(name, attributes, text);
+            Array.prototype.push.apply(this.parent.children, removed);
+            return child;
           }
-          i = this.parent.children.indexOf(this);
-          removed = this.parent.children.splice(i);
-          child = this.parent.element(name, attributes, text);
-          Array.prototype.push.apply(this.parent.children, removed);
-          return child;
         };
         XMLNode2.prototype.insertAfter = function (name, attributes, text) {
           var child, i, removed;
           if (this.isRoot) {
-            throw new Error('Cannot insert elements at root level');
+            throw new Error('Cannot insert elements at root level. ' + this.debugInfo(name));
           }
           i = this.parent.children.indexOf(this);
           removed = this.parent.children.splice(i + 1);
@@ -12359,23 +14422,23 @@ var require_XMLNode = __commonJS({
           return child;
         };
         XMLNode2.prototype.remove = function () {
-          var i, ref1;
+          var i, ref2;
           if (this.isRoot) {
-            throw new Error('Cannot remove the root element');
+            throw new Error('Cannot remove the root element. ' + this.debugInfo());
           }
           i = this.parent.children.indexOf(this);
-          [].splice.apply(this.parent.children, [i, i - i + 1].concat((ref1 = []))), ref1;
+          [].splice.apply(this.parent.children, [i, i - i + 1].concat((ref2 = []))), ref2;
           return this.parent;
         };
         XMLNode2.prototype.node = function (name, attributes, text) {
-          var child, ref1;
+          var child, ref2;
           if (name != null) {
-            name = name.valueOf();
+            name = getValue(name);
           }
           attributes || (attributes = {});
-          attributes = attributes.valueOf();
+          attributes = getValue(attributes);
           if (!isObject(attributes)) {
-            (ref1 = [attributes, text]), (text = ref1[0]), (attributes = ref1[1]);
+            (ref2 = [attributes, text]), (text = ref2[0]), (attributes = ref2[1]);
           }
           child = new XMLElement(this, name, attributes);
           if (text != null) {
@@ -12386,6 +14449,9 @@ var require_XMLNode = __commonJS({
         };
         XMLNode2.prototype.text = function (value) {
           var child;
+          if (isObject(value)) {
+            this.element(value);
+          }
           child = new XMLText(this, value);
           this.children.push(child);
           return this;
@@ -12424,13 +14490,18 @@ var require_XMLNode = __commonJS({
           this.children.push(child);
           return this;
         };
+        XMLNode2.prototype.dummy = function () {
+          var child;
+          child = new XMLDummy(this);
+          return child;
+        };
         XMLNode2.prototype.instruction = function (target, value) {
           var insTarget, insValue, instruction, j, len;
           if (target != null) {
-            target = target.valueOf();
+            target = getValue(target);
           }
           if (value != null) {
-            value = value.valueOf();
+            value = getValue(value);
           }
           if (Array.isArray(target)) {
             for (j = 0, len = target.length; j < len; j++) {
@@ -12472,28 +14543,30 @@ var require_XMLNode = __commonJS({
           var doc, xmldec;
           doc = this.document();
           xmldec = new XMLDeclaration(doc, version, encoding, standalone);
-          if (doc.children[0] instanceof XMLDeclaration) {
+          if (doc.children.length === 0) {
+            doc.children.unshift(xmldec);
+          } else if (doc.children[0].type === NodeType.Declaration) {
             doc.children[0] = xmldec;
           } else {
             doc.children.unshift(xmldec);
           }
           return doc.root() || doc;
         };
-        XMLNode2.prototype.doctype = function (pubID, sysID) {
-          var child, doc, doctype, i, j, k, len, len1, ref1, ref2;
+        XMLNode2.prototype.dtd = function (pubID, sysID) {
+          var child, doc, doctype, i, j, k, len, len1, ref2, ref3;
           doc = this.document();
           doctype = new XMLDocType(doc, pubID, sysID);
-          ref1 = doc.children;
-          for (i = j = 0, len = ref1.length; j < len; i = ++j) {
-            child = ref1[i];
-            if (child instanceof XMLDocType) {
+          ref2 = doc.children;
+          for (i = j = 0, len = ref2.length; j < len; i = ++j) {
+            child = ref2[i];
+            if (child.type === NodeType.DocType) {
               doc.children[i] = doctype;
               return doctype;
             }
           }
-          ref2 = doc.children;
-          for (i = k = 0, len1 = ref2.length; k < len1; i = ++k) {
-            child = ref2[i];
+          ref3 = doc.children;
+          for (i = k = 0, len1 = ref3.length; k < len1; i = ++k) {
+            child = ref3[i];
             if (child.isRoot) {
               doc.children.splice(i, 0, doctype);
               return doctype;
@@ -12512,7 +14585,7 @@ var require_XMLNode = __commonJS({
           var node;
           node = this;
           while (node) {
-            if (node.isDocument) {
+            if (node.type === NodeType.Document) {
               return node.rootObject;
             } else if (node.isRoot) {
               return node;
@@ -12525,7 +14598,7 @@ var require_XMLNode = __commonJS({
           var node;
           node = this;
           while (node) {
-            if (node.isDocument) {
+            if (node.type === NodeType.Document) {
               return node;
             } else {
               node = node.parent;
@@ -12539,7 +14612,7 @@ var require_XMLNode = __commonJS({
           var i;
           i = this.parent.children.indexOf(this);
           if (i < 1) {
-            throw new Error('Already at the first node');
+            throw new Error('Already at the first node. ' + this.debugInfo());
           }
           return this.parent.children[i - 1];
         };
@@ -12547,7 +14620,7 @@ var require_XMLNode = __commonJS({
           var i;
           i = this.parent.children.indexOf(this);
           if (i === -1 || i === this.parent.children.length - 1) {
-            throw new Error('Already at the last node');
+            throw new Error('Already at the last node. ' + this.debugInfo());
           }
           return this.parent.children[i + 1];
         };
@@ -12558,6 +14631,19 @@ var require_XMLNode = __commonJS({
           clonedRoot.isRoot = false;
           this.children.push(clonedRoot);
           return this;
+        };
+        XMLNode2.prototype.debugInfo = function (name) {
+          var ref2, ref3;
+          name = name || this.name;
+          if (name == null && !((ref2 = this.parent) != null ? ref2.name : void 0)) {
+            return '';
+          } else if (name == null) {
+            return 'parent: <' + this.parent.name + '>';
+          } else if (!((ref3 = this.parent) != null ? ref3.name : void 0)) {
+            return 'node: <' + name + '>';
+          } else {
+            return 'node: <' + name + '>, parent: <' + this.parent.name + '>';
+          }
         };
         XMLNode2.prototype.ele = function (name, attributes, text) {
           return this.element(name, attributes, text);
@@ -12582,9 +14668,6 @@ var require_XMLNode = __commonJS({
         };
         XMLNode2.prototype.dec = function (version, encoding, standalone) {
           return this.declaration(version, encoding, standalone);
-        };
-        XMLNode2.prototype.dtd = function (pubID, sysID) {
-          return this.doctype(pubID, sysID);
         };
         XMLNode2.prototype.e = function (name, attributes, text) {
           return this.element(name, attributes, text);
@@ -12613,6 +14696,169 @@ var require_XMLNode = __commonJS({
         XMLNode2.prototype.importXMLBuilder = function (doc) {
           return this.importDocument(doc);
         };
+        XMLNode2.prototype.replaceChild = function (newChild, oldChild) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLNode2.prototype.removeChild = function (oldChild) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLNode2.prototype.appendChild = function (newChild) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLNode2.prototype.hasChildNodes = function () {
+          return this.children.length !== 0;
+        };
+        XMLNode2.prototype.cloneNode = function (deep) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLNode2.prototype.normalize = function () {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLNode2.prototype.isSupported = function (feature, version) {
+          return true;
+        };
+        XMLNode2.prototype.hasAttributes = function () {
+          return this.attribs.length !== 0;
+        };
+        XMLNode2.prototype.compareDocumentPosition = function (other) {
+          var ref, res;
+          ref = this;
+          if (ref === other) {
+            return 0;
+          } else if (this.document() !== other.document()) {
+            res = DocumentPosition.Disconnected | DocumentPosition.ImplementationSpecific;
+            if (Math.random() < 0.5) {
+              res |= DocumentPosition.Preceding;
+            } else {
+              res |= DocumentPosition.Following;
+            }
+            return res;
+          } else if (ref.isAncestor(other)) {
+            return DocumentPosition.Contains | DocumentPosition.Preceding;
+          } else if (ref.isDescendant(other)) {
+            return DocumentPosition.Contains | DocumentPosition.Following;
+          } else if (ref.isPreceding(other)) {
+            return DocumentPosition.Preceding;
+          } else {
+            return DocumentPosition.Following;
+          }
+        };
+        XMLNode2.prototype.isSameNode = function (other) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLNode2.prototype.lookupPrefix = function (namespaceURI) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLNode2.prototype.isDefaultNamespace = function (namespaceURI) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLNode2.prototype.lookupNamespaceURI = function (prefix) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLNode2.prototype.isEqualNode = function (node) {
+          var i, j, ref2;
+          if (node.nodeType !== this.nodeType) {
+            return false;
+          }
+          if (node.children.length !== this.children.length) {
+            return false;
+          }
+          for (
+            i = j = 0, ref2 = this.children.length - 1;
+            0 <= ref2 ? j <= ref2 : j >= ref2;
+            i = 0 <= ref2 ? ++j : --j
+          ) {
+            if (!this.children[i].isEqualNode(node.children[i])) {
+              return false;
+            }
+          }
+          return true;
+        };
+        XMLNode2.prototype.getFeature = function (feature, version) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLNode2.prototype.setUserData = function (key, data, handler) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLNode2.prototype.getUserData = function (key) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLNode2.prototype.contains = function (other) {
+          if (!other) {
+            return false;
+          }
+          return other === this || this.isDescendant(other);
+        };
+        XMLNode2.prototype.isDescendant = function (node) {
+          var child, isDescendantChild, j, len, ref2;
+          ref2 = this.children;
+          for (j = 0, len = ref2.length; j < len; j++) {
+            child = ref2[j];
+            if (node === child) {
+              return true;
+            }
+            isDescendantChild = child.isDescendant(node);
+            if (isDescendantChild) {
+              return true;
+            }
+          }
+          return false;
+        };
+        XMLNode2.prototype.isAncestor = function (node) {
+          return node.isDescendant(this);
+        };
+        XMLNode2.prototype.isPreceding = function (node) {
+          var nodePos, thisPos;
+          nodePos = this.treePosition(node);
+          thisPos = this.treePosition(this);
+          if (nodePos === -1 || thisPos === -1) {
+            return false;
+          } else {
+            return nodePos < thisPos;
+          }
+        };
+        XMLNode2.prototype.isFollowing = function (node) {
+          var nodePos, thisPos;
+          nodePos = this.treePosition(node);
+          thisPos = this.treePosition(this);
+          if (nodePos === -1 || thisPos === -1) {
+            return false;
+          } else {
+            return nodePos > thisPos;
+          }
+        };
+        XMLNode2.prototype.treePosition = function (node) {
+          var found, pos;
+          pos = 0;
+          found = false;
+          this.foreachTreeNode(this.document(), function (childNode) {
+            pos++;
+            if (!found && childNode === node) {
+              return (found = true);
+            }
+          });
+          if (found) {
+            return pos;
+          } else {
+            return -1;
+          }
+        };
+        XMLNode2.prototype.foreachTreeNode = function (node, func) {
+          var child, j, len, ref2, res;
+          node || (node = this.document());
+          ref2 = node.children;
+          for (j = 0, len = ref2.length; j < len; j++) {
+            child = ref2[j];
+            if ((res = func(child))) {
+              return res;
+            } else {
+              res = this.foreachTreeNode(child, func);
+              if (res) {
+                return res;
+              }
+            }
+          }
+        };
         return XMLNode2;
       })();
     }.call(exports));
@@ -12632,10 +14878,14 @@ var require_XMLStringifier = __commonJS({
         hasProp = {}.hasOwnProperty;
       module2.exports = XMLStringifier = (function () {
         function XMLStringifier2(options) {
+          this.assertLegalName = bind(this.assertLegalName, this);
           this.assertLegalChar = bind(this.assertLegalChar, this);
           var key, ref, value;
           options || (options = {});
-          this.noDoubleEncoding = options.noDoubleEncoding;
+          this.options = options;
+          if (!this.options.version) {
+            this.options.version = '1.0';
+          }
           ref = options.stringify || {};
           for (key in ref) {
             if (!hasProp.call(ref, key)) continue;
@@ -12643,20 +14893,30 @@ var require_XMLStringifier = __commonJS({
             this[key] = value;
           }
         }
-        XMLStringifier2.prototype.eleName = function (val) {
-          val = '' + val || '';
-          return this.assertLegalChar(val);
+        XMLStringifier2.prototype.name = function (val) {
+          if (this.options.noValidation) {
+            return val;
+          }
+          return this.assertLegalName('' + val || '');
         };
-        XMLStringifier2.prototype.eleText = function (val) {
-          val = '' + val || '';
-          return this.assertLegalChar(this.elEscape(val));
+        XMLStringifier2.prototype.text = function (val) {
+          if (this.options.noValidation) {
+            return val;
+          }
+          return this.assertLegalChar(this.textEscape('' + val || ''));
         };
         XMLStringifier2.prototype.cdata = function (val) {
+          if (this.options.noValidation) {
+            return val;
+          }
           val = '' + val || '';
           val = val.replace(']]>', ']]]]><![CDATA[>');
           return this.assertLegalChar(val);
         };
         XMLStringifier2.prototype.comment = function (val) {
+          if (this.options.noValidation) {
+            return val;
+          }
           val = '' + val || '';
           if (val.match(/--/)) {
             throw new Error('Comment text cannot contain double-hypen: ' + val);
@@ -12664,26 +14924,37 @@ var require_XMLStringifier = __commonJS({
           return this.assertLegalChar(val);
         };
         XMLStringifier2.prototype.raw = function (val) {
+          if (this.options.noValidation) {
+            return val;
+          }
           return '' + val || '';
-        };
-        XMLStringifier2.prototype.attName = function (val) {
-          return (val = '' + val || '');
         };
         XMLStringifier2.prototype.attValue = function (val) {
-          val = '' + val || '';
-          return this.attEscape(val);
+          if (this.options.noValidation) {
+            return val;
+          }
+          return this.assertLegalChar(this.attEscape((val = '' + val || '')));
         };
         XMLStringifier2.prototype.insTarget = function (val) {
-          return '' + val || '';
+          if (this.options.noValidation) {
+            return val;
+          }
+          return this.assertLegalChar('' + val || '');
         };
         XMLStringifier2.prototype.insValue = function (val) {
+          if (this.options.noValidation) {
+            return val;
+          }
           val = '' + val || '';
           if (val.match(/\?>/)) {
             throw new Error('Invalid processing instruction value: ' + val);
           }
-          return val;
+          return this.assertLegalChar(val);
         };
         XMLStringifier2.prototype.xmlVersion = function (val) {
+          if (this.options.noValidation) {
+            return val;
+          }
           val = '' + val || '';
           if (!val.match(/1\.[0-9]+/)) {
             throw new Error('Invalid version number: ' + val);
@@ -12691,13 +14962,19 @@ var require_XMLStringifier = __commonJS({
           return val;
         };
         XMLStringifier2.prototype.xmlEncoding = function (val) {
+          if (this.options.noValidation) {
+            return val;
+          }
           val = '' + val || '';
           if (!val.match(/^[A-Za-z](?:[A-Za-z0-9._-])*$/)) {
             throw new Error('Invalid encoding: ' + val);
           }
-          return val;
+          return this.assertLegalChar(val);
         };
         XMLStringifier2.prototype.xmlStandalone = function (val) {
+          if (this.options.noValidation) {
+            return val;
+          }
           if (val) {
             return 'yes';
           } else {
@@ -12705,29 +14982,46 @@ var require_XMLStringifier = __commonJS({
           }
         };
         XMLStringifier2.prototype.dtdPubID = function (val) {
-          return '' + val || '';
-        };
-        XMLStringifier2.prototype.dtdSysID = function (val) {
-          return '' + val || '';
-        };
-        XMLStringifier2.prototype.dtdElementValue = function (val) {
-          return '' + val || '';
-        };
-        XMLStringifier2.prototype.dtdAttType = function (val) {
-          return '' + val || '';
-        };
-        XMLStringifier2.prototype.dtdAttDefault = function (val) {
-          if (val != null) {
-            return '' + val || '';
-          } else {
+          if (this.options.noValidation) {
             return val;
           }
+          return this.assertLegalChar('' + val || '');
+        };
+        XMLStringifier2.prototype.dtdSysID = function (val) {
+          if (this.options.noValidation) {
+            return val;
+          }
+          return this.assertLegalChar('' + val || '');
+        };
+        XMLStringifier2.prototype.dtdElementValue = function (val) {
+          if (this.options.noValidation) {
+            return val;
+          }
+          return this.assertLegalChar('' + val || '');
+        };
+        XMLStringifier2.prototype.dtdAttType = function (val) {
+          if (this.options.noValidation) {
+            return val;
+          }
+          return this.assertLegalChar('' + val || '');
+        };
+        XMLStringifier2.prototype.dtdAttDefault = function (val) {
+          if (this.options.noValidation) {
+            return val;
+          }
+          return this.assertLegalChar('' + val || '');
         };
         XMLStringifier2.prototype.dtdEntityValue = function (val) {
-          return '' + val || '';
+          if (this.options.noValidation) {
+            return val;
+          }
+          return this.assertLegalChar('' + val || '');
         };
         XMLStringifier2.prototype.dtdNData = function (val) {
-          return '' + val || '';
+          if (this.options.noValidation) {
+            return val;
+          }
+          return this.assertLegalChar('' + val || '');
         };
         XMLStringifier2.prototype.convertAttKey = '@';
         XMLStringifier2.prototype.convertPIKey = '?';
@@ -12736,21 +15030,52 @@ var require_XMLStringifier = __commonJS({
         XMLStringifier2.prototype.convertCommentKey = '#comment';
         XMLStringifier2.prototype.convertRawKey = '#raw';
         XMLStringifier2.prototype.assertLegalChar = function (str) {
-          var res;
-          res = str.match(/[\0\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]/);
-          if (res) {
-            throw new Error('Invalid character in string: ' + str + ' at index ' + res.index);
+          var regex, res;
+          if (this.options.noValidation) {
+            return str;
+          }
+          regex = '';
+          if (this.options.version === '1.0') {
+            regex =
+              /[\0-\x08\x0B\f\x0E-\x1F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]/;
+            if ((res = str.match(regex))) {
+              throw new Error('Invalid character in string: ' + str + ' at index ' + res.index);
+            }
+          } else if (this.options.version === '1.1') {
+            regex = /[\0\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]/;
+            if ((res = str.match(regex))) {
+              throw new Error('Invalid character in string: ' + str + ' at index ' + res.index);
+            }
           }
           return str;
         };
-        XMLStringifier2.prototype.elEscape = function (str) {
+        XMLStringifier2.prototype.assertLegalName = function (str) {
+          var regex;
+          if (this.options.noValidation) {
+            return str;
+          }
+          this.assertLegalChar(str);
+          regex =
+            /^([:A-Z_a-z\xC0-\xD6\xD8-\xF6\xF8-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD]|[\uD800-\uDB7F][\uDC00-\uDFFF])([\x2D\.0-:A-Z_a-z\xB7\xC0-\xD6\xD8-\xF6\xF8-\u037D\u037F-\u1FFF\u200C\u200D\u203F\u2040\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD]|[\uD800-\uDB7F][\uDC00-\uDFFF])*$/;
+          if (!str.match(regex)) {
+            throw new Error('Invalid character in name');
+          }
+          return str;
+        };
+        XMLStringifier2.prototype.textEscape = function (str) {
           var ampregex;
-          ampregex = this.noDoubleEncoding ? /(?!&\S+;)&/g : /&/g;
+          if (this.options.noValidation) {
+            return str;
+          }
+          ampregex = this.options.noDoubleEncoding ? /(?!&\S+;)&/g : /&/g;
           return str.replace(ampregex, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\r/g, '&#xD;');
         };
         XMLStringifier2.prototype.attEscape = function (str) {
           var ampregex;
-          ampregex = this.noDoubleEncoding ? /(?!&\S+;)&/g : /&/g;
+          if (this.options.noValidation) {
+            return str;
+          }
+          ampregex = this.options.noDoubleEncoding ? /(?!&\S+;)&/g : /&/g;
           return str
             .replace(ampregex, '&amp;')
             .replace(/</g, '&lt;')
@@ -12765,100 +15090,27 @@ var require_XMLStringifier = __commonJS({
   },
 });
 
-// node_modules/xmlbuilder/lib/XMLWriterBase.js
-var require_XMLWriterBase = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLWriterBase.js'(exports, module2) {
+// node_modules/xmlbuilder/lib/WriterState.js
+var require_WriterState = __commonJS({
+  'node_modules/xmlbuilder/lib/WriterState.js'(exports, module2) {
     (function () {
-      var XMLWriterBase,
-        hasProp = {}.hasOwnProperty;
-      module2.exports = XMLWriterBase = (function () {
-        function XMLWriterBase2(options) {
-          var key, ref, ref1, ref2, ref3, ref4, ref5, ref6, value;
-          options || (options = {});
-          this.pretty = options.pretty || false;
-          this.allowEmpty = (ref = options.allowEmpty) != null ? ref : false;
-          if (this.pretty) {
-            this.indent = (ref1 = options.indent) != null ? ref1 : '  ';
-            this.newline = (ref2 = options.newline) != null ? ref2 : '\n';
-            this.offset = (ref3 = options.offset) != null ? ref3 : 0;
-            this.dontprettytextnodes = (ref4 = options.dontprettytextnodes) != null ? ref4 : 0;
-          } else {
-            this.indent = '';
-            this.newline = '';
-            this.offset = 0;
-            this.dontprettytextnodes = 0;
-          }
-          this.spacebeforeslash = (ref5 = options.spacebeforeslash) != null ? ref5 : '';
-          if (this.spacebeforeslash === true) {
-            this.spacebeforeslash = ' ';
-          }
-          this.newlinedefault = this.newline;
-          this.prettydefault = this.pretty;
-          ref6 = options.writer || {};
-          for (key in ref6) {
-            if (!hasProp.call(ref6, key)) continue;
-            value = ref6[key];
-            this[key] = value;
-          }
-        }
-        XMLWriterBase2.prototype.set = function (options) {
-          var key, ref, value;
-          options || (options = {});
-          if ('pretty' in options) {
-            this.pretty = options.pretty;
-          }
-          if ('allowEmpty' in options) {
-            this.allowEmpty = options.allowEmpty;
-          }
-          if (this.pretty) {
-            this.indent = 'indent' in options ? options.indent : '  ';
-            this.newline = 'newline' in options ? options.newline : '\n';
-            this.offset = 'offset' in options ? options.offset : 0;
-            this.dontprettytextnodes = 'dontprettytextnodes' in options ? options.dontprettytextnodes : 0;
-          } else {
-            this.indent = '';
-            this.newline = '';
-            this.offset = 0;
-            this.dontprettytextnodes = 0;
-          }
-          this.spacebeforeslash = 'spacebeforeslash' in options ? options.spacebeforeslash : '';
-          if (this.spacebeforeslash === true) {
-            this.spacebeforeslash = ' ';
-          }
-          this.newlinedefault = this.newline;
-          this.prettydefault = this.pretty;
-          ref = options.writer || {};
-          for (key in ref) {
-            if (!hasProp.call(ref, key)) continue;
-            value = ref[key];
-            this[key] = value;
-          }
-          return this;
-        };
-        XMLWriterBase2.prototype.space = function (level) {
-          var indent;
-          if (this.pretty) {
-            indent = (level || 0) + this.offset + 1;
-            if (indent > 0) {
-              return new Array(indent).join(this.indent);
-            } else {
-              return '';
-            }
-          } else {
-            return '';
-          }
-        };
-        return XMLWriterBase2;
-      })();
+      module2.exports = {
+        None: 0,
+        OpenTag: 1,
+        InsideTag: 2,
+        CloseTag: 3,
+      };
     }.call(exports));
   },
 });
 
-// node_modules/xmlbuilder/lib/XMLStringWriter.js
-var require_XMLStringWriter = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLStringWriter.js'(exports, module2) {
+// node_modules/xmlbuilder/lib/XMLWriterBase.js
+var require_XMLWriterBase = __commonJS({
+  'node_modules/xmlbuilder/lib/XMLWriterBase.js'(exports, module2) {
     (function () {
-      var XMLCData,
+      var NodeType,
+        WriterState,
+        XMLCData,
         XMLComment,
         XMLDTDAttList,
         XMLDTDElement,
@@ -12866,25 +15118,16 @@ var require_XMLStringWriter = __commonJS({
         XMLDTDNotation,
         XMLDeclaration,
         XMLDocType,
+        XMLDummy,
         XMLElement,
         XMLProcessingInstruction,
         XMLRaw,
-        XMLStringWriter,
         XMLText,
         XMLWriterBase,
-        extend = function (child, parent) {
-          for (var key in parent) {
-            if (hasProp.call(parent, key)) child[key] = parent[key];
-          }
-          function ctor() {
-            this.constructor = child;
-          }
-          ctor.prototype = parent.prototype;
-          child.prototype = new ctor();
-          child.__super__ = parent.prototype;
-          return child;
-        },
+        assign,
         hasProp = {}.hasOwnProperty;
+      assign = require_Utility().assign;
+      NodeType = require_NodeType();
       XMLDeclaration = require_XMLDeclaration();
       XMLDocType = require_XMLDocType();
       XMLCData = require_XMLCData();
@@ -12893,70 +15136,129 @@ var require_XMLStringWriter = __commonJS({
       XMLRaw = require_XMLRaw();
       XMLText = require_XMLText();
       XMLProcessingInstruction = require_XMLProcessingInstruction();
+      XMLDummy = require_XMLDummy();
       XMLDTDAttList = require_XMLDTDAttList();
       XMLDTDElement = require_XMLDTDElement();
       XMLDTDEntity = require_XMLDTDEntity();
       XMLDTDNotation = require_XMLDTDNotation();
-      XMLWriterBase = require_XMLWriterBase();
-      module2.exports = XMLStringWriter = (function (superClass) {
-        extend(XMLStringWriter2, superClass);
-        function XMLStringWriter2(options) {
-          XMLStringWriter2.__super__.constructor.call(this, options);
+      WriterState = require_WriterState();
+      module2.exports = XMLWriterBase = (function () {
+        function XMLWriterBase2(options) {
+          var key, ref, value;
+          options || (options = {});
+          this.options = options;
+          ref = options.writer || {};
+          for (key in ref) {
+            if (!hasProp.call(ref, key)) continue;
+            value = ref[key];
+            this['_' + key] = this[key];
+            this[key] = value;
+          }
         }
-        XMLStringWriter2.prototype.document = function (doc) {
-          var child, i, len, r, ref;
-          this.textispresent = false;
-          r = '';
-          ref = doc.children;
-          for (i = 0, len = ref.length; i < len; i++) {
-            child = ref[i];
-            r += function () {
-              switch (false) {
-                case !(child instanceof XMLDeclaration):
-                  return this.declaration(child);
-                case !(child instanceof XMLDocType):
-                  return this.docType(child);
-                case !(child instanceof XMLComment):
-                  return this.comment(child);
-                case !(child instanceof XMLProcessingInstruction):
-                  return this.processingInstruction(child);
-                default:
-                  return this.element(child, 0);
-              }
-            }.call(this);
+        XMLWriterBase2.prototype.filterOptions = function (options) {
+          var filteredOptions, ref, ref1, ref2, ref3, ref4, ref5, ref6;
+          options || (options = {});
+          options = assign({}, this.options, options);
+          filteredOptions = {
+            writer: this,
+          };
+          filteredOptions.pretty = options.pretty || false;
+          filteredOptions.allowEmpty = options.allowEmpty || false;
+          filteredOptions.indent = (ref = options.indent) != null ? ref : '  ';
+          filteredOptions.newline = (ref1 = options.newline) != null ? ref1 : '\n';
+          filteredOptions.offset = (ref2 = options.offset) != null ? ref2 : 0;
+          filteredOptions.dontPrettyTextNodes =
+            (ref3 = (ref4 = options.dontPrettyTextNodes) != null ? ref4 : options.dontprettytextnodes) != null
+              ? ref3
+              : 0;
+          filteredOptions.spaceBeforeSlash =
+            (ref5 = (ref6 = options.spaceBeforeSlash) != null ? ref6 : options.spacebeforeslash) != null ? ref5 : '';
+          if (filteredOptions.spaceBeforeSlash === true) {
+            filteredOptions.spaceBeforeSlash = ' ';
           }
-          if (this.pretty && r.slice(-this.newline.length) === this.newline) {
-            r = r.slice(0, -this.newline.length);
+          filteredOptions.suppressPrettyCount = 0;
+          filteredOptions.user = {};
+          filteredOptions.state = WriterState.None;
+          return filteredOptions;
+        };
+        XMLWriterBase2.prototype.indent = function (node, options, level) {
+          var indentLevel;
+          if (!options.pretty || options.suppressPrettyCount) {
+            return '';
+          } else if (options.pretty) {
+            indentLevel = (level || 0) + options.offset + 1;
+            if (indentLevel > 0) {
+              return new Array(indentLevel).join(options.indent);
+            }
           }
+          return '';
+        };
+        XMLWriterBase2.prototype.endline = function (node, options, level) {
+          if (!options.pretty || options.suppressPrettyCount) {
+            return '';
+          } else {
+            return options.newline;
+          }
+        };
+        XMLWriterBase2.prototype.attribute = function (att, options, level) {
+          var r;
+          this.openAttribute(att, options, level);
+          r = ' ' + att.name + '="' + att.value + '"';
+          this.closeAttribute(att, options, level);
           return r;
         };
-        XMLStringWriter2.prototype.attribute = function (att) {
-          return ' ' + att.name + '="' + att.value + '"';
-        };
-        XMLStringWriter2.prototype.cdata = function (node, level) {
-          return this.space(level) + '<![CDATA[' + node.text + ']]>' + this.newline;
-        };
-        XMLStringWriter2.prototype.comment = function (node, level) {
-          return this.space(level) + '<!-- ' + node.text + ' -->' + this.newline;
-        };
-        XMLStringWriter2.prototype.declaration = function (node, level) {
+        XMLWriterBase2.prototype.cdata = function (node, options, level) {
           var r;
-          r = this.space(level);
-          r += '<?xml version="' + node.version + '"';
+          this.openNode(node, options, level);
+          options.state = WriterState.OpenTag;
+          r = this.indent(node, options, level) + '<![CDATA[';
+          options.state = WriterState.InsideTag;
+          r += node.value;
+          options.state = WriterState.CloseTag;
+          r += ']]>' + this.endline(node, options, level);
+          options.state = WriterState.None;
+          this.closeNode(node, options, level);
+          return r;
+        };
+        XMLWriterBase2.prototype.comment = function (node, options, level) {
+          var r;
+          this.openNode(node, options, level);
+          options.state = WriterState.OpenTag;
+          r = this.indent(node, options, level) + '<!-- ';
+          options.state = WriterState.InsideTag;
+          r += node.value;
+          options.state = WriterState.CloseTag;
+          r += ' -->' + this.endline(node, options, level);
+          options.state = WriterState.None;
+          this.closeNode(node, options, level);
+          return r;
+        };
+        XMLWriterBase2.prototype.declaration = function (node, options, level) {
+          var r;
+          this.openNode(node, options, level);
+          options.state = WriterState.OpenTag;
+          r = this.indent(node, options, level) + '<?xml';
+          options.state = WriterState.InsideTag;
+          r += ' version="' + node.version + '"';
           if (node.encoding != null) {
             r += ' encoding="' + node.encoding + '"';
           }
           if (node.standalone != null) {
             r += ' standalone="' + node.standalone + '"';
           }
-          r += this.spacebeforeslash + '?>';
-          r += this.newline;
+          options.state = WriterState.CloseTag;
+          r += options.spaceBeforeSlash + '?>';
+          r += this.endline(node, options, level);
+          options.state = WriterState.None;
+          this.closeNode(node, options, level);
           return r;
         };
-        XMLStringWriter2.prototype.docType = function (node, level) {
+        XMLWriterBase2.prototype.docType = function (node, options, level) {
           var child, i, len, r, ref;
           level || (level = 0);
-          r = this.space(level);
+          this.openNode(node, options, level);
+          options.state = WriterState.OpenTag;
+          r = this.indent(node, options, level);
           r += '<!DOCTYPE ' + node.root().name;
           if (node.pubID && node.sysID) {
             r += ' PUBLIC "' + node.pubID + '" "' + node.sysID + '"';
@@ -12965,158 +15267,211 @@ var require_XMLStringWriter = __commonJS({
           }
           if (node.children.length > 0) {
             r += ' [';
-            r += this.newline;
+            r += this.endline(node, options, level);
+            options.state = WriterState.InsideTag;
             ref = node.children;
             for (i = 0, len = ref.length; i < len; i++) {
               child = ref[i];
-              r += function () {
-                switch (false) {
-                  case !(child instanceof XMLDTDAttList):
-                    return this.dtdAttList(child, level + 1);
-                  case !(child instanceof XMLDTDElement):
-                    return this.dtdElement(child, level + 1);
-                  case !(child instanceof XMLDTDEntity):
-                    return this.dtdEntity(child, level + 1);
-                  case !(child instanceof XMLDTDNotation):
-                    return this.dtdNotation(child, level + 1);
-                  case !(child instanceof XMLCData):
-                    return this.cdata(child, level + 1);
-                  case !(child instanceof XMLComment):
-                    return this.comment(child, level + 1);
-                  case !(child instanceof XMLProcessingInstruction):
-                    return this.processingInstruction(child, level + 1);
-                  default:
-                    throw new Error('Unknown DTD node type: ' + child.constructor.name);
-                }
-              }.call(this);
+              r += this.writeChildNode(child, options, level + 1);
             }
+            options.state = WriterState.CloseTag;
             r += ']';
           }
-          r += this.spacebeforeslash + '>';
-          r += this.newline;
+          options.state = WriterState.CloseTag;
+          r += options.spaceBeforeSlash + '>';
+          r += this.endline(node, options, level);
+          options.state = WriterState.None;
+          this.closeNode(node, options, level);
           return r;
         };
-        XMLStringWriter2.prototype.element = function (node, level) {
-          var att, child, i, j, len, len1, name, r, ref, ref1, ref2, space, textispresentwasset;
+        XMLWriterBase2.prototype.element = function (node, options, level) {
+          var att, child, childNodeCount, firstChildNode, i, j, len, len1, name, prettySuppressed, r, ref, ref1, ref2;
           level || (level = 0);
-          textispresentwasset = false;
-          if (this.textispresent) {
-            this.newline = '';
-            this.pretty = false;
-          } else {
-            this.newline = this.newlinedefault;
-            this.pretty = this.prettydefault;
-          }
-          space = this.space(level);
+          prettySuppressed = false;
           r = '';
-          r += space + '<' + node.name;
-          ref = node.attributes;
+          this.openNode(node, options, level);
+          options.state = WriterState.OpenTag;
+          r += this.indent(node, options, level) + '<' + node.name;
+          ref = node.attribs;
           for (name in ref) {
             if (!hasProp.call(ref, name)) continue;
             att = ref[name];
-            r += this.attribute(att);
+            r += this.attribute(att, options, level);
           }
+          childNodeCount = node.children.length;
+          firstChildNode = childNodeCount === 0 ? null : node.children[0];
           if (
-            node.children.length === 0 ||
+            childNodeCount === 0 ||
             node.children.every(function (e) {
-              return e.value === '';
+              return (e.type === NodeType.Text || e.type === NodeType.Raw) && e.value === '';
             })
           ) {
-            if (this.allowEmpty) {
-              r += '></' + node.name + '>' + this.newline;
+            if (options.allowEmpty) {
+              r += '>';
+              options.state = WriterState.CloseTag;
+              r += '</' + node.name + '>' + this.endline(node, options, level);
             } else {
-              r += this.spacebeforeslash + '/>' + this.newline;
+              options.state = WriterState.CloseTag;
+              r += options.spaceBeforeSlash + '/>' + this.endline(node, options, level);
             }
-          } else if (this.pretty && node.children.length === 1 && node.children[0].value != null) {
+          } else if (
+            options.pretty &&
+            childNodeCount === 1 &&
+            (firstChildNode.type === NodeType.Text || firstChildNode.type === NodeType.Raw) &&
+            firstChildNode.value != null
+          ) {
             r += '>';
-            r += node.children[0].value;
-            r += '</' + node.name + '>' + this.newline;
+            options.state = WriterState.InsideTag;
+            options.suppressPrettyCount++;
+            prettySuppressed = true;
+            r += this.writeChildNode(firstChildNode, options, level + 1);
+            options.suppressPrettyCount--;
+            prettySuppressed = false;
+            options.state = WriterState.CloseTag;
+            r += '</' + node.name + '>' + this.endline(node, options, level);
           } else {
-            if (this.dontprettytextnodes) {
+            if (options.dontPrettyTextNodes) {
               ref1 = node.children;
               for (i = 0, len = ref1.length; i < len; i++) {
                 child = ref1[i];
-                if (child.value != null) {
-                  this.textispresent++;
-                  textispresentwasset = true;
+                if ((child.type === NodeType.Text || child.type === NodeType.Raw) && child.value != null) {
+                  options.suppressPrettyCount++;
+                  prettySuppressed = true;
                   break;
                 }
               }
             }
-            if (this.textispresent) {
-              this.newline = '';
-              this.pretty = false;
-              space = this.space(level);
-            }
-            r += '>' + this.newline;
+            r += '>' + this.endline(node, options, level);
+            options.state = WriterState.InsideTag;
             ref2 = node.children;
             for (j = 0, len1 = ref2.length; j < len1; j++) {
               child = ref2[j];
-              r += function () {
-                switch (false) {
-                  case !(child instanceof XMLCData):
-                    return this.cdata(child, level + 1);
-                  case !(child instanceof XMLComment):
-                    return this.comment(child, level + 1);
-                  case !(child instanceof XMLElement):
-                    return this.element(child, level + 1);
-                  case !(child instanceof XMLRaw):
-                    return this.raw(child, level + 1);
-                  case !(child instanceof XMLText):
-                    return this.text(child, level + 1);
-                  case !(child instanceof XMLProcessingInstruction):
-                    return this.processingInstruction(child, level + 1);
-                  default:
-                    throw new Error('Unknown XML node type: ' + child.constructor.name);
-                }
-              }.call(this);
+              r += this.writeChildNode(child, options, level + 1);
             }
-            if (textispresentwasset) {
-              this.textispresent--;
+            options.state = WriterState.CloseTag;
+            r += this.indent(node, options, level) + '</' + node.name + '>';
+            if (prettySuppressed) {
+              options.suppressPrettyCount--;
             }
-            if (!this.textispresent) {
-              this.newline = this.newlinedefault;
-              this.pretty = this.prettydefault;
-            }
-            r += space + '</' + node.name + '>' + this.newline;
+            r += this.endline(node, options, level);
+            options.state = WriterState.None;
           }
+          this.closeNode(node, options, level);
           return r;
         };
-        XMLStringWriter2.prototype.processingInstruction = function (node, level) {
+        XMLWriterBase2.prototype.writeChildNode = function (node, options, level) {
+          switch (node.type) {
+            case NodeType.CData:
+              return this.cdata(node, options, level);
+            case NodeType.Comment:
+              return this.comment(node, options, level);
+            case NodeType.Element:
+              return this.element(node, options, level);
+            case NodeType.Raw:
+              return this.raw(node, options, level);
+            case NodeType.Text:
+              return this.text(node, options, level);
+            case NodeType.ProcessingInstruction:
+              return this.processingInstruction(node, options, level);
+            case NodeType.Dummy:
+              return '';
+            case NodeType.Declaration:
+              return this.declaration(node, options, level);
+            case NodeType.DocType:
+              return this.docType(node, options, level);
+            case NodeType.AttributeDeclaration:
+              return this.dtdAttList(node, options, level);
+            case NodeType.ElementDeclaration:
+              return this.dtdElement(node, options, level);
+            case NodeType.EntityDeclaration:
+              return this.dtdEntity(node, options, level);
+            case NodeType.NotationDeclaration:
+              return this.dtdNotation(node, options, level);
+            default:
+              throw new Error('Unknown XML node type: ' + node.constructor.name);
+          }
+        };
+        XMLWriterBase2.prototype.processingInstruction = function (node, options, level) {
           var r;
-          r = this.space(level) + '<?' + node.target;
+          this.openNode(node, options, level);
+          options.state = WriterState.OpenTag;
+          r = this.indent(node, options, level) + '<?';
+          options.state = WriterState.InsideTag;
+          r += node.target;
           if (node.value) {
             r += ' ' + node.value;
           }
-          r += this.spacebeforeslash + '?>' + this.newline;
+          options.state = WriterState.CloseTag;
+          r += options.spaceBeforeSlash + '?>';
+          r += this.endline(node, options, level);
+          options.state = WriterState.None;
+          this.closeNode(node, options, level);
           return r;
         };
-        XMLStringWriter2.prototype.raw = function (node, level) {
-          return this.space(level) + node.value + this.newline;
-        };
-        XMLStringWriter2.prototype.text = function (node, level) {
-          return this.space(level) + node.value + this.newline;
-        };
-        XMLStringWriter2.prototype.dtdAttList = function (node, level) {
+        XMLWriterBase2.prototype.raw = function (node, options, level) {
           var r;
-          r = this.space(level) + '<!ATTLIST ' + node.elementName + ' ' + node.attributeName + ' ' + node.attributeType;
+          this.openNode(node, options, level);
+          options.state = WriterState.OpenTag;
+          r = this.indent(node, options, level);
+          options.state = WriterState.InsideTag;
+          r += node.value;
+          options.state = WriterState.CloseTag;
+          r += this.endline(node, options, level);
+          options.state = WriterState.None;
+          this.closeNode(node, options, level);
+          return r;
+        };
+        XMLWriterBase2.prototype.text = function (node, options, level) {
+          var r;
+          this.openNode(node, options, level);
+          options.state = WriterState.OpenTag;
+          r = this.indent(node, options, level);
+          options.state = WriterState.InsideTag;
+          r += node.value;
+          options.state = WriterState.CloseTag;
+          r += this.endline(node, options, level);
+          options.state = WriterState.None;
+          this.closeNode(node, options, level);
+          return r;
+        };
+        XMLWriterBase2.prototype.dtdAttList = function (node, options, level) {
+          var r;
+          this.openNode(node, options, level);
+          options.state = WriterState.OpenTag;
+          r = this.indent(node, options, level) + '<!ATTLIST';
+          options.state = WriterState.InsideTag;
+          r += ' ' + node.elementName + ' ' + node.attributeName + ' ' + node.attributeType;
           if (node.defaultValueType !== '#DEFAULT') {
             r += ' ' + node.defaultValueType;
           }
           if (node.defaultValue) {
             r += ' "' + node.defaultValue + '"';
           }
-          r += this.spacebeforeslash + '>' + this.newline;
+          options.state = WriterState.CloseTag;
+          r += options.spaceBeforeSlash + '>' + this.endline(node, options, level);
+          options.state = WriterState.None;
+          this.closeNode(node, options, level);
           return r;
         };
-        XMLStringWriter2.prototype.dtdElement = function (node, level) {
-          return (
-            this.space(level) + '<!ELEMENT ' + node.name + ' ' + node.value + this.spacebeforeslash + '>' + this.newline
-          );
-        };
-        XMLStringWriter2.prototype.dtdEntity = function (node, level) {
+        XMLWriterBase2.prototype.dtdElement = function (node, options, level) {
           var r;
-          r = this.space(level) + '<!ENTITY';
+          this.openNode(node, options, level);
+          options.state = WriterState.OpenTag;
+          r = this.indent(node, options, level) + '<!ELEMENT';
+          options.state = WriterState.InsideTag;
+          r += ' ' + node.name + ' ' + node.value;
+          options.state = WriterState.CloseTag;
+          r += options.spaceBeforeSlash + '>' + this.endline(node, options, level);
+          options.state = WriterState.None;
+          this.closeNode(node, options, level);
+          return r;
+        };
+        XMLWriterBase2.prototype.dtdEntity = function (node, options, level) {
+          var r;
+          this.openNode(node, options, level);
+          options.state = WriterState.OpenTag;
+          r = this.indent(node, options, level) + '<!ENTITY';
+          options.state = WriterState.InsideTag;
           if (node.pe) {
             r += ' %';
           }
@@ -13133,12 +15488,19 @@ var require_XMLStringWriter = __commonJS({
               r += ' NDATA ' + node.nData;
             }
           }
-          r += this.spacebeforeslash + '>' + this.newline;
+          options.state = WriterState.CloseTag;
+          r += options.spaceBeforeSlash + '>' + this.endline(node, options, level);
+          options.state = WriterState.None;
+          this.closeNode(node, options, level);
           return r;
         };
-        XMLStringWriter2.prototype.dtdNotation = function (node, level) {
+        XMLWriterBase2.prototype.dtdNotation = function (node, options, level) {
           var r;
-          r = this.space(level) + '<!NOTATION ' + node.name;
+          this.openNode(node, options, level);
+          options.state = WriterState.OpenTag;
+          r = this.indent(node, options, level) + '<!NOTATION';
+          options.state = WriterState.InsideTag;
+          r += ' ' + node.name;
           if (node.pubID && node.sysID) {
             r += ' PUBLIC "' + node.pubID + '" "' + node.sysID + '"';
           } else if (node.pubID) {
@@ -13146,41 +15508,60 @@ var require_XMLStringWriter = __commonJS({
           } else if (node.sysID) {
             r += ' SYSTEM "' + node.sysID + '"';
           }
-          r += this.spacebeforeslash + '>' + this.newline;
+          options.state = WriterState.CloseTag;
+          r += options.spaceBeforeSlash + '>' + this.endline(node, options, level);
+          options.state = WriterState.None;
+          this.closeNode(node, options, level);
           return r;
         };
-        XMLStringWriter2.prototype.openNode = function (node, level) {
-          var att, name, r, ref;
-          level || (level = 0);
-          if (node instanceof XMLElement) {
-            r = this.space(level) + '<' + node.name;
-            ref = node.attributes;
-            for (name in ref) {
-              if (!hasProp.call(ref, name)) continue;
-              att = ref[name];
-              r += this.attribute(att);
-            }
-            r += (node.children ? '>' : '/>') + this.newline;
-            return r;
-          } else {
-            r = this.space(level) + '<!DOCTYPE ' + node.rootNodeName;
-            if (node.pubID && node.sysID) {
-              r += ' PUBLIC "' + node.pubID + '" "' + node.sysID + '"';
-            } else if (node.sysID) {
-              r += ' SYSTEM "' + node.sysID + '"';
-            }
-            r += (node.children ? ' [' : '>') + this.newline;
-            return r;
+        XMLWriterBase2.prototype.openNode = function (node, options, level) {};
+        XMLWriterBase2.prototype.closeNode = function (node, options, level) {};
+        XMLWriterBase2.prototype.openAttribute = function (att, options, level) {};
+        XMLWriterBase2.prototype.closeAttribute = function (att, options, level) {};
+        return XMLWriterBase2;
+      })();
+    }.call(exports));
+  },
+});
+
+// node_modules/xmlbuilder/lib/XMLStringWriter.js
+var require_XMLStringWriter = __commonJS({
+  'node_modules/xmlbuilder/lib/XMLStringWriter.js'(exports, module2) {
+    (function () {
+      var XMLStringWriter,
+        XMLWriterBase,
+        extend = function (child, parent) {
+          for (var key in parent) {
+            if (hasProp.call(parent, key)) child[key] = parent[key];
           }
-        };
-        XMLStringWriter2.prototype.closeNode = function (node, level) {
-          level || (level = 0);
-          switch (false) {
-            case !(node instanceof XMLElement):
-              return this.space(level) + '</' + node.name + '>' + this.newline;
-            case !(node instanceof XMLDocType):
-              return this.space(level) + ']>' + this.newline;
+          function ctor() {
+            this.constructor = child;
           }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor();
+          child.__super__ = parent.prototype;
+          return child;
+        },
+        hasProp = {}.hasOwnProperty;
+      XMLWriterBase = require_XMLWriterBase();
+      module2.exports = XMLStringWriter = (function (superClass) {
+        extend(XMLStringWriter2, superClass);
+        function XMLStringWriter2(options) {
+          XMLStringWriter2.__super__.constructor.call(this, options);
+        }
+        XMLStringWriter2.prototype.document = function (doc, options) {
+          var child, i, len, r, ref;
+          options = this.filterOptions(options);
+          r = '';
+          ref = doc.children;
+          for (i = 0, len = ref.length; i < len; i++) {
+            child = ref[i];
+            r += this.writeChildNode(child, options, 0);
+          }
+          if (options.pretty && r.slice(-options.newline.length) === options.newline) {
+            r = r.slice(0, -options.newline.length);
+          }
+          return r;
         };
         return XMLStringWriter2;
       })(XMLWriterBase);
@@ -13192,7 +15573,10 @@ var require_XMLStringWriter = __commonJS({
 var require_XMLDocument = __commonJS({
   'node_modules/xmlbuilder/lib/XMLDocument.js'(exports, module2) {
     (function () {
-      var XMLDocument,
+      var NodeType,
+        XMLDOMConfiguration,
+        XMLDOMImplementation,
+        XMLDocument,
         XMLNode,
         XMLStringWriter,
         XMLStringifier,
@@ -13211,33 +15595,189 @@ var require_XMLDocument = __commonJS({
         },
         hasProp = {}.hasOwnProperty;
       isPlainObject = require_Utility().isPlainObject;
+      XMLDOMImplementation = require_XMLDOMImplementation();
+      XMLDOMConfiguration = require_XMLDOMConfiguration();
       XMLNode = require_XMLNode();
+      NodeType = require_NodeType();
       XMLStringifier = require_XMLStringifier();
       XMLStringWriter = require_XMLStringWriter();
       module2.exports = XMLDocument = (function (superClass) {
         extend(XMLDocument2, superClass);
         function XMLDocument2(options) {
           XMLDocument2.__super__.constructor.call(this, null);
+          this.name = '#document';
+          this.type = NodeType.Document;
+          this.documentURI = null;
+          this.domConfig = new XMLDOMConfiguration();
           options || (options = {});
           if (!options.writer) {
             options.writer = new XMLStringWriter();
           }
           this.options = options;
           this.stringify = new XMLStringifier(options);
-          this.isDocument = true;
         }
+        Object.defineProperty(XMLDocument2.prototype, 'implementation', {
+          value: new XMLDOMImplementation(),
+        });
+        Object.defineProperty(XMLDocument2.prototype, 'doctype', {
+          get: function () {
+            var child, i, len, ref;
+            ref = this.children;
+            for (i = 0, len = ref.length; i < len; i++) {
+              child = ref[i];
+              if (child.type === NodeType.DocType) {
+                return child;
+              }
+            }
+            return null;
+          },
+        });
+        Object.defineProperty(XMLDocument2.prototype, 'documentElement', {
+          get: function () {
+            return this.rootObject || null;
+          },
+        });
+        Object.defineProperty(XMLDocument2.prototype, 'inputEncoding', {
+          get: function () {
+            return null;
+          },
+        });
+        Object.defineProperty(XMLDocument2.prototype, 'strictErrorChecking', {
+          get: function () {
+            return false;
+          },
+        });
+        Object.defineProperty(XMLDocument2.prototype, 'xmlEncoding', {
+          get: function () {
+            if (this.children.length !== 0 && this.children[0].type === NodeType.Declaration) {
+              return this.children[0].encoding;
+            } else {
+              return null;
+            }
+          },
+        });
+        Object.defineProperty(XMLDocument2.prototype, 'xmlStandalone', {
+          get: function () {
+            if (this.children.length !== 0 && this.children[0].type === NodeType.Declaration) {
+              return this.children[0].standalone === 'yes';
+            } else {
+              return false;
+            }
+          },
+        });
+        Object.defineProperty(XMLDocument2.prototype, 'xmlVersion', {
+          get: function () {
+            if (this.children.length !== 0 && this.children[0].type === NodeType.Declaration) {
+              return this.children[0].version;
+            } else {
+              return '1.0';
+            }
+          },
+        });
+        Object.defineProperty(XMLDocument2.prototype, 'URL', {
+          get: function () {
+            return this.documentURI;
+          },
+        });
+        Object.defineProperty(XMLDocument2.prototype, 'origin', {
+          get: function () {
+            return null;
+          },
+        });
+        Object.defineProperty(XMLDocument2.prototype, 'compatMode', {
+          get: function () {
+            return null;
+          },
+        });
+        Object.defineProperty(XMLDocument2.prototype, 'characterSet', {
+          get: function () {
+            return null;
+          },
+        });
+        Object.defineProperty(XMLDocument2.prototype, 'contentType', {
+          get: function () {
+            return null;
+          },
+        });
         XMLDocument2.prototype.end = function (writer) {
           var writerOptions;
+          writerOptions = {};
           if (!writer) {
             writer = this.options.writer;
           } else if (isPlainObject(writer)) {
             writerOptions = writer;
-            writer = this.options.writer.set(writerOptions);
+            writer = this.options.writer;
           }
-          return writer.document(this);
+          return writer.document(this, writer.filterOptions(writerOptions));
         };
         XMLDocument2.prototype.toString = function (options) {
-          return this.options.writer.set(options).document(this);
+          return this.options.writer.document(this, this.options.writer.filterOptions(options));
+        };
+        XMLDocument2.prototype.createElement = function (tagName) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.createDocumentFragment = function () {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.createTextNode = function (data) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.createComment = function (data) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.createCDATASection = function (data) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.createProcessingInstruction = function (target, data) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.createAttribute = function (name) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.createEntityReference = function (name) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.getElementsByTagName = function (tagname) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.importNode = function (importedNode, deep) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.createElementNS = function (namespaceURI, qualifiedName) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.createAttributeNS = function (namespaceURI, qualifiedName) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.getElementsByTagNameNS = function (namespaceURI, localName) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.getElementById = function (elementId) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.adoptNode = function (source) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.normalizeDocument = function () {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.renameNode = function (node, namespaceURI, qualifiedName) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.getElementsByClassName = function (classNames) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.createEvent = function (eventInterface) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.createRange = function () {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.createNodeIterator = function (root, whatToShow, filter) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
+        };
+        XMLDocument2.prototype.createTreeWalker = function (root, whatToShow, filter) {
+          throw new Error('This DOM method is not implemented.' + this.debugInfo());
         };
         return XMLDocument2;
       })(XMLNode);
@@ -13249,7 +15789,9 @@ var require_XMLDocument = __commonJS({
 var require_XMLDocumentCB = __commonJS({
   'node_modules/xmlbuilder/lib/XMLDocumentCB.js'(exports, module2) {
     (function () {
-      var XMLAttribute,
+      var NodeType,
+        WriterState,
+        XMLAttribute,
         XMLCData,
         XMLComment,
         XMLDTDAttList,
@@ -13258,6 +15800,7 @@ var require_XMLDocumentCB = __commonJS({
         XMLDTDNotation,
         XMLDeclaration,
         XMLDocType,
+        XMLDocument,
         XMLDocumentCB,
         XMLElement,
         XMLProcessingInstruction,
@@ -13265,6 +15808,7 @@ var require_XMLDocumentCB = __commonJS({
         XMLStringWriter,
         XMLStringifier,
         XMLText,
+        getValue,
         isFunction,
         isObject,
         isPlainObject,
@@ -13273,7 +15817,10 @@ var require_XMLDocumentCB = __commonJS({
       (ref = require_Utility()),
         (isObject = ref.isObject),
         (isFunction = ref.isFunction),
-        (isPlainObject = ref.isPlainObject);
+        (isPlainObject = ref.isPlainObject),
+        (getValue = ref.getValue);
+      NodeType = require_NodeType();
+      XMLDocument = require_XMLDocument();
       XMLElement = require_XMLElement();
       XMLCData = require_XMLCData();
       XMLComment = require_XMLComment();
@@ -13289,18 +15836,23 @@ var require_XMLDocumentCB = __commonJS({
       XMLAttribute = require_XMLAttribute();
       XMLStringifier = require_XMLStringifier();
       XMLStringWriter = require_XMLStringWriter();
+      WriterState = require_WriterState();
       module2.exports = XMLDocumentCB = (function () {
         function XMLDocumentCB2(options, onData, onEnd) {
           var writerOptions;
+          this.name = '?xml';
+          this.type = NodeType.Document;
           options || (options = {});
+          writerOptions = {};
           if (!options.writer) {
-            options.writer = new XMLStringWriter(options);
+            options.writer = new XMLStringWriter();
           } else if (isPlainObject(options.writer)) {
             writerOptions = options.writer;
-            options.writer = new XMLStringWriter(writerOptions);
+            options.writer = new XMLStringWriter();
           }
           this.options = options;
           this.writer = options.writer;
+          this.writerOptions = this.writer.filterOptions(writerOptions);
           this.stringify = new XMLStringifier(options);
           this.onDataCallback = onData || function () {};
           this.onEndCallback = onEnd || function () {};
@@ -13311,20 +15863,67 @@ var require_XMLDocumentCB = __commonJS({
           this.documentCompleted = false;
           this.root = null;
         }
+        XMLDocumentCB2.prototype.createChildNode = function (node) {
+          var att, attName, attributes, child, i, len, ref1, ref2;
+          switch (node.type) {
+            case NodeType.CData:
+              this.cdata(node.value);
+              break;
+            case NodeType.Comment:
+              this.comment(node.value);
+              break;
+            case NodeType.Element:
+              attributes = {};
+              ref1 = node.attribs;
+              for (attName in ref1) {
+                if (!hasProp.call(ref1, attName)) continue;
+                att = ref1[attName];
+                attributes[attName] = att.value;
+              }
+              this.node(node.name, attributes);
+              break;
+            case NodeType.Dummy:
+              this.dummy();
+              break;
+            case NodeType.Raw:
+              this.raw(node.value);
+              break;
+            case NodeType.Text:
+              this.text(node.value);
+              break;
+            case NodeType.ProcessingInstruction:
+              this.instruction(node.target, node.value);
+              break;
+            default:
+              throw new Error('This XML node type is not supported in a JS object: ' + node.constructor.name);
+          }
+          ref2 = node.children;
+          for (i = 0, len = ref2.length; i < len; i++) {
+            child = ref2[i];
+            this.createChildNode(child);
+            if (child.type === NodeType.Element) {
+              this.up();
+            }
+          }
+          return this;
+        };
+        XMLDocumentCB2.prototype.dummy = function () {
+          return this;
+        };
         XMLDocumentCB2.prototype.node = function (name, attributes, text) {
           var ref1;
           if (name == null) {
-            throw new Error('Missing node name');
+            throw new Error('Missing node name.');
           }
           if (this.root && this.currentLevel === -1) {
-            throw new Error('Document can only have one root node');
+            throw new Error('Document can only have one root node. ' + this.debugInfo(name));
           }
           this.openCurrent();
-          name = name.valueOf();
+          name = getValue(name);
           if (attributes == null) {
             attributes = {};
           }
-          attributes = attributes.valueOf();
+          attributes = getValue(attributes);
           if (!isObject(attributes)) {
             (ref1 = [attributes, text]), (text = ref1[0]), (attributes = ref1[1]);
           }
@@ -13338,19 +15937,39 @@ var require_XMLDocumentCB = __commonJS({
           return this;
         };
         XMLDocumentCB2.prototype.element = function (name, attributes, text) {
-          if (this.currentNode && this.currentNode instanceof XMLDocType) {
-            return this.dtdElement.apply(this, arguments);
+          var child, i, len, oldValidationFlag, ref1, root;
+          if (this.currentNode && this.currentNode.type === NodeType.DocType) {
+            this.dtdElement.apply(this, arguments);
           } else {
-            return this.node(name, attributes, text);
+            if (Array.isArray(name) || isObject(name) || isFunction(name)) {
+              oldValidationFlag = this.options.noValidation;
+              this.options.noValidation = true;
+              root = new XMLDocument(this.options).element('TEMP_ROOT');
+              root.element(name);
+              this.options.noValidation = oldValidationFlag;
+              ref1 = root.children;
+              for (i = 0, len = ref1.length; i < len; i++) {
+                child = ref1[i];
+                this.createChildNode(child);
+                if (child.type === NodeType.Element) {
+                  this.up();
+                }
+              }
+            } else {
+              this.node(name, attributes, text);
+            }
           }
+          return this;
         };
         XMLDocumentCB2.prototype.attribute = function (name, value) {
           var attName, attValue;
           if (!this.currentNode || this.currentNode.children) {
-            throw new Error('att() can only be used immediately after an ele() call in callback mode');
+            throw new Error(
+              'att() can only be used immediately after an ele() call in callback mode. ' + this.debugInfo(name)
+            );
           }
           if (name != null) {
-            name = name.valueOf();
+            name = getValue(name);
           }
           if (isObject(name)) {
             for (attName in name) {
@@ -13362,8 +15981,10 @@ var require_XMLDocumentCB = __commonJS({
             if (isFunction(value)) {
               value = value.apply();
             }
-            if (!this.options.skipNullAttributes || value != null) {
-              this.currentNode.attributes[name] = new XMLAttribute(this, name, value);
+            if (this.options.keepNullAttributes && value == null) {
+              this.currentNode.attribs[name] = new XMLAttribute(this, name, '');
+            } else if (value != null) {
+              this.currentNode.attribs[name] = new XMLAttribute(this, name, value);
             }
           }
           return this;
@@ -13372,38 +15993,38 @@ var require_XMLDocumentCB = __commonJS({
           var node;
           this.openCurrent();
           node = new XMLText(this, value);
-          this.onData(this.writer.text(node, this.currentLevel + 1));
+          this.onData(this.writer.text(node, this.writerOptions, this.currentLevel + 1), this.currentLevel + 1);
           return this;
         };
         XMLDocumentCB2.prototype.cdata = function (value) {
           var node;
           this.openCurrent();
           node = new XMLCData(this, value);
-          this.onData(this.writer.cdata(node, this.currentLevel + 1));
+          this.onData(this.writer.cdata(node, this.writerOptions, this.currentLevel + 1), this.currentLevel + 1);
           return this;
         };
         XMLDocumentCB2.prototype.comment = function (value) {
           var node;
           this.openCurrent();
           node = new XMLComment(this, value);
-          this.onData(this.writer.comment(node, this.currentLevel + 1));
+          this.onData(this.writer.comment(node, this.writerOptions, this.currentLevel + 1), this.currentLevel + 1);
           return this;
         };
         XMLDocumentCB2.prototype.raw = function (value) {
           var node;
           this.openCurrent();
           node = new XMLRaw(this, value);
-          this.onData(this.writer.raw(node, this.currentLevel + 1));
+          this.onData(this.writer.raw(node, this.writerOptions, this.currentLevel + 1), this.currentLevel + 1);
           return this;
         };
         XMLDocumentCB2.prototype.instruction = function (target, value) {
           var i, insTarget, insValue, len, node;
           this.openCurrent();
           if (target != null) {
-            target = target.valueOf();
+            target = getValue(target);
           }
           if (value != null) {
-            value = value.valueOf();
+            value = getValue(value);
           }
           if (Array.isArray(target)) {
             for (i = 0, len = target.length; i < len; i++) {
@@ -13421,7 +16042,10 @@ var require_XMLDocumentCB = __commonJS({
               value = value.apply();
             }
             node = new XMLProcessingInstruction(this, target, value);
-            this.onData(this.writer.processingInstruction(node, this.currentLevel + 1));
+            this.onData(
+              this.writer.processingInstruction(node, this.writerOptions, this.currentLevel + 1),
+              this.currentLevel + 1
+            );
           }
           return this;
         };
@@ -13429,19 +16053,19 @@ var require_XMLDocumentCB = __commonJS({
           var node;
           this.openCurrent();
           if (this.documentStarted) {
-            throw new Error('declaration() must be the first node');
+            throw new Error('declaration() must be the first node.');
           }
           node = new XMLDeclaration(this, version, encoding, standalone);
-          this.onData(this.writer.declaration(node, this.currentLevel + 1));
+          this.onData(this.writer.declaration(node, this.writerOptions, this.currentLevel + 1), this.currentLevel + 1);
           return this;
         };
         XMLDocumentCB2.prototype.doctype = function (root, pubID, sysID) {
           this.openCurrent();
           if (root == null) {
-            throw new Error('Missing root node name');
+            throw new Error('Missing root node name.');
           }
           if (this.root) {
-            throw new Error('dtd() must come before the root node');
+            throw new Error('dtd() must come before the root node.');
           }
           this.currentNode = new XMLDocType(this, pubID, sysID);
           this.currentNode.rootNodeName = root;
@@ -13454,7 +16078,7 @@ var require_XMLDocumentCB = __commonJS({
           var node;
           this.openCurrent();
           node = new XMLDTDElement(this, name, value);
-          this.onData(this.writer.dtdElement(node, this.currentLevel + 1));
+          this.onData(this.writer.dtdElement(node, this.writerOptions, this.currentLevel + 1), this.currentLevel + 1);
           return this;
         };
         XMLDocumentCB2.prototype.attList = function (
@@ -13467,33 +16091,33 @@ var require_XMLDocumentCB = __commonJS({
           var node;
           this.openCurrent();
           node = new XMLDTDAttList(this, elementName, attributeName, attributeType, defaultValueType, defaultValue);
-          this.onData(this.writer.dtdAttList(node, this.currentLevel + 1));
+          this.onData(this.writer.dtdAttList(node, this.writerOptions, this.currentLevel + 1), this.currentLevel + 1);
           return this;
         };
         XMLDocumentCB2.prototype.entity = function (name, value) {
           var node;
           this.openCurrent();
           node = new XMLDTDEntity(this, false, name, value);
-          this.onData(this.writer.dtdEntity(node, this.currentLevel + 1));
+          this.onData(this.writer.dtdEntity(node, this.writerOptions, this.currentLevel + 1), this.currentLevel + 1);
           return this;
         };
         XMLDocumentCB2.prototype.pEntity = function (name, value) {
           var node;
           this.openCurrent();
           node = new XMLDTDEntity(this, true, name, value);
-          this.onData(this.writer.dtdEntity(node, this.currentLevel + 1));
+          this.onData(this.writer.dtdEntity(node, this.writerOptions, this.currentLevel + 1), this.currentLevel + 1);
           return this;
         };
         XMLDocumentCB2.prototype.notation = function (name, value) {
           var node;
           this.openCurrent();
           node = new XMLDTDNotation(this, name, value);
-          this.onData(this.writer.dtdNotation(node, this.currentLevel + 1));
+          this.onData(this.writer.dtdNotation(node, this.writerOptions, this.currentLevel + 1), this.currentLevel + 1);
           return this;
         };
         XMLDocumentCB2.prototype.up = function () {
           if (this.currentLevel < 0) {
-            throw new Error('The document node has no parent');
+            throw new Error('The document node has no parent.');
           }
           if (this.currentNode) {
             if (this.currentNode.children) {
@@ -13522,27 +16146,82 @@ var require_XMLDocumentCB = __commonJS({
           }
         };
         XMLDocumentCB2.prototype.openNode = function (node) {
+          var att, chunk, name, ref1;
           if (!node.isOpen) {
-            if (!this.root && this.currentLevel === 0 && node instanceof XMLElement) {
+            if (!this.root && this.currentLevel === 0 && node.type === NodeType.Element) {
               this.root = node;
             }
-            this.onData(this.writer.openNode(node, this.currentLevel));
+            chunk = '';
+            if (node.type === NodeType.Element) {
+              this.writerOptions.state = WriterState.OpenTag;
+              chunk = this.writer.indent(node, this.writerOptions, this.currentLevel) + '<' + node.name;
+              ref1 = node.attribs;
+              for (name in ref1) {
+                if (!hasProp.call(ref1, name)) continue;
+                att = ref1[name];
+                chunk += this.writer.attribute(att, this.writerOptions, this.currentLevel);
+              }
+              chunk += (node.children ? '>' : '/>') + this.writer.endline(node, this.writerOptions, this.currentLevel);
+              this.writerOptions.state = WriterState.InsideTag;
+            } else {
+              this.writerOptions.state = WriterState.OpenTag;
+              chunk =
+                this.writer.indent(node, this.writerOptions, this.currentLevel) + '<!DOCTYPE ' + node.rootNodeName;
+              if (node.pubID && node.sysID) {
+                chunk += ' PUBLIC "' + node.pubID + '" "' + node.sysID + '"';
+              } else if (node.sysID) {
+                chunk += ' SYSTEM "' + node.sysID + '"';
+              }
+              if (node.children) {
+                chunk += ' [';
+                this.writerOptions.state = WriterState.InsideTag;
+              } else {
+                this.writerOptions.state = WriterState.CloseTag;
+                chunk += '>';
+              }
+              chunk += this.writer.endline(node, this.writerOptions, this.currentLevel);
+            }
+            this.onData(chunk, this.currentLevel);
             return (node.isOpen = true);
           }
         };
         XMLDocumentCB2.prototype.closeNode = function (node) {
+          var chunk;
           if (!node.isClosed) {
-            this.onData(this.writer.closeNode(node, this.currentLevel));
+            chunk = '';
+            this.writerOptions.state = WriterState.CloseTag;
+            if (node.type === NodeType.Element) {
+              chunk =
+                this.writer.indent(node, this.writerOptions, this.currentLevel) +
+                '</' +
+                node.name +
+                '>' +
+                this.writer.endline(node, this.writerOptions, this.currentLevel);
+            } else {
+              chunk =
+                this.writer.indent(node, this.writerOptions, this.currentLevel) +
+                ']>' +
+                this.writer.endline(node, this.writerOptions, this.currentLevel);
+            }
+            this.writerOptions.state = WriterState.None;
+            this.onData(chunk, this.currentLevel);
             return (node.isClosed = true);
           }
         };
-        XMLDocumentCB2.prototype.onData = function (chunk) {
+        XMLDocumentCB2.prototype.onData = function (chunk, level) {
           this.documentStarted = true;
-          return this.onDataCallback(chunk);
+          return this.onDataCallback(chunk, level + 1);
         };
         XMLDocumentCB2.prototype.onEnd = function () {
           this.documentCompleted = true;
           return this.onEndCallback();
+        };
+        XMLDocumentCB2.prototype.debugInfo = function (name) {
+          if (name == null) {
+            return '';
+          } else {
+            return 'node: <' + name + '>';
+          }
         };
         XMLDocumentCB2.prototype.ele = function () {
           return this.element.apply(this, arguments);
@@ -13590,14 +16269,14 @@ var require_XMLDocumentCB = __commonJS({
           return this.instruction(target, value);
         };
         XMLDocumentCB2.prototype.att = function () {
-          if (this.currentNode && this.currentNode instanceof XMLDocType) {
+          if (this.currentNode && this.currentNode.type === NodeType.DocType) {
             return this.attList.apply(this, arguments);
           } else {
             return this.attribute.apply(this, arguments);
           }
         };
         XMLDocumentCB2.prototype.a = function () {
-          if (this.currentNode && this.currentNode instanceof XMLDocType) {
+          if (this.currentNode && this.currentNode.type === NodeType.DocType) {
             return this.attList.apply(this, arguments);
           } else {
             return this.attribute.apply(this, arguments);
@@ -13622,19 +16301,9 @@ var require_XMLDocumentCB = __commonJS({
 var require_XMLStreamWriter = __commonJS({
   'node_modules/xmlbuilder/lib/XMLStreamWriter.js'(exports, module2) {
     (function () {
-      var XMLCData,
-        XMLComment,
-        XMLDTDAttList,
-        XMLDTDElement,
-        XMLDTDEntity,
-        XMLDTDNotation,
-        XMLDeclaration,
-        XMLDocType,
-        XMLElement,
-        XMLProcessingInstruction,
-        XMLRaw,
+      var NodeType,
+        WriterState,
         XMLStreamWriter,
-        XMLText,
         XMLWriterBase,
         extend = function (child, parent) {
           for (var key in parent) {
@@ -13649,81 +16318,56 @@ var require_XMLStreamWriter = __commonJS({
           return child;
         },
         hasProp = {}.hasOwnProperty;
-      XMLDeclaration = require_XMLDeclaration();
-      XMLDocType = require_XMLDocType();
-      XMLCData = require_XMLCData();
-      XMLComment = require_XMLComment();
-      XMLElement = require_XMLElement();
-      XMLRaw = require_XMLRaw();
-      XMLText = require_XMLText();
-      XMLProcessingInstruction = require_XMLProcessingInstruction();
-      XMLDTDAttList = require_XMLDTDAttList();
-      XMLDTDElement = require_XMLDTDElement();
-      XMLDTDEntity = require_XMLDTDEntity();
-      XMLDTDNotation = require_XMLDTDNotation();
+      NodeType = require_NodeType();
       XMLWriterBase = require_XMLWriterBase();
+      WriterState = require_WriterState();
       module2.exports = XMLStreamWriter = (function (superClass) {
         extend(XMLStreamWriter2, superClass);
         function XMLStreamWriter2(stream, options) {
-          XMLStreamWriter2.__super__.constructor.call(this, options);
           this.stream = stream;
+          XMLStreamWriter2.__super__.constructor.call(this, options);
         }
-        XMLStreamWriter2.prototype.document = function (doc) {
-          var child, i, j, len, len1, ref, ref1, results;
-          ref = doc.children;
-          for (i = 0, len = ref.length; i < len; i++) {
-            child = ref[i];
-            child.isLastRootNode = false;
+        XMLStreamWriter2.prototype.endline = function (node, options, level) {
+          if (node.isLastRootNode && options.state === WriterState.CloseTag) {
+            return '';
+          } else {
+            return XMLStreamWriter2.__super__.endline.call(this, node, options, level);
           }
-          doc.children[doc.children.length - 1].isLastRootNode = true;
+        };
+        XMLStreamWriter2.prototype.document = function (doc, options) {
+          var child, i, j, k, len, len1, ref, ref1, results;
+          ref = doc.children;
+          for (i = j = 0, len = ref.length; j < len; i = ++j) {
+            child = ref[i];
+            child.isLastRootNode = i === doc.children.length - 1;
+          }
+          options = this.filterOptions(options);
           ref1 = doc.children;
           results = [];
-          for (j = 0, len1 = ref1.length; j < len1; j++) {
-            child = ref1[j];
-            switch (false) {
-              case !(child instanceof XMLDeclaration):
-                results.push(this.declaration(child));
-                break;
-              case !(child instanceof XMLDocType):
-                results.push(this.docType(child));
-                break;
-              case !(child instanceof XMLComment):
-                results.push(this.comment(child));
-                break;
-              case !(child instanceof XMLProcessingInstruction):
-                results.push(this.processingInstruction(child));
-                break;
-              default:
-                results.push(this.element(child));
-            }
+          for (k = 0, len1 = ref1.length; k < len1; k++) {
+            child = ref1[k];
+            results.push(this.writeChildNode(child, options, 0));
           }
           return results;
         };
-        XMLStreamWriter2.prototype.attribute = function (att) {
-          return this.stream.write(' ' + att.name + '="' + att.value + '"');
+        XMLStreamWriter2.prototype.attribute = function (att, options, level) {
+          return this.stream.write(XMLStreamWriter2.__super__.attribute.call(this, att, options, level));
         };
-        XMLStreamWriter2.prototype.cdata = function (node, level) {
-          return this.stream.write(this.space(level) + '<![CDATA[' + node.text + ']]>' + this.endline(node));
+        XMLStreamWriter2.prototype.cdata = function (node, options, level) {
+          return this.stream.write(XMLStreamWriter2.__super__.cdata.call(this, node, options, level));
         };
-        XMLStreamWriter2.prototype.comment = function (node, level) {
-          return this.stream.write(this.space(level) + '<!-- ' + node.text + ' -->' + this.endline(node));
+        XMLStreamWriter2.prototype.comment = function (node, options, level) {
+          return this.stream.write(XMLStreamWriter2.__super__.comment.call(this, node, options, level));
         };
-        XMLStreamWriter2.prototype.declaration = function (node, level) {
-          this.stream.write(this.space(level));
-          this.stream.write('<?xml version="' + node.version + '"');
-          if (node.encoding != null) {
-            this.stream.write(' encoding="' + node.encoding + '"');
-          }
-          if (node.standalone != null) {
-            this.stream.write(' standalone="' + node.standalone + '"');
-          }
-          this.stream.write(this.spacebeforeslash + '?>');
-          return this.stream.write(this.endline(node));
+        XMLStreamWriter2.prototype.declaration = function (node, options, level) {
+          return this.stream.write(XMLStreamWriter2.__super__.declaration.call(this, node, options, level));
         };
-        XMLStreamWriter2.prototype.docType = function (node, level) {
-          var child, i, len, ref;
+        XMLStreamWriter2.prototype.docType = function (node, options, level) {
+          var child, j, len, ref;
           level || (level = 0);
-          this.stream.write(this.space(level));
+          this.openNode(node, options, level);
+          options.state = WriterState.OpenTag;
+          this.stream.write(this.indent(node, options, level));
           this.stream.write('<!DOCTYPE ' + node.root().name);
           if (node.pubID && node.sysID) {
             this.stream.write(' PUBLIC "' + node.pubID + '" "' + node.sysID + '"');
@@ -13732,165 +16376,100 @@ var require_XMLStreamWriter = __commonJS({
           }
           if (node.children.length > 0) {
             this.stream.write(' [');
-            this.stream.write(this.endline(node));
+            this.stream.write(this.endline(node, options, level));
+            options.state = WriterState.InsideTag;
             ref = node.children;
-            for (i = 0, len = ref.length; i < len; i++) {
-              child = ref[i];
-              switch (false) {
-                case !(child instanceof XMLDTDAttList):
-                  this.dtdAttList(child, level + 1);
-                  break;
-                case !(child instanceof XMLDTDElement):
-                  this.dtdElement(child, level + 1);
-                  break;
-                case !(child instanceof XMLDTDEntity):
-                  this.dtdEntity(child, level + 1);
-                  break;
-                case !(child instanceof XMLDTDNotation):
-                  this.dtdNotation(child, level + 1);
-                  break;
-                case !(child instanceof XMLCData):
-                  this.cdata(child, level + 1);
-                  break;
-                case !(child instanceof XMLComment):
-                  this.comment(child, level + 1);
-                  break;
-                case !(child instanceof XMLProcessingInstruction):
-                  this.processingInstruction(child, level + 1);
-                  break;
-                default:
-                  throw new Error('Unknown DTD node type: ' + child.constructor.name);
-              }
+            for (j = 0, len = ref.length; j < len; j++) {
+              child = ref[j];
+              this.writeChildNode(child, options, level + 1);
             }
+            options.state = WriterState.CloseTag;
             this.stream.write(']');
           }
-          this.stream.write(this.spacebeforeslash + '>');
-          return this.stream.write(this.endline(node));
+          options.state = WriterState.CloseTag;
+          this.stream.write(options.spaceBeforeSlash + '>');
+          this.stream.write(this.endline(node, options, level));
+          options.state = WriterState.None;
+          return this.closeNode(node, options, level);
         };
-        XMLStreamWriter2.prototype.element = function (node, level) {
-          var att, child, i, len, name, ref, ref1, space;
+        XMLStreamWriter2.prototype.element = function (node, options, level) {
+          var att, child, childNodeCount, firstChildNode, j, len, name, prettySuppressed, ref, ref1;
           level || (level = 0);
-          space = this.space(level);
-          this.stream.write(space + '<' + node.name);
-          ref = node.attributes;
+          this.openNode(node, options, level);
+          options.state = WriterState.OpenTag;
+          this.stream.write(this.indent(node, options, level) + '<' + node.name);
+          ref = node.attribs;
           for (name in ref) {
             if (!hasProp.call(ref, name)) continue;
             att = ref[name];
-            this.attribute(att);
+            this.attribute(att, options, level);
           }
+          childNodeCount = node.children.length;
+          firstChildNode = childNodeCount === 0 ? null : node.children[0];
           if (
-            node.children.length === 0 ||
+            childNodeCount === 0 ||
             node.children.every(function (e) {
-              return e.value === '';
+              return (e.type === NodeType.Text || e.type === NodeType.Raw) && e.value === '';
             })
           ) {
-            if (this.allowEmpty) {
-              this.stream.write('></' + node.name + '>');
+            if (options.allowEmpty) {
+              this.stream.write('>');
+              options.state = WriterState.CloseTag;
+              this.stream.write('</' + node.name + '>');
             } else {
-              this.stream.write(this.spacebeforeslash + '/>');
+              options.state = WriterState.CloseTag;
+              this.stream.write(options.spaceBeforeSlash + '/>');
             }
-          } else if (this.pretty && node.children.length === 1 && node.children[0].value != null) {
+          } else if (
+            options.pretty &&
+            childNodeCount === 1 &&
+            (firstChildNode.type === NodeType.Text || firstChildNode.type === NodeType.Raw) &&
+            firstChildNode.value != null
+          ) {
             this.stream.write('>');
-            this.stream.write(node.children[0].value);
+            options.state = WriterState.InsideTag;
+            options.suppressPrettyCount++;
+            prettySuppressed = true;
+            this.writeChildNode(firstChildNode, options, level + 1);
+            options.suppressPrettyCount--;
+            prettySuppressed = false;
+            options.state = WriterState.CloseTag;
             this.stream.write('</' + node.name + '>');
           } else {
-            this.stream.write('>' + this.newline);
+            this.stream.write('>' + this.endline(node, options, level));
+            options.state = WriterState.InsideTag;
             ref1 = node.children;
-            for (i = 0, len = ref1.length; i < len; i++) {
-              child = ref1[i];
-              switch (false) {
-                case !(child instanceof XMLCData):
-                  this.cdata(child, level + 1);
-                  break;
-                case !(child instanceof XMLComment):
-                  this.comment(child, level + 1);
-                  break;
-                case !(child instanceof XMLElement):
-                  this.element(child, level + 1);
-                  break;
-                case !(child instanceof XMLRaw):
-                  this.raw(child, level + 1);
-                  break;
-                case !(child instanceof XMLText):
-                  this.text(child, level + 1);
-                  break;
-                case !(child instanceof XMLProcessingInstruction):
-                  this.processingInstruction(child, level + 1);
-                  break;
-                default:
-                  throw new Error('Unknown XML node type: ' + child.constructor.name);
-              }
+            for (j = 0, len = ref1.length; j < len; j++) {
+              child = ref1[j];
+              this.writeChildNode(child, options, level + 1);
             }
-            this.stream.write(space + '</' + node.name + '>');
+            options.state = WriterState.CloseTag;
+            this.stream.write(this.indent(node, options, level) + '</' + node.name + '>');
           }
-          return this.stream.write(this.endline(node));
+          this.stream.write(this.endline(node, options, level));
+          options.state = WriterState.None;
+          return this.closeNode(node, options, level);
         };
-        XMLStreamWriter2.prototype.processingInstruction = function (node, level) {
-          this.stream.write(this.space(level) + '<?' + node.target);
-          if (node.value) {
-            this.stream.write(' ' + node.value);
-          }
-          return this.stream.write(this.spacebeforeslash + '?>' + this.endline(node));
+        XMLStreamWriter2.prototype.processingInstruction = function (node, options, level) {
+          return this.stream.write(XMLStreamWriter2.__super__.processingInstruction.call(this, node, options, level));
         };
-        XMLStreamWriter2.prototype.raw = function (node, level) {
-          return this.stream.write(this.space(level) + node.value + this.endline(node));
+        XMLStreamWriter2.prototype.raw = function (node, options, level) {
+          return this.stream.write(XMLStreamWriter2.__super__.raw.call(this, node, options, level));
         };
-        XMLStreamWriter2.prototype.text = function (node, level) {
-          return this.stream.write(this.space(level) + node.value + this.endline(node));
+        XMLStreamWriter2.prototype.text = function (node, options, level) {
+          return this.stream.write(XMLStreamWriter2.__super__.text.call(this, node, options, level));
         };
-        XMLStreamWriter2.prototype.dtdAttList = function (node, level) {
-          this.stream.write(
-            this.space(level) + '<!ATTLIST ' + node.elementName + ' ' + node.attributeName + ' ' + node.attributeType
-          );
-          if (node.defaultValueType !== '#DEFAULT') {
-            this.stream.write(' ' + node.defaultValueType);
-          }
-          if (node.defaultValue) {
-            this.stream.write(' "' + node.defaultValue + '"');
-          }
-          return this.stream.write(this.spacebeforeslash + '>' + this.endline(node));
+        XMLStreamWriter2.prototype.dtdAttList = function (node, options, level) {
+          return this.stream.write(XMLStreamWriter2.__super__.dtdAttList.call(this, node, options, level));
         };
-        XMLStreamWriter2.prototype.dtdElement = function (node, level) {
-          this.stream.write(this.space(level) + '<!ELEMENT ' + node.name + ' ' + node.value);
-          return this.stream.write(this.spacebeforeslash + '>' + this.endline(node));
+        XMLStreamWriter2.prototype.dtdElement = function (node, options, level) {
+          return this.stream.write(XMLStreamWriter2.__super__.dtdElement.call(this, node, options, level));
         };
-        XMLStreamWriter2.prototype.dtdEntity = function (node, level) {
-          this.stream.write(this.space(level) + '<!ENTITY');
-          if (node.pe) {
-            this.stream.write(' %');
-          }
-          this.stream.write(' ' + node.name);
-          if (node.value) {
-            this.stream.write(' "' + node.value + '"');
-          } else {
-            if (node.pubID && node.sysID) {
-              this.stream.write(' PUBLIC "' + node.pubID + '" "' + node.sysID + '"');
-            } else if (node.sysID) {
-              this.stream.write(' SYSTEM "' + node.sysID + '"');
-            }
-            if (node.nData) {
-              this.stream.write(' NDATA ' + node.nData);
-            }
-          }
-          return this.stream.write(this.spacebeforeslash + '>' + this.endline(node));
+        XMLStreamWriter2.prototype.dtdEntity = function (node, options, level) {
+          return this.stream.write(XMLStreamWriter2.__super__.dtdEntity.call(this, node, options, level));
         };
-        XMLStreamWriter2.prototype.dtdNotation = function (node, level) {
-          this.stream.write(this.space(level) + '<!NOTATION ' + node.name);
-          if (node.pubID && node.sysID) {
-            this.stream.write(' PUBLIC "' + node.pubID + '" "' + node.sysID + '"');
-          } else if (node.pubID) {
-            this.stream.write(' PUBLIC "' + node.pubID + '"');
-          } else if (node.sysID) {
-            this.stream.write(' SYSTEM "' + node.sysID + '"');
-          }
-          return this.stream.write(this.spacebeforeslash + '>' + this.endline(node));
-        };
-        XMLStreamWriter2.prototype.endline = function (node) {
-          if (!node.isLastRootNode) {
-            return this.newline;
-          } else {
-            return '';
-          }
+        XMLStreamWriter2.prototype.dtdNotation = function (node, options, level) {
+          return this.stream.write(XMLStreamWriter2.__super__.dtdNotation.call(this, node, options, level));
         };
         return XMLStreamWriter2;
       })(XMLWriterBase);
@@ -13902,16 +16481,28 @@ var require_XMLStreamWriter = __commonJS({
 var require_lib = __commonJS({
   'node_modules/xmlbuilder/lib/index.js'(exports, module2) {
     (function () {
-      var XMLDocument, XMLDocumentCB, XMLStreamWriter, XMLStringWriter, assign, isFunction, ref;
+      var NodeType,
+        WriterState,
+        XMLDOMImplementation,
+        XMLDocument,
+        XMLDocumentCB,
+        XMLStreamWriter,
+        XMLStringWriter,
+        assign,
+        isFunction,
+        ref;
       (ref = require_Utility()), (assign = ref.assign), (isFunction = ref.isFunction);
+      XMLDOMImplementation = require_XMLDOMImplementation();
       XMLDocument = require_XMLDocument();
       XMLDocumentCB = require_XMLDocumentCB();
       XMLStringWriter = require_XMLStringWriter();
       XMLStreamWriter = require_XMLStreamWriter();
+      NodeType = require_NodeType();
+      WriterState = require_WriterState();
       module2.exports.create = function (name, xmldec, doctype, options) {
         var doc, root;
         if (name == null) {
-          throw new Error('Root element needs a name');
+          throw new Error('Root element needs a name.');
         }
         options = assign({}, xmldec, doctype, options);
         doc = new XMLDocument(options);
@@ -13919,7 +16510,7 @@ var require_lib = __commonJS({
         if (!options.headless) {
           doc.declaration(options);
           if (options.pubID != null || options.sysID != null) {
-            doc.doctype(options);
+            doc.dtd(options);
           }
         }
         return root;
@@ -13942,6 +16533,9 @@ var require_lib = __commonJS({
       module2.exports.streamWriter = function (stream, options) {
         return new XMLStreamWriter(stream, options);
       };
+      module2.exports.implementation = new XMLDOMImplementation();
+      module2.exports.nodeType = NodeType;
+      module2.exports.writerState = WriterState;
     }.call(exports));
   },
 });
@@ -14142,6 +16736,9 @@ var require_sax = __commonJS({
         if (parser.opt.xmlns) {
           parser.ns = Object.create(rootNS);
         }
+        if (parser.opt.unquotedAttributeValues === void 0) {
+          parser.opt.unquotedAttributeValues = !strict;
+        }
         parser.trackPosition = parser.opt.position !== false;
         if (parser.trackPosition) {
           parser.position = parser.line = parser.column = 0;
@@ -14228,6 +16825,7 @@ var require_sax = __commonJS({
       } catch (ex) {
         Stream = function () {};
       }
+      if (!Stream) Stream = function () {};
       var streamWraps = sax.EVENTS.filter(function (ev) {
         return ev !== 'error' && ev !== 'end';
       });
@@ -15032,15 +17630,21 @@ var require_sax = __commonJS({
               }
               continue;
             case S.SGML_DECL:
-              if ((parser.sgmlDecl + c).toUpperCase() === CDATA) {
+              if (parser.sgmlDecl + c === '--') {
+                parser.state = S.COMMENT;
+                parser.comment = '';
+                parser.sgmlDecl = '';
+                continue;
+              }
+              if (parser.doctype && parser.doctype !== true && parser.sgmlDecl) {
+                parser.state = S.DOCTYPE_DTD;
+                parser.doctype += '<!' + parser.sgmlDecl + c;
+                parser.sgmlDecl = '';
+              } else if ((parser.sgmlDecl + c).toUpperCase() === CDATA) {
                 emitNode(parser, 'onopencdata');
                 parser.state = S.CDATA;
                 parser.sgmlDecl = '';
                 parser.cdata = '';
-              } else if (parser.sgmlDecl + c === '--') {
-                parser.state = S.COMMENT;
-                parser.comment = '';
-                parser.sgmlDecl = '';
               } else if ((parser.sgmlDecl + c).toUpperCase() === DOCTYPE) {
                 parser.state = S.DOCTYPE;
                 if (parser.doctype || parser.sawRoot) {
@@ -15089,12 +17693,18 @@ var require_sax = __commonJS({
               }
               continue;
             case S.DOCTYPE_DTD:
-              parser.doctype += c;
               if (c === ']') {
+                parser.doctype += c;
                 parser.state = S.DOCTYPE;
+              } else if (c === '<') {
+                parser.state = S.OPEN_WAKA;
+                parser.startTagPosition = parser.position;
               } else if (isQuote(c)) {
+                parser.doctype += c;
                 parser.state = S.DOCTYPE_DTD_QUOTED;
                 parser.q = c;
+              } else {
+                parser.doctype += c;
               }
               continue;
             case S.DOCTYPE_DTD_QUOTED:
@@ -15129,6 +17739,8 @@ var require_sax = __commonJS({
                 strictFail(parser, 'Malformed comment');
                 parser.comment += '--' + c;
                 parser.state = S.COMMENT;
+              } else if (parser.doctype && parser.doctype !== true) {
+                parser.state = S.DOCTYPE_DTD;
               } else {
                 parser.state = S.TEXT;
               }
@@ -15283,7 +17895,9 @@ var require_sax = __commonJS({
                 parser.q = c;
                 parser.state = S.ATTRIB_VALUE_QUOTED;
               } else {
-                strictFail(parser, 'Unquoted attribute value');
+                if (!parser.opt.unquotedAttributeValues) {
+                  error(parser, 'Unquoted attribute value');
+                }
                 parser.state = S.ATTRIB_VALUE_UNQUOTED;
                 parser.attribValue = c;
               }
@@ -15392,9 +18006,16 @@ var require_sax = __commonJS({
                   break;
               }
               if (c === ';') {
-                parser[buffer] += parseEntity(parser);
-                parser.entity = '';
-                parser.state = returnState;
+                var parsedEntity = parseEntity(parser);
+                if (parser.opt.unparsedEntities && !Object.values(sax.XML_ENTITIES).includes(parsedEntity)) {
+                  parser.entity = '';
+                  parser.state = returnState;
+                  parser.write(parsedEntity);
+                } else {
+                  parser[buffer] += parsedEntity;
+                  parser.entity = '';
+                  parser.state = returnState;
+                }
               } else if (isMatch(parser.entity.length ? entityBody : entityStart, c)) {
                 parser.entity += c;
               } else {
@@ -15404,8 +18025,9 @@ var require_sax = __commonJS({
                 parser.state = returnState;
               }
               continue;
-            default:
+            default: {
               throw new Error(parser, 'Unknown state: ' + parser.state);
+            }
           }
         }
         if (parser.position >= parser.bufferCheckPosition) {
@@ -15518,6 +18140,7 @@ var require_parser2 = __commonJS({
       'use strict';
       var bom,
         defaults,
+        defineProperty,
         events,
         isEmpty,
         processItem,
@@ -15559,9 +18182,19 @@ var require_parser2 = __commonJS({
         }
         return item;
       };
+      defineProperty = function (obj, key, value) {
+        var descriptor;
+        descriptor = /* @__PURE__ */ Object.create(null);
+        descriptor.value = value;
+        descriptor.writable = true;
+        descriptor.enumerable = true;
+        descriptor.configurable = true;
+        return Object.defineProperty(obj, key, descriptor);
+      };
       exports.Parser = (function (superClass) {
         extend(Parser, superClass);
         function Parser(opts) {
+          this.parseStringPromise = bind(this.parseStringPromise, this);
           this.parseString = bind(this.parseString, this);
           this.reset = bind(this.reset, this);
           this.assignOrPush = bind(this.assignOrPush, this);
@@ -15618,13 +18251,13 @@ var require_parser2 = __commonJS({
         Parser.prototype.assignOrPush = function (obj, key, newValue) {
           if (!(key in obj)) {
             if (!this.options.explicitArray) {
-              return (obj[key] = newValue);
+              return defineProperty(obj, key, newValue);
             } else {
-              return (obj[key] = [newValue]);
+              return defineProperty(obj, key, [newValue]);
             }
           } else {
             if (!(obj[key] instanceof Array)) {
-              obj[key] = [obj[key]];
+              defineProperty(obj, key, [obj[key]]);
             }
             return obj[key].push(newValue);
           }
@@ -15682,7 +18315,7 @@ var require_parser2 = __commonJS({
                   if (_this.options.mergeAttrs) {
                     _this.assignOrPush(obj, processedKey, newValue);
                   } else {
-                    obj[attrkey][processedKey] = newValue;
+                    defineProperty(obj[attrkey], processedKey, newValue);
                   }
                 }
               }
@@ -15729,7 +18362,11 @@ var require_parser2 = __commonJS({
                 }
               }
               if (isEmpty(obj)) {
-                obj = _this.options.emptyTag !== '' ? _this.options.emptyTag : emptyStr;
+                if (typeof _this.options.emptyTag === 'function') {
+                  obj = _this.options.emptyTag();
+                } else {
+                  obj = _this.options.emptyTag !== '' ? _this.options.emptyTag : emptyStr;
+                }
               }
               if (_this.options.validator != null) {
                 xpath =
@@ -15775,7 +18412,7 @@ var require_parser2 = __commonJS({
                   objClone = {};
                   for (key in obj) {
                     if (!hasProp.call(obj, key)) continue;
-                    objClone[key] = obj[key];
+                    defineProperty(objClone, key, obj[key]);
                   }
                   s[_this.options.childkey].push(objClone);
                   delete obj['#name'];
@@ -15790,7 +18427,7 @@ var require_parser2 = __commonJS({
                 if (_this.options.explicitRoot) {
                   old = obj;
                   obj = {};
-                  obj[nodeName] = old;
+                  defineProperty(obj, nodeName, old);
                 }
                 _this.resultObject = obj;
                 _this.saxParser.ended = true;
@@ -15870,8 +18507,23 @@ var require_parser2 = __commonJS({
             }
           }
         };
+        Parser.prototype.parseStringPromise = function (str) {
+          return new Promise(
+            (function (_this) {
+              return function (resolve, reject) {
+                return _this.parseString(str, function (err, value) {
+                  if (err) {
+                    return reject(err);
+                  } else {
+                    return resolve(value);
+                  }
+                });
+              };
+            })(this)
+          );
+        };
         return Parser;
-      })(events.EventEmitter);
+      })(events);
       exports.parseString = function (str, a, b) {
         var cb, options, parser;
         if (b != null) {
@@ -15889,6 +18541,14 @@ var require_parser2 = __commonJS({
         }
         parser = new exports.Parser(options);
         return parser.parseString(str, cb);
+      };
+      exports.parseStringPromise = function (str, a) {
+        var options, parser;
+        if (typeof a === 'object') {
+          options = a;
+        }
+        parser = new exports.Parser(options);
+        return parser.parseStringPromise(str);
       };
     }.call(exports));
   },
@@ -15932,6 +18592,7 @@ var require_xml2js = __commonJS({
       exports.Builder = builder.Builder;
       exports.Parser = parser.Parser;
       exports.parseString = parser.parseString;
+      exports.parseStringPromise = parser.parseStringPromise;
     }.call(exports));
   },
 });
@@ -15939,9 +18600,9 @@ var require_xml2js = __commonJS({
 // node_modules/aws-sdk/lib/xml/node_parser.js
 var require_node_parser = __commonJS({
   'node_modules/aws-sdk/lib/xml/node_parser.js'(exports, module2) {
-    var AWS3 = require_core();
-    var util = AWS3.util;
-    var Shape = AWS3.Model.Shape;
+    var AWS2 = require_core();
+    var util = AWS2.util;
+    var Shape = AWS2.Model.Shape;
     var xml2js = require_xml2js();
     var options = {
       explicitCharkey: false,
@@ -16081,13 +18742,13 @@ var require_node_parser = __commonJS({
 // node_modules/aws-sdk/lib/http/node.js
 var require_node = __commonJS({
   'node_modules/aws-sdk/lib/http/node.js'() {
-    var AWS3 = require_core();
-    var Stream = AWS3.util.stream.Stream;
-    var TransformStream = AWS3.util.stream.Transform;
-    var ReadableStream = AWS3.util.stream.Readable;
+    var AWS2 = require_core();
+    var Stream = AWS2.util.stream.Stream;
+    var TransformStream = AWS2.util.stream.Transform;
+    var ReadableStream = AWS2.util.stream.Readable;
     require_http();
     var CONNECTION_REUSE_ENV_NAME = 'AWS_NODEJS_CONNECTION_REUSE_ENABLED';
-    AWS3.NodeHttpClient = AWS3.util.inherit({
+    AWS2.NodeHttpClient = AWS2.util.inherit({
       handleRequest: function handleRequest(httpRequest, httpOptions, callback, errCallback) {
         var self = this;
         var endpoint = httpRequest.endpoint;
@@ -16098,7 +18759,7 @@ var require_node = __commonJS({
           if (endpoint.port !== 80 && endpoint.port !== 443) {
             pathPrefix += ':' + endpoint.port;
           }
-          endpoint = new AWS3.Endpoint(httpOptions.proxy);
+          endpoint = new AWS2.Endpoint(httpOptions.proxy);
         }
         var useSSL = endpoint.protocol === 'https:';
         var http = useSSL ? require('https') : require('http');
@@ -16109,12 +18770,12 @@ var require_node = __commonJS({
           headers: httpRequest.headers,
           path: pathPrefix + httpRequest.path,
         };
+        AWS2.util.update(options, httpOptions);
         if (!httpOptions.agent) {
           options.agent = this.getAgent(useSSL, {
             keepAlive: process.env[CONNECTION_REUSE_ENV_NAME] === '1' ? true : false,
           });
         }
-        AWS3.util.update(options, httpOptions);
         delete options.proxy;
         delete options.timeout;
         var stream = http.request(options, function (httpResp) {
@@ -16133,7 +18794,7 @@ var require_node = __commonJS({
                 stream.didCallback = true;
                 stream.abort();
                 errCallback(
-                  AWS3.util.error(new Error('Socket timed out without establishing a connection'), {
+                  AWS2.util.error(new Error('Socket timed out without establishing a connection'), {
                     code: 'TimeoutError',
                   })
                 );
@@ -16149,21 +18810,25 @@ var require_node = __commonJS({
           if (stream.didCallback) return;
           stream.didCallback = true;
           var msg = 'Connection timed out after ' + httpOptions.timeout + 'ms';
-          errCallback(AWS3.util.error(new Error(msg), { code: 'TimeoutError' }));
+          errCallback(AWS2.util.error(new Error(msg), { code: 'TimeoutError' }));
           stream.abort();
         });
-        stream.on('error', function () {
+        stream.on('error', function (err) {
           if (connectTimeoutId) {
             clearTimeout(connectTimeoutId);
             connectTimeoutId = null;
           }
           if (stream.didCallback) return;
           stream.didCallback = true;
-          errCallback.apply(stream, arguments);
+          if (err.code === 'ECONNRESET' || err.code === 'EPIPE' || err.code === 'ETIMEDOUT') {
+            errCallback(AWS2.util.error(err, { code: 'TimeoutError' }));
+          } else {
+            errCallback(err);
+          }
         });
         var expect = httpRequest.headers.Expect || httpRequest.headers.expect;
         if (expect === '100-continue') {
-          stream.on('continue', function () {
+          stream.once('continue', function () {
             self.writeBody(stream, httpRequest);
           });
         } else {
@@ -16196,17 +18861,17 @@ var require_node = __commonJS({
       getAgent: function getAgent(useSSL, agentOptions) {
         var http = useSSL ? require('https') : require('http');
         if (useSSL) {
-          if (!AWS3.NodeHttpClient.sslAgent) {
-            AWS3.NodeHttpClient.sslAgent = new http.Agent(
-              AWS3.util.merge(
+          if (!AWS2.NodeHttpClient.sslAgent) {
+            AWS2.NodeHttpClient.sslAgent = new http.Agent(
+              AWS2.util.merge(
                 {
                   rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0' ? false : true,
                 },
                 agentOptions || {}
               )
             );
-            AWS3.NodeHttpClient.sslAgent.setMaxListeners(0);
-            Object.defineProperty(AWS3.NodeHttpClient.sslAgent, 'maxSockets', {
+            AWS2.NodeHttpClient.sslAgent.setMaxListeners(0);
+            Object.defineProperty(AWS2.NodeHttpClient.sslAgent, 'maxSockets', {
               enumerable: true,
               get: function () {
                 var defaultMaxSockets = 50;
@@ -16218,12 +18883,12 @@ var require_node = __commonJS({
               },
             });
           }
-          return AWS3.NodeHttpClient.sslAgent;
+          return AWS2.NodeHttpClient.sslAgent;
         } else {
-          if (!AWS3.NodeHttpClient.agent) {
-            AWS3.NodeHttpClient.agent = new http.Agent(agentOptions);
+          if (!AWS2.NodeHttpClient.agent) {
+            AWS2.NodeHttpClient.agent = new http.Agent(agentOptions);
           }
-          return AWS3.NodeHttpClient.agent;
+          return AWS2.NodeHttpClient.agent;
         }
       },
       progressStream: function progressStream(stream, totalBytes) {
@@ -16246,23 +18911,23 @@ var require_node = __commonJS({
       },
       emitter: null,
     });
-    AWS3.HttpClient.prototype = AWS3.NodeHttpClient.prototype;
-    AWS3.HttpClient.streamsApiVersion = ReadableStream ? 2 : 1;
+    AWS2.HttpClient.prototype = AWS2.NodeHttpClient.prototype;
+    AWS2.HttpClient.streamsApiVersion = ReadableStream ? 2 : 1;
   },
 });
 
 // node_modules/aws-sdk/lib/credentials/token_file_web_identity_credentials.js
 var require_token_file_web_identity_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials/token_file_web_identity_credentials.js'() {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var fs = require('fs');
     var STS = require_sts2();
-    var iniLoader = AWS3.util.iniLoader;
-    AWS3.TokenFileWebIdentityCredentials = AWS3.util.inherit(AWS3.Credentials, {
+    var iniLoader = AWS2.util.iniLoader;
+    AWS2.TokenFileWebIdentityCredentials = AWS2.util.inherit(AWS2.Credentials, {
       constructor: function TokenFileWebIdentityCredentials(clientConfig) {
-        AWS3.Credentials.call(this);
+        AWS2.Credentials.call(this);
         this.data = null;
-        this.clientConfig = AWS3.util.copy(clientConfig || {});
+        this.clientConfig = AWS2.util.copy(clientConfig || {});
       },
       getParamsFromEnv: function getParamsFromEnv() {
         var ENV_TOKEN_FILE = 'AWS_WEB_IDENTITY_TOKEN_FILE',
@@ -16278,11 +18943,11 @@ var require_token_file_web_identity_credentials = __commonJS({
         }
       },
       getParamsFromSharedConfig: function getParamsFromSharedConfig() {
-        var profiles = AWS3.util.getProfilesFromSharedConfig(iniLoader);
-        var profileName = process.env.AWS_PROFILE || AWS3.util.defaultProfile;
+        var profiles = AWS2.util.getProfilesFromSharedConfig(iniLoader);
+        var profileName = process.env.AWS_PROFILE || AWS2.util.defaultProfile;
         var profile = profiles[profileName] || {};
         if (Object.keys(profile).length === 0) {
-          throw AWS3.util.error(new Error('Profile ' + profileName + ' not found'), {
+          throw AWS2.util.error(new Error('Profile ' + profileName + ' not found'), {
             code: 'TokenFileWebIdentityCredentialsProviderFailure',
           });
         }
@@ -16303,7 +18968,7 @@ var require_token_file_web_identity_credentials = __commonJS({
         return paramsArray;
       },
       refresh: function refresh(callback) {
-        this.coalesceRefresh(callback || AWS3.util.fn.callback);
+        this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
       assumeRoleChaining: function assumeRoleChaining(paramsArray, callback) {
         var self = this;
@@ -16366,13 +19031,13 @@ var require_token_file_web_identity_credentials = __commonJS({
       },
       createClients: function () {
         if (!this.service) {
-          var stsConfig = AWS3.util.merge({}, this.clientConfig);
+          var stsConfig = AWS2.util.merge({}, this.clientConfig);
           this.service = new STS(stsConfig);
           this.service.retryableError = function (error) {
             if (error.code === 'IDPCommunicationErrorException' || error.code === 'InvalidIdentityToken') {
               return true;
             } else {
-              return AWS3.Service.prototype.retryableError.call(this, error);
+              return AWS2.Service.prototype.retryableError.call(this, error);
             }
           };
         }
@@ -16381,35 +19046,139 @@ var require_token_file_web_identity_credentials = __commonJS({
   },
 });
 
+// node_modules/aws-sdk/lib/metadata_service/get_endpoint.js
+var require_get_endpoint = __commonJS({
+  'node_modules/aws-sdk/lib/metadata_service/get_endpoint.js'(exports, module2) {
+    var getEndpoint = function () {
+      return {
+        IPv4: 'http://169.254.169.254',
+        IPv6: 'http://[fd00:ec2::254]',
+      };
+    };
+    module2.exports = getEndpoint;
+  },
+});
+
+// node_modules/aws-sdk/lib/metadata_service/get_endpoint_mode.js
+var require_get_endpoint_mode = __commonJS({
+  'node_modules/aws-sdk/lib/metadata_service/get_endpoint_mode.js'(exports, module2) {
+    var getEndpointMode = function () {
+      return {
+        IPv4: 'IPv4',
+        IPv6: 'IPv6',
+      };
+    };
+    module2.exports = getEndpointMode;
+  },
+});
+
+// node_modules/aws-sdk/lib/metadata_service/get_endpoint_config_options.js
+var require_get_endpoint_config_options = __commonJS({
+  'node_modules/aws-sdk/lib/metadata_service/get_endpoint_config_options.js'(exports, module2) {
+    var ENV_ENDPOINT_NAME = 'AWS_EC2_METADATA_SERVICE_ENDPOINT';
+    var CONFIG_ENDPOINT_NAME = 'ec2_metadata_service_endpoint';
+    var getEndpointConfigOptions = function () {
+      return {
+        environmentVariableSelector: function (env) {
+          return env[ENV_ENDPOINT_NAME];
+        },
+        configFileSelector: function (profile) {
+          return profile[CONFIG_ENDPOINT_NAME];
+        },
+        default: void 0,
+      };
+    };
+    module2.exports = getEndpointConfigOptions;
+  },
+});
+
+// node_modules/aws-sdk/lib/metadata_service/get_endpoint_mode_config_options.js
+var require_get_endpoint_mode_config_options = __commonJS({
+  'node_modules/aws-sdk/lib/metadata_service/get_endpoint_mode_config_options.js'(exports, module2) {
+    var EndpointMode = require_get_endpoint_mode()();
+    var ENV_ENDPOINT_MODE_NAME = 'AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE';
+    var CONFIG_ENDPOINT_MODE_NAME = 'ec2_metadata_service_endpoint_mode';
+    var getEndpointModeConfigOptions = function () {
+      return {
+        environmentVariableSelector: function (env) {
+          return env[ENV_ENDPOINT_MODE_NAME];
+        },
+        configFileSelector: function (profile) {
+          return profile[CONFIG_ENDPOINT_MODE_NAME];
+        },
+        default: EndpointMode.IPv4,
+      };
+    };
+    module2.exports = getEndpointModeConfigOptions;
+  },
+});
+
+// node_modules/aws-sdk/lib/metadata_service/get_metadata_service_endpoint.js
+var require_get_metadata_service_endpoint = __commonJS({
+  'node_modules/aws-sdk/lib/metadata_service/get_metadata_service_endpoint.js'(exports, module2) {
+    var AWS2 = require_core();
+    var Endpoint = require_get_endpoint()();
+    var EndpointMode = require_get_endpoint_mode()();
+    var ENDPOINT_CONFIG_OPTIONS = require_get_endpoint_config_options()();
+    var ENDPOINT_MODE_CONFIG_OPTIONS = require_get_endpoint_mode_config_options()();
+    var getMetadataServiceEndpoint = function () {
+      var endpoint = AWS2.util.loadConfig(ENDPOINT_CONFIG_OPTIONS);
+      if (endpoint !== void 0) return endpoint;
+      var endpointMode = AWS2.util.loadConfig(ENDPOINT_MODE_CONFIG_OPTIONS);
+      switch (endpointMode) {
+        case EndpointMode.IPv4:
+          return Endpoint.IPv4;
+        case EndpointMode.IPv6:
+          return Endpoint.IPv6;
+        default:
+          throw new Error('Unsupported endpoint mode: ' + endpointMode);
+      }
+    };
+    module2.exports = getMetadataServiceEndpoint;
+  },
+});
+
 // node_modules/aws-sdk/lib/metadata_service.js
 var require_metadata_service = __commonJS({
   'node_modules/aws-sdk/lib/metadata_service.js'(exports, module2) {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     require_http();
-    var inherit = AWS3.util.inherit;
-    AWS3.MetadataService = inherit({
-      host: '169.254.169.254',
+    var inherit = AWS2.util.inherit;
+    var getMetadataServiceEndpoint = require_get_metadata_service_endpoint();
+    var URL2 = require('url').URL;
+    AWS2.MetadataService = inherit({
+      endpoint: getMetadataServiceEndpoint(),
       httpOptions: { timeout: 0 },
       disableFetchToken: false,
       constructor: function MetadataService(options) {
-        AWS3.util.update(this, options);
+        if (options && options.host) {
+          options.endpoint = 'http://' + options.host;
+          delete options.host;
+        }
+        this.profile = (options && options.profile) || process.env.AWS_PROFILE || AWS2.util.defaultProfile;
+        this.ec2MetadataV1Disabled = !!(options && options.ec2MetadataV1Disabled);
+        this.filename = options && options.filename;
+        AWS2.util.update(this, options);
       },
       request: function request(path, options, callback) {
         if (arguments.length === 2) {
           callback = options;
           options = {};
         }
-        if (process.env[AWS3.util.imdsDisabledEnv]) {
+        if (process.env[AWS2.util.imdsDisabledEnv]) {
           callback(new Error('EC2 Instance Metadata Service access disabled'));
           return;
         }
         path = path || '/';
-        var httpRequest = new AWS3.HttpRequest('http://' + this.host + path);
+        if (URL2) {
+          new URL2(this.endpoint);
+        }
+        var httpRequest = new AWS2.HttpRequest(this.endpoint + path);
         httpRequest.method = options.method || 'GET';
         if (options.headers) {
           httpRequest.headers = options.headers;
         }
-        AWS3.util.handleRequestWithRetries(httpRequest, this, callback);
+        AWS2.util.handleRequestWithRetries(httpRequest, this, callback);
       },
       loadCredentialsCallbacks: [],
       fetchMetadataToken: function fetchMetadataToken(callback) {
@@ -16429,11 +19198,42 @@ var require_metadata_service = __commonJS({
       fetchCredentials: function fetchCredentials(options, cb) {
         var self = this;
         var basePath = '/latest/meta-data/iam/security-credentials/';
+        var isImdsV1Fallback =
+          self.disableFetchToken || !(options && options.headers && options.headers['x-aws-ec2-metadata-token']);
+        if (isImdsV1Fallback && !process.env.AWS_EC2_METADATA_DISABLED) {
+          try {
+            var profiles = AWS2.util.getProfilesFromSharedConfig(AWS2.util.iniLoader, this.filename);
+            var profileSettings = profiles[this.profile] || {};
+          } catch (e) {
+            profileSettings = {};
+          }
+          if (profileSettings.ec2_metadata_v1_disabled && profileSettings.ec2_metadata_v1_disabled !== 'false') {
+            return cb(
+              AWS2.util.error(new Error('AWS EC2 Metadata v1 fallback has been blocked by AWS config file profile.'))
+            );
+          }
+          if (self.ec2MetadataV1Disabled) {
+            return cb(
+              AWS2.util.error(
+                new Error(
+                  'AWS EC2 Metadata v1 fallback has been blocked by AWS.MetadataService::options.ec2MetadataV1Disabled=true.'
+                )
+              )
+            );
+          }
+          if (process.env.AWS_EC2_METADATA_V1_DISABLED && process.env.AWS_EC2_METADATA_V1_DISABLED !== 'false') {
+            return cb(
+              AWS2.util.error(
+                new Error('AWS EC2 Metadata v1 fallback has been blocked by process.env.AWS_EC2_METADATA_V1_DISABLED.')
+              )
+            );
+          }
+        }
         self.request(basePath, options, function (err, roleName) {
           if (err) {
             self.disableFetchToken = !(err.statusCode === 401);
             cb(
-              AWS3.util.error(err, {
+              AWS2.util.error(err, {
                 message: 'EC2 Metadata roleName request returned error',
               })
             );
@@ -16444,7 +19244,7 @@ var require_metadata_service = __commonJS({
             if (credErr) {
               self.disableFetchToken = !(credErr.statusCode === 401);
               cb(
-                AWS3.util.error(credErr, {
+                AWS2.util.error(credErr, {
                   message: 'EC2 Metadata creds request returned error',
                 })
               );
@@ -16480,14 +19280,14 @@ var require_metadata_service = __commonJS({
                 self.disableFetchToken = true;
               } else if (tokenError.retryable === true) {
                 callbacks(
-                  AWS3.util.error(tokenError, {
+                  AWS2.util.error(tokenError, {
                     message: 'EC2 Metadata token request returned error',
                   })
                 );
                 return;
               } else if (tokenError.statusCode === 400) {
                 callbacks(
-                  AWS3.util.error(tokenError, {
+                  AWS2.util.error(tokenError, {
                     message: 'EC2 Metadata token request returned 400',
                   })
                 );
@@ -16505,58 +19305,81 @@ var require_metadata_service = __commonJS({
         }
       },
     });
-    module2.exports = AWS3.MetadataService;
+    module2.exports = AWS2.MetadataService;
   },
 });
 
 // node_modules/aws-sdk/lib/credentials/ec2_metadata_credentials.js
 var require_ec2_metadata_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials/ec2_metadata_credentials.js'() {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     require_metadata_service();
-    AWS3.EC2MetadataCredentials = AWS3.util.inherit(AWS3.Credentials, {
+    AWS2.EC2MetadataCredentials = AWS2.util.inherit(AWS2.Credentials, {
       constructor: function EC2MetadataCredentials(options) {
-        AWS3.Credentials.call(this);
-        options = options ? AWS3.util.copy(options) : {};
-        options = AWS3.util.merge({ maxRetries: this.defaultMaxRetries }, options);
+        AWS2.Credentials.call(this);
+        options = options ? AWS2.util.copy(options) : {};
+        options = AWS2.util.merge({ maxRetries: this.defaultMaxRetries }, options);
         if (!options.httpOptions) options.httpOptions = {};
-        options.httpOptions = AWS3.util.merge(
+        options.httpOptions = AWS2.util.merge(
           {
             timeout: this.defaultTimeout,
             connectTimeout: this.defaultConnectTimeout,
           },
           options.httpOptions
         );
-        this.metadataService = new AWS3.MetadataService(options);
-        this.metadata = {};
+        this.metadataService = new AWS2.MetadataService(options);
+        this.logger = options.logger || (AWS2.config && AWS2.config.logger);
       },
       defaultTimeout: 1e3,
       defaultConnectTimeout: 1e3,
       defaultMaxRetries: 3,
+      originalExpiration: void 0,
       refresh: function refresh(callback) {
-        this.coalesceRefresh(callback || AWS3.util.fn.callback);
+        this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
       load: function load(callback) {
         var self = this;
         self.metadataService.loadCredentials(function (err, creds) {
-          if (!err) {
-            var currentTime = AWS3.util.date.getDate();
-            var expireTime = new Date(creds.Expiration);
-            if (expireTime < currentTime) {
-              err = AWS3.util.error(new Error('EC2 Instance Metadata Serivce provided expired credentials'), {
-                code: 'EC2MetadataCredentialsProviderFailure',
-              });
+          if (err) {
+            if (self.hasLoadedCredentials()) {
+              self.extendExpirationIfExpired();
+              callback();
             } else {
-              self.expired = false;
-              self.metadata = creds;
-              self.accessKeyId = creds.AccessKeyId;
-              self.secretAccessKey = creds.SecretAccessKey;
-              self.sessionToken = creds.Token;
-              self.expireTime = expireTime;
+              callback(err);
             }
+          } else {
+            self.setCredentials(creds);
+            self.extendExpirationIfExpired();
+            callback();
           }
-          callback(err);
         });
+      },
+      hasLoadedCredentials: function hasLoadedCredentials() {
+        return this.AccessKeyId && this.secretAccessKey;
+      },
+      extendExpirationIfExpired: function extendExpirationIfExpired() {
+        if (this.needsRefresh()) {
+          this.originalExpiration = this.originalExpiration || this.expireTime;
+          this.expired = false;
+          var nextTimeout = 15 * 60 + Math.floor(Math.random() * 5 * 60);
+          var currentTime = AWS2.util.date.getDate().getTime();
+          this.expireTime = new Date(currentTime + nextTimeout * 1e3);
+          this.logger.warn(
+            'Attempting credential expiration extension due to a credential service availability issue. A refresh of these credentials will be attempted again at ' +
+              this.expireTime +
+              '\nFor more information, please visit: https://docs.aws.amazon.com/sdkref/latest/guide/feature-static-credentials.html'
+          );
+        }
+      },
+      setCredentials: function setCredentials(creds) {
+        var currentTime = AWS2.util.date.getDate().getTime();
+        var expireTime = new Date(creds.Expiration);
+        this.expired = currentTime >= expireTime ? true : false;
+        this.metadata = creds;
+        this.accessKeyId = creds.AccessKeyId;
+        this.secretAccessKey = creds.SecretAccessKey;
+        this.sessionToken = creds.Token;
+        this.expireTime = expireTime;
       },
     });
   },
@@ -16565,21 +19388,23 @@ var require_ec2_metadata_credentials = __commonJS({
 // node_modules/aws-sdk/lib/credentials/remote_credentials.js
 var require_remote_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials/remote_credentials.js'() {
-    var AWS3 = require_core();
+    var fs = require('fs');
+    var AWS2 = require_core();
     var ENV_RELATIVE_URI = 'AWS_CONTAINER_CREDENTIALS_RELATIVE_URI';
     var ENV_FULL_URI = 'AWS_CONTAINER_CREDENTIALS_FULL_URI';
     var ENV_AUTH_TOKEN = 'AWS_CONTAINER_AUTHORIZATION_TOKEN';
+    var ENV_AUTH_TOKEN_FILE = 'AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE';
     var FULL_URI_UNRESTRICTED_PROTOCOLS = ['https:'];
     var FULL_URI_ALLOWED_PROTOCOLS = ['http:', 'https:'];
-    var FULL_URI_ALLOWED_HOSTNAMES = ['localhost', '127.0.0.1'];
+    var FULL_URI_ALLOWED_HOSTNAMES = ['localhost', '127.0.0.1', '169.254.170.23'];
     var RELATIVE_URI_HOST = '169.254.170.2';
-    AWS3.RemoteCredentials = AWS3.util.inherit(AWS3.Credentials, {
+    AWS2.RemoteCredentials = AWS2.util.inherit(AWS2.Credentials, {
       constructor: function RemoteCredentials(options) {
-        AWS3.Credentials.call(this);
-        options = options ? AWS3.util.copy(options) : {};
+        AWS2.Credentials.call(this);
+        options = options ? AWS2.util.copy(options) : {};
         if (!options.httpOptions) options.httpOptions = {};
-        options.httpOptions = AWS3.util.merge(this.httpOptions, options.httpOptions);
-        AWS3.util.update(this, options);
+        options.httpOptions = AWS2.util.merge(this.httpOptions, options.httpOptions);
+        AWS2.util.update(this, options);
       },
       httpOptions: { timeout: 1e3 },
       maxRetries: 3,
@@ -16593,9 +19418,9 @@ var require_remote_credentials = __commonJS({
           if (relative) {
             return 'http://' + RELATIVE_URI_HOST + relative;
           } else if (full) {
-            var parsed = AWS3.util.urlParse(full);
+            var parsed = AWS2.util.urlParse(full);
             if (FULL_URI_ALLOWED_PROTOCOLS.indexOf(parsed.protocol) < 0) {
-              throw AWS3.util.error(
+              throw AWS2.util.error(
                 new Error(
                   'Unsupported protocol:  AWS.RemoteCredentials supports ' +
                     FULL_URI_ALLOWED_PROTOCOLS.join(',') +
@@ -16610,7 +19435,7 @@ var require_remote_credentials = __commonJS({
               FULL_URI_UNRESTRICTED_PROTOCOLS.indexOf(parsed.protocol) < 0 &&
               FULL_URI_ALLOWED_HOSTNAMES.indexOf(parsed.hostname) < 0
             ) {
-              throw AWS3.util.error(
+              throw AWS2.util.error(
                 new Error(
                   'Unsupported hostname: AWS.RemoteCredentials only supports ' +
                     FULL_URI_ALLOWED_HOSTNAMES.join(',') +
@@ -16627,7 +19452,7 @@ var require_remote_credentials = __commonJS({
             }
             return full;
           } else {
-            throw AWS3.util.error(
+            throw AWS2.util.error(
               new Error(
                 'Variable ' + ENV_RELATIVE_URI + ' or ' + ENV_FULL_URI + ' must be set to use AWS.RemoteCredentials.'
               ),
@@ -16635,11 +19460,20 @@ var require_remote_credentials = __commonJS({
             );
           }
         } else {
-          throw AWS3.util.error(new Error('No process info available'), { code: 'ECSCredentialsProviderFailure' });
+          throw AWS2.util.error(new Error('No process info available'), { code: 'ECSCredentialsProviderFailure' });
         }
       },
       getECSAuthToken: function getECSAuthToken() {
-        if (process && process.env && process.env[ENV_FULL_URI]) {
+        if (process && process.env && (process.env[ENV_FULL_URI] || process.env[ENV_AUTH_TOKEN_FILE])) {
+          if (!process.env[ENV_AUTH_TOKEN] && process.env[ENV_AUTH_TOKEN_FILE]) {
+            try {
+              var data = fs.readFileSync(process.env[ENV_AUTH_TOKEN_FILE]).toString();
+              return data;
+            } catch (error) {
+              console.error('Error reading token file:', error);
+              throw error;
+            }
+          }
           return process.env[ENV_AUTH_TOKEN];
         }
       },
@@ -16659,17 +19493,17 @@ var require_remote_credentials = __commonJS({
         };
       },
       request: function request(url, callback) {
-        var httpRequest = new AWS3.HttpRequest(url);
+        var httpRequest = new AWS2.HttpRequest(url);
         httpRequest.method = 'GET';
         httpRequest.headers.Accept = 'application/json';
         var token = this.getECSAuthToken();
         if (token) {
           httpRequest.headers.Authorization = token;
         }
-        AWS3.util.handleRequestWithRetries(httpRequest, this, callback);
+        AWS2.util.handleRequestWithRetries(httpRequest, this, callback);
       },
       refresh: function refresh(callback) {
-        this.coalesceRefresh(callback || AWS3.util.fn.callback);
+        this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
       load: function load(callback) {
         var self = this;
@@ -16686,11 +19520,11 @@ var require_remote_credentials = __commonJS({
               data = JSON.parse(data);
               var creds = self.formatCreds(data);
               if (!self.credsFormatIsValid(creds)) {
-                throw AWS3.util.error(new Error('Response data is not in valid format'), {
+                throw AWS2.util.error(new Error('Response data is not in valid format'), {
                   code: 'ECSCredentialsProviderFailure',
                 });
               }
-              AWS3.util.update(self, creds);
+              AWS2.util.update(self, creds);
             } catch (dataError) {
               err = dataError;
             }
@@ -16705,26 +19539,26 @@ var require_remote_credentials = __commonJS({
 // node_modules/aws-sdk/lib/credentials/ecs_credentials.js
 var require_ecs_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials/ecs_credentials.js'() {
-    var AWS3 = require_core();
-    AWS3.ECSCredentials = AWS3.RemoteCredentials;
+    var AWS2 = require_core();
+    AWS2.ECSCredentials = AWS2.RemoteCredentials;
   },
 });
 
 // node_modules/aws-sdk/lib/credentials/environment_credentials.js
 var require_environment_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials/environment_credentials.js'() {
-    var AWS3 = require_core();
-    AWS3.EnvironmentCredentials = AWS3.util.inherit(AWS3.Credentials, {
+    var AWS2 = require_core();
+    AWS2.EnvironmentCredentials = AWS2.util.inherit(AWS2.Credentials, {
       constructor: function EnvironmentCredentials(envPrefix) {
-        AWS3.Credentials.call(this);
+        AWS2.Credentials.call(this);
         this.envPrefix = envPrefix;
         this.get(function () {});
       },
       refresh: function refresh(callback) {
-        if (!callback) callback = AWS3.util.fn.callback;
+        if (!callback) callback = AWS2.util.fn.callback;
         if (!process || !process.env) {
           callback(
-            AWS3.util.error(new Error('No process info or environment variables available'), {
+            AWS2.util.error(new Error('No process info or environment variables available'), {
               code: 'EnvironmentCredentialsProviderFailure',
             })
           );
@@ -16738,7 +19572,7 @@ var require_environment_credentials = __commonJS({
           values[i] = process.env[prefix + keys[i]];
           if (!values[i] && keys[i] !== 'SESSION_TOKEN') {
             callback(
-              AWS3.util.error(new Error('Variable ' + prefix + keys[i] + ' not set.'), {
+              AWS2.util.error(new Error('Variable ' + prefix + keys[i] + ' not set.'), {
                 code: 'EnvironmentCredentialsProviderFailure',
               })
             );
@@ -16746,7 +19580,7 @@ var require_environment_credentials = __commonJS({
           }
         }
         this.expired = false;
-        AWS3.Credentials.apply(this, values);
+        AWS2.Credentials.apply(this, values);
         callback();
       },
     });
@@ -16756,20 +19590,20 @@ var require_environment_credentials = __commonJS({
 // node_modules/aws-sdk/lib/credentials/file_system_credentials.js
 var require_file_system_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials/file_system_credentials.js'() {
-    var AWS3 = require_core();
-    AWS3.FileSystemCredentials = AWS3.util.inherit(AWS3.Credentials, {
+    var AWS2 = require_core();
+    AWS2.FileSystemCredentials = AWS2.util.inherit(AWS2.Credentials, {
       constructor: function FileSystemCredentials(filename) {
-        AWS3.Credentials.call(this);
+        AWS2.Credentials.call(this);
         this.filename = filename;
         this.get(function () {});
       },
       refresh: function refresh(callback) {
-        if (!callback) callback = AWS3.util.fn.callback;
+        if (!callback) callback = AWS2.util.fn.callback;
         try {
-          var creds = JSON.parse(AWS3.util.readFileSync(this.filename));
-          AWS3.Credentials.call(this, creds);
+          var creds = JSON.parse(AWS2.util.readFileSync(this.filename));
+          AWS2.Credentials.call(this, creds);
           if (!this.accessKeyId || !this.secretAccessKey) {
-            throw AWS3.util.error(new Error('Credentials not set in ' + this.filename), {
+            throw AWS2.util.error(new Error('Credentials not set in ' + this.filename), {
               code: 'FileSystemCredentialsProviderFailure',
             });
           }
@@ -16786,29 +19620,29 @@ var require_file_system_credentials = __commonJS({
 // node_modules/aws-sdk/lib/credentials/shared_ini_file_credentials.js
 var require_shared_ini_file_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials/shared_ini_file_credentials.js'() {
-    var AWS3 = require_core();
+    var AWS2 = require_core();
     var STS = require_sts2();
-    var iniLoader = AWS3.util.iniLoader;
+    var iniLoader = AWS2.util.iniLoader;
     var ASSUME_ROLE_DEFAULT_REGION = 'us-east-1';
-    AWS3.SharedIniFileCredentials = AWS3.util.inherit(AWS3.Credentials, {
+    AWS2.SharedIniFileCredentials = AWS2.util.inherit(AWS2.Credentials, {
       constructor: function SharedIniFileCredentials(options) {
-        AWS3.Credentials.call(this);
+        AWS2.Credentials.call(this);
         options = options || {};
         this.filename = options.filename;
-        this.profile = options.profile || process.env.AWS_PROFILE || AWS3.util.defaultProfile;
+        this.profile = options.profile || process.env.AWS_PROFILE || AWS2.util.defaultProfile;
         this.disableAssumeRole = Boolean(options.disableAssumeRole);
         this.preferStaticCredentials = Boolean(options.preferStaticCredentials);
         this.tokenCodeFn = options.tokenCodeFn || null;
         this.httpOptions = options.httpOptions || null;
-        this.get(options.callback || AWS3.util.fn.noop);
+        this.get(options.callback || AWS2.util.fn.noop);
       },
       load: function load(callback) {
         var self = this;
         try {
-          var profiles = AWS3.util.getProfilesFromSharedConfig(iniLoader, this.filename);
+          var profiles = AWS2.util.getProfilesFromSharedConfig(iniLoader, this.filename);
           var profile = profiles[this.profile] || {};
           if (Object.keys(profile).length === 0) {
-            throw AWS3.util.error(new Error('Profile ' + this.profile + ' not found'), {
+            throw AWS2.util.error(new Error('Profile ' + this.profile + ' not found'), {
               code: 'SharedIniFileCredentialsProviderFailure',
             });
           }
@@ -16834,7 +19668,7 @@ var require_shared_ini_file_credentials = __commonJS({
           this.secretAccessKey = profile['aws_secret_access_key'];
           this.sessionToken = profile['aws_session_token'];
           if (!this.accessKeyId || !this.secretAccessKey) {
-            throw AWS3.util.error(new Error('Credentials not set for profile ' + this.profile), {
+            throw AWS2.util.error(new Error('Credentials not set for profile ' + this.profile), {
               code: 'SharedIniFileCredentialsProviderFailure',
             });
           }
@@ -16846,11 +19680,11 @@ var require_shared_ini_file_credentials = __commonJS({
       },
       refresh: function refresh(callback) {
         iniLoader.clearCachedFiles();
-        this.coalesceRefresh(callback || AWS3.util.fn.callback, this.disableAssumeRole);
+        this.coalesceRefresh(callback || AWS2.util.fn.callback, this.disableAssumeRole);
       },
       loadRoleProfile: function loadRoleProfile(creds, roleProfile, callback) {
         if (this.disableAssumeRole) {
-          throw AWS3.util.error(
+          throw AWS2.util.error(
             new Error(
               'Role assumption profiles are disabled. Failed to load profile ' +
                 this.profile +
@@ -16866,21 +19700,22 @@ var require_shared_ini_file_credentials = __commonJS({
         var externalId = roleProfile['external_id'];
         var mfaSerial = roleProfile['mfa_serial'];
         var sourceProfileName = roleProfile['source_profile'];
+        var durationSeconds = parseInt(roleProfile['duration_seconds'], 10) || void 0;
         var profileRegion = roleProfile['region'] || ASSUME_ROLE_DEFAULT_REGION;
         if (!sourceProfileName) {
-          throw AWS3.util.error(new Error('source_profile is not set using profile ' + this.profile), {
+          throw AWS2.util.error(new Error('source_profile is not set using profile ' + this.profile), {
             code: 'SharedIniFileCredentialsProviderFailure',
           });
         }
         var sourceProfileExistanceTest = creds[sourceProfileName];
         if (typeof sourceProfileExistanceTest !== 'object') {
-          throw AWS3.util.error(
+          throw AWS2.util.error(
             new Error('source_profile ' + sourceProfileName + ' using profile ' + this.profile + ' does not exist'),
             { code: 'SharedIniFileCredentialsProviderFailure' }
           );
         }
-        var sourceCredentials = new AWS3.SharedIniFileCredentials(
-          AWS3.util.merge(this.options || {}, {
+        var sourceCredentials = new AWS2.SharedIniFileCredentials(
+          AWS2.util.merge(this.options || {}, {
             profile: sourceProfileName,
             preferStaticCredentials: true,
           })
@@ -16892,6 +19727,7 @@ var require_shared_ini_file_credentials = __commonJS({
           httpOptions: this.httpOptions,
         });
         var roleParams = {
+          DurationSeconds: durationSeconds,
           RoleArn: roleArn,
           RoleSessionName: roleSessionName || 'aws-sdk-js-' + Date.now(),
         };
@@ -16909,7 +19745,7 @@ var require_shared_ini_file_credentials = __commonJS({
                 message = err;
               }
               callback(
-                AWS3.util.error(new Error('Error fetching MFA token: ' + message), {
+                AWS2.util.error(new Error('Error fetching MFA token: ' + message), {
                   code: 'SharedIniFileCredentialsProviderFailure',
                 })
               );
@@ -16926,10 +19762,440 @@ var require_shared_ini_file_credentials = __commonJS({
   },
 });
 
+// node_modules/aws-sdk/lib/credentials/sso_credentials.js
+var require_sso_credentials = __commonJS({
+  'node_modules/aws-sdk/lib/credentials/sso_credentials.js'() {
+    var AWS2 = require_core();
+    var path = require('path');
+    var crypto = require('crypto');
+    var iniLoader = AWS2.util.iniLoader;
+    AWS2.SsoCredentials = AWS2.util.inherit(AWS2.Credentials, {
+      constructor: function SsoCredentials(options) {
+        AWS2.Credentials.call(this);
+        options = options || {};
+        this.errorCode = 'SsoCredentialsProviderFailure';
+        this.expired = true;
+        this.filename = options.filename;
+        this.profile = options.profile || process.env.AWS_PROFILE || AWS2.util.defaultProfile;
+        this.service = options.ssoClient;
+        this.httpOptions = options.httpOptions || null;
+        this.get(options.callback || AWS2.util.fn.noop);
+      },
+      load: function load(callback) {
+        var self = this;
+        try {
+          var profiles = AWS2.util.getProfilesFromSharedConfig(iniLoader, this.filename);
+          var profile = profiles[this.profile] || {};
+          if (Object.keys(profile).length === 0) {
+            throw AWS2.util.error(new Error('Profile ' + this.profile + ' not found'), { code: self.errorCode });
+          }
+          if (profile.sso_session) {
+            if (!profile.sso_account_id || !profile.sso_role_name) {
+              throw AWS2.util.error(
+                new Error(
+                  'Profile ' +
+                    this.profile +
+                    ' with session ' +
+                    profile.sso_session +
+                    ' does not have valid SSO credentials. Required parameters "sso_account_id", "sso_session", "sso_role_name". Reference: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html'
+                ),
+                { code: self.errorCode }
+              );
+            }
+          } else {
+            if (!profile.sso_start_url || !profile.sso_account_id || !profile.sso_region || !profile.sso_role_name) {
+              throw AWS2.util.error(
+                new Error(
+                  'Profile ' +
+                    this.profile +
+                    ' does not have valid SSO credentials. Required parameters "sso_account_id", "sso_region", "sso_role_name", "sso_start_url". Reference: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html'
+                ),
+                { code: self.errorCode }
+              );
+            }
+          }
+          this.getToken(this.profile, profile, function (err, token) {
+            if (err) {
+              return callback(err);
+            }
+            var request = {
+              accessToken: token,
+              accountId: profile.sso_account_id,
+              roleName: profile.sso_role_name,
+            };
+            if (!self.service || self.service.config.region !== profile.sso_region) {
+              self.service = new AWS2.SSO({
+                region: profile.sso_region,
+                httpOptions: self.httpOptions,
+              });
+            }
+            self.service.getRoleCredentials(request, function (err2, data) {
+              if (err2 || !data || !data.roleCredentials) {
+                callback(
+                  AWS2.util.error(err2 || new Error('Please log in using "aws sso login"'), { code: self.errorCode }),
+                  null
+                );
+              } else if (
+                !data.roleCredentials.accessKeyId ||
+                !data.roleCredentials.secretAccessKey ||
+                !data.roleCredentials.sessionToken ||
+                !data.roleCredentials.expiration
+              ) {
+                throw AWS2.util.error(new Error('SSO returns an invalid temporary credential.'));
+              } else {
+                self.expired = false;
+                self.accessKeyId = data.roleCredentials.accessKeyId;
+                self.secretAccessKey = data.roleCredentials.secretAccessKey;
+                self.sessionToken = data.roleCredentials.sessionToken;
+                self.expireTime = new Date(data.roleCredentials.expiration);
+                callback(null);
+              }
+            });
+          });
+        } catch (err) {
+          callback(err);
+        }
+      },
+      getToken: function getToken(profileName, profile, callback) {
+        var self = this;
+        if (profile.sso_session) {
+          var _iniLoader = AWS2.util.iniLoader;
+          var ssoSessions = _iniLoader.loadSsoSessionsFrom();
+          var ssoSession = ssoSessions[profile.sso_session];
+          Object.assign(profile, ssoSession);
+          var ssoTokenProvider = new AWS2.SSOTokenProvider({
+            profile: profileName,
+          });
+          ssoTokenProvider.get(function (err) {
+            if (err) {
+              return callback(err);
+            }
+            return callback(null, ssoTokenProvider.token);
+          });
+          return;
+        }
+        try {
+          var EXPIRE_WINDOW_MS = 15 * 60 * 1e3;
+          var hasher = crypto.createHash('sha1');
+          var fileName = hasher.update(profile.sso_start_url).digest('hex') + '.json';
+          var cachePath = path.join(iniLoader.getHomeDir(), '.aws', 'sso', 'cache', fileName);
+          var cacheFile = AWS2.util.readFileSync(cachePath);
+          var cacheContent = null;
+          if (cacheFile) {
+            cacheContent = JSON.parse(cacheFile);
+          }
+          if (!cacheContent) {
+            throw AWS2.util.error(
+              new Error(
+                'Cached credentials not found under ' +
+                  this.profile +
+                  ' profile. Please make sure you log in with aws sso login first'
+              ),
+              { code: self.errorCode }
+            );
+          }
+          if (!cacheContent.startUrl || !cacheContent.region || !cacheContent.accessToken || !cacheContent.expiresAt) {
+            throw AWS2.util.error(
+              new Error('Cached credentials are missing required properties. Try running aws sso login.')
+            );
+          }
+          if (new Date(cacheContent.expiresAt).getTime() - Date.now() <= EXPIRE_WINDOW_MS) {
+            throw AWS2.util.error(
+              new Error(
+                'The SSO session associated with this profile has expired. To refresh this SSO session run aws sso login with the corresponding profile.'
+              )
+            );
+          }
+          return callback(null, cacheContent.accessToken);
+        } catch (err) {
+          return callback(err, null);
+        }
+      },
+      refresh: function refresh(callback) {
+        iniLoader.clearCachedFiles();
+        this.coalesceRefresh(callback || AWS2.util.fn.callback);
+      },
+    });
+  },
+});
+
+// node_modules/aws-sdk/lib/token.js
+var require_token = __commonJS({
+  'node_modules/aws-sdk/lib/token.js'() {
+    var AWS2 = require_core();
+    AWS2.Token = AWS2.util.inherit({
+      constructor: function Token(options) {
+        AWS2.util.hideProperties(this, ['token']);
+        this.expired = false;
+        this.expireTime = null;
+        this.refreshCallbacks = [];
+        if (arguments.length === 1) {
+          var options = arguments[0];
+          this.token = options.token;
+          this.expireTime = options.expireTime;
+        }
+      },
+      expiryWindow: 15,
+      needsRefresh: function needsRefresh() {
+        var currentTime = AWS2.util.date.getDate().getTime();
+        var adjustedTime = new Date(currentTime + this.expiryWindow * 1e3);
+        if (this.expireTime && adjustedTime > this.expireTime) return true;
+        return this.expired || !this.token;
+      },
+      get: function get(callback) {
+        var self = this;
+        if (this.needsRefresh()) {
+          this.refresh(function (err) {
+            if (!err) self.expired = false;
+            if (callback) callback(err);
+          });
+        } else if (callback) {
+          callback();
+        }
+      },
+      refresh: function refresh(callback) {
+        this.expired = false;
+        callback();
+      },
+      coalesceRefresh: function coalesceRefresh(callback, sync) {
+        var self = this;
+        if (self.refreshCallbacks.push(callback) === 1) {
+          self.load(function onLoad(err) {
+            AWS2.util.arrayEach(self.refreshCallbacks, function (callback2) {
+              if (sync) {
+                callback2(err);
+              } else {
+                AWS2.util.defer(function () {
+                  callback2(err);
+                });
+              }
+            });
+            self.refreshCallbacks.length = 0;
+          });
+        }
+      },
+      load: function load(callback) {
+        callback();
+      },
+    });
+    AWS2.Token.addPromisesToClass = function addPromisesToClass(PromiseDependency) {
+      this.prototype.getPromise = AWS2.util.promisifyMethod('get', PromiseDependency);
+      this.prototype.refreshPromise = AWS2.util.promisifyMethod('refresh', PromiseDependency);
+    };
+    AWS2.Token.deletePromisesFromClass = function deletePromisesFromClass() {
+      delete this.prototype.getPromise;
+      delete this.prototype.refreshPromise;
+    };
+    AWS2.util.addPromises(AWS2.Token);
+  },
+});
+
+// node_modules/aws-sdk/lib/token/token_provider_chain.js
+var require_token_provider_chain = __commonJS({
+  'node_modules/aws-sdk/lib/token/token_provider_chain.js'() {
+    var AWS2 = require_core();
+    AWS2.TokenProviderChain = AWS2.util.inherit(AWS2.Token, {
+      constructor: function TokenProviderChain(providers) {
+        if (providers) {
+          this.providers = providers;
+        } else {
+          this.providers = AWS2.TokenProviderChain.defaultProviders.slice(0);
+        }
+        this.resolveCallbacks = [];
+      },
+      resolve: function resolve(callback) {
+        var self = this;
+        if (self.providers.length === 0) {
+          callback(new Error('No providers'));
+          return self;
+        }
+        if (self.resolveCallbacks.push(callback) === 1) {
+          let resolveNext2 = function (err, token) {
+            if ((!err && token) || index === providers.length) {
+              AWS2.util.arrayEach(self.resolveCallbacks, function (callback2) {
+                callback2(err, token);
+              });
+              self.resolveCallbacks.length = 0;
+              return;
+            }
+            var provider = providers[index++];
+            if (typeof provider === 'function') {
+              token = provider.call();
+            } else {
+              token = provider;
+            }
+            if (token.get) {
+              token.get(function (getErr) {
+                resolveNext2(getErr, getErr ? null : token);
+              });
+            } else {
+              resolveNext2(null, token);
+            }
+          };
+          var resolveNext = resolveNext2;
+          var index = 0;
+          var providers = self.providers.slice(0);
+          resolveNext2();
+        }
+        return self;
+      },
+    });
+    AWS2.TokenProviderChain.defaultProviders = [];
+    AWS2.TokenProviderChain.addPromisesToClass = function addPromisesToClass(PromiseDependency) {
+      this.prototype.resolvePromise = AWS2.util.promisifyMethod('resolve', PromiseDependency);
+    };
+    AWS2.TokenProviderChain.deletePromisesFromClass = function deletePromisesFromClass() {
+      delete this.prototype.resolvePromise;
+    };
+    AWS2.util.addPromises(AWS2.TokenProviderChain);
+  },
+});
+
+// node_modules/aws-sdk/lib/token/sso_token_provider.js
+var require_sso_token_provider = __commonJS({
+  'node_modules/aws-sdk/lib/token/sso_token_provider.js'() {
+    var AWS2 = require_core();
+    var crypto = require('crypto');
+    var fs = require('fs');
+    var path = require('path');
+    var iniLoader = AWS2.util.iniLoader;
+    var lastRefreshAttemptTime = 0;
+    var validateTokenKey = function validateTokenKey2(token, key) {
+      if (!token[key]) {
+        throw AWS2.util.error(new Error('Key "' + key + '" not present in SSO Token'), {
+          code: 'SSOTokenProviderFailure',
+        });
+      }
+    };
+    var refreshUnsuccessful = function refreshUnsuccessful2(currentTime, tokenExpireTime, callback) {
+      if (tokenExpireTime > currentTime) {
+        callback(null);
+      } else {
+        throw AWS2.util.error(new Error('SSO Token refresh failed. Please log in using "aws sso login"'), {
+          code: 'SSOTokenProviderFailure',
+        });
+      }
+    };
+    AWS2.SSOTokenProvider = AWS2.util.inherit(AWS2.Token, {
+      expiryWindow: 5 * 60,
+      constructor: function SSOTokenProvider(options) {
+        AWS2.Token.call(this);
+        options = options || {};
+        this.expired = true;
+        this.profile = options.profile || process.env.AWS_PROFILE || AWS2.util.defaultProfile;
+        this.get(options.callback || AWS2.util.fn.noop);
+      },
+      load: function load(callback) {
+        var self = this;
+        var profiles = iniLoader.loadFrom({ isConfig: true });
+        var profile = profiles[this.profile] || {};
+        if (Object.keys(profile).length === 0) {
+          throw AWS2.util.error(new Error('Profile "' + this.profile + '" not found'), {
+            code: 'SSOTokenProviderFailure',
+          });
+        } else if (!profile['sso_session']) {
+          throw AWS2.util.error(
+            new Error('Profile "' + this.profile + '" is missing required property "sso_session".'),
+            { code: 'SSOTokenProviderFailure' }
+          );
+        }
+        var ssoSessionName = profile['sso_session'];
+        var ssoSessions = iniLoader.loadSsoSessionsFrom();
+        var ssoSession = ssoSessions[ssoSessionName];
+        if (!ssoSession) {
+          throw AWS2.util.error(new Error('Sso session "' + ssoSessionName + '" not found'), {
+            code: 'SSOTokenProviderFailure',
+          });
+        } else if (!ssoSession['sso_start_url']) {
+          throw AWS2.util.error(
+            new Error('Sso session "' + this.profile + '" is missing required property "sso_start_url".'),
+            { code: 'SSOTokenProviderFailure' }
+          );
+        } else if (!ssoSession['sso_region']) {
+          throw AWS2.util.error(
+            new Error('Sso session "' + this.profile + '" is missing required property "sso_region".'),
+            { code: 'SSOTokenProviderFailure' }
+          );
+        }
+        var hasher = crypto.createHash('sha1');
+        var fileName = hasher.update(ssoSessionName).digest('hex') + '.json';
+        var cachePath = path.join(iniLoader.getHomeDir(), '.aws', 'sso', 'cache', fileName);
+        var tokenFromCache = JSON.parse(fs.readFileSync(cachePath));
+        if (!tokenFromCache) {
+          throw AWS2.util.error(
+            new Error(
+              'Cached token not found. Please log in using "aws sso login" for profile "' + this.profile + '".'
+            ),
+            { code: 'SSOTokenProviderFailure' }
+          );
+        }
+        validateTokenKey(tokenFromCache, 'accessToken');
+        validateTokenKey(tokenFromCache, 'expiresAt');
+        var currentTime = AWS2.util.date.getDate().getTime();
+        var adjustedTime = new Date(currentTime + this.expiryWindow * 1e3);
+        var tokenExpireTime = new Date(tokenFromCache['expiresAt']);
+        if (tokenExpireTime > adjustedTime) {
+          self.token = tokenFromCache.accessToken;
+          self.expireTime = tokenExpireTime;
+          self.expired = false;
+          callback(null);
+          return;
+        }
+        if (currentTime - lastRefreshAttemptTime < 30 * 1e3) {
+          refreshUnsuccessful(currentTime, tokenExpireTime, callback);
+          return;
+        }
+        validateTokenKey(tokenFromCache, 'clientId');
+        validateTokenKey(tokenFromCache, 'clientSecret');
+        validateTokenKey(tokenFromCache, 'refreshToken');
+        if (!self.service || self.service.config.region !== ssoSession.sso_region) {
+          self.service = new AWS2.SSOOIDC({ region: ssoSession.sso_region });
+        }
+        var params = {
+          clientId: tokenFromCache.clientId,
+          clientSecret: tokenFromCache.clientSecret,
+          refreshToken: tokenFromCache.refreshToken,
+          grantType: 'refresh_token',
+        };
+        lastRefreshAttemptTime = AWS2.util.date.getDate().getTime();
+        self.service.createToken(params, function (err, data) {
+          if (err || !data) {
+            refreshUnsuccessful(currentTime, tokenExpireTime, callback);
+          } else {
+            try {
+              validateTokenKey(data, 'accessToken');
+              validateTokenKey(data, 'expiresIn');
+              self.expired = false;
+              self.token = data.accessToken;
+              self.expireTime = new Date(Date.now() + data.expiresIn * 1e3);
+              callback(null);
+              try {
+                tokenFromCache.accessToken = data.accessToken;
+                tokenFromCache.expiresAt = self.expireTime.toISOString();
+                tokenFromCache.refreshToken = data.refreshToken;
+                fs.writeFileSync(cachePath, JSON.stringify(tokenFromCache, null, 2));
+              } catch (error) {}
+            } catch (error) {
+              refreshUnsuccessful(currentTime, tokenExpireTime, callback);
+            }
+          }
+        });
+      },
+      refresh: function refresh(callback) {
+        iniLoader.clearCachedFiles();
+        this.coalesceRefresh(callback || AWS2.util.fn.callback);
+      },
+    });
+  },
+});
+
 // node_modules/aws-sdk/lib/node_loader.js
 var require_node_loader = __commonJS({
   'node_modules/aws-sdk/lib/node_loader.js'(exports, module2) {
     var util = require_util();
+    var region_utils = require_utils();
+    var isFipsRegion = region_utils.isFipsRegion;
+    var getRealRegion = region_utils.getRealRegion;
     util.isBrowser = function () {
       return false;
     };
@@ -16953,8 +20219,32 @@ var require_node_loader = __commonJS({
     };
     util.iniLoader = require_shared_ini().iniLoader;
     util.getSystemErrorName = require('util').getSystemErrorName;
-    var AWS3;
-    module2.exports = AWS3 = require_core();
+    util.loadConfig = function (options) {
+      var envValue = options.environmentVariableSelector(process.env);
+      if (envValue !== void 0) {
+        return envValue;
+      }
+      var configFile = {};
+      try {
+        configFile = util.iniLoader
+          ? util.iniLoader.loadFrom({
+              isConfig: true,
+              filename: process.env[util.sharedConfigFileEnv],
+            })
+          : {};
+      } catch (e) {}
+      var sharedFileConfig = configFile[process.env.AWS_PROFILE || util.defaultProfile] || {};
+      var configValue = options.configFileSelector(sharedFileConfig);
+      if (configValue !== void 0) {
+        return configValue;
+      }
+      if (typeof options.default === 'function') {
+        return options.default();
+      }
+      return options.default;
+    };
+    var AWS2;
+    module2.exports = AWS2 = require_core();
     require_credentials();
     require_credential_provider_chain();
     require_temporary_credentials();
@@ -16963,7 +20253,7 @@ var require_node_loader = __commonJS({
     require_cognito_identity_credentials();
     require_saml_credentials();
     require_process_credentials();
-    AWS3.XML.Parser = require_node_parser();
+    AWS2.XML.Parser = require_node_parser();
     require_node();
     require_ini_loader();
     require_token_file_web_identity_credentials();
@@ -16974,41 +20264,97 @@ var require_node_loader = __commonJS({
     require_file_system_credentials();
     require_shared_ini_file_credentials();
     require_process_credentials();
-    AWS3.CredentialProviderChain.defaultProviders = [
+    require_sso_credentials();
+    AWS2.CredentialProviderChain.defaultProviders = [
       function () {
-        return new AWS3.EnvironmentCredentials('AWS');
+        return new AWS2.EnvironmentCredentials('AWS');
       },
       function () {
-        return new AWS3.EnvironmentCredentials('AMAZON');
+        return new AWS2.EnvironmentCredentials('AMAZON');
       },
       function () {
-        return new AWS3.SharedIniFileCredentials();
+        return new AWS2.SsoCredentials();
       },
       function () {
-        return new AWS3.ECSCredentials();
+        return new AWS2.SharedIniFileCredentials();
       },
       function () {
-        return new AWS3.ProcessCredentials();
+        return new AWS2.ECSCredentials();
       },
       function () {
-        return new AWS3.TokenFileWebIdentityCredentials();
+        return new AWS2.ProcessCredentials();
       },
       function () {
-        return new AWS3.EC2MetadataCredentials();
+        return new AWS2.TokenFileWebIdentityCredentials();
+      },
+      function () {
+        return new AWS2.EC2MetadataCredentials();
       },
     ];
-    AWS3.util.update(AWS3.Config.prototype.keys, {
+    require_token();
+    require_token_provider_chain();
+    require_sso_token_provider();
+    AWS2.TokenProviderChain.defaultProviders = [
+      function () {
+        return new AWS2.SSOTokenProvider();
+      },
+    ];
+    var getRegion = function () {
+      var env = process.env;
+      var region = env.AWS_REGION || env.AMAZON_REGION;
+      if (env[AWS2.util.configOptInEnv]) {
+        var toCheck = [
+          { filename: env[AWS2.util.sharedCredentialsFileEnv] },
+          { isConfig: true, filename: env[AWS2.util.sharedConfigFileEnv] },
+        ];
+        var iniLoader = AWS2.util.iniLoader;
+        while (!region && toCheck.length) {
+          var configFile = {};
+          var fileInfo = toCheck.shift();
+          try {
+            configFile = iniLoader.loadFrom(fileInfo);
+          } catch (err) {
+            if (fileInfo.isConfig) throw err;
+          }
+          var profile = configFile[env.AWS_PROFILE || AWS2.util.defaultProfile];
+          region = profile && profile.region;
+        }
+      }
+      return region;
+    };
+    var getBooleanValue = function (value) {
+      return value === 'true' ? true : value === 'false' ? false : void 0;
+    };
+    var USE_FIPS_ENDPOINT_CONFIG_OPTIONS = {
+      environmentVariableSelector: function (env) {
+        return getBooleanValue(env['AWS_USE_FIPS_ENDPOINT']);
+      },
+      configFileSelector: function (profile) {
+        return getBooleanValue(profile['use_fips_endpoint']);
+      },
+      default: false,
+    };
+    var USE_DUALSTACK_ENDPOINT_CONFIG_OPTIONS = {
+      environmentVariableSelector: function (env) {
+        return getBooleanValue(env['AWS_USE_DUALSTACK_ENDPOINT']);
+      },
+      configFileSelector: function (profile) {
+        return getBooleanValue(profile['use_dualstack_endpoint']);
+      },
+      default: false,
+    };
+    AWS2.util.update(AWS2.Config.prototype.keys, {
       credentials: function () {
         var credentials = null;
-        new AWS3.CredentialProviderChain([
+        new AWS2.CredentialProviderChain([
           function () {
-            return new AWS3.EnvironmentCredentials('AWS');
+            return new AWS2.EnvironmentCredentials('AWS');
           },
           function () {
-            return new AWS3.EnvironmentCredentials('AMAZON');
+            return new AWS2.EnvironmentCredentials('AMAZON');
           },
           function () {
-            return new AWS3.SharedIniFileCredentials({ disableAssumeRole: true });
+            return new AWS2.SharedIniFileCredentials({ disableAssumeRole: true });
           },
         ]).resolve(function (err, creds) {
           if (!err) credentials = creds;
@@ -17016,30 +20362,27 @@ var require_node_loader = __commonJS({
         return credentials;
       },
       credentialProvider: function () {
-        return new AWS3.CredentialProviderChain();
+        return new AWS2.CredentialProviderChain();
       },
       logger: function () {
         return process.env.AWSJS_DEBUG ? console : null;
       },
       region: function () {
-        var env = process.env;
-        var region = env.AWS_REGION || env.AMAZON_REGION;
-        if (env[AWS3.util.configOptInEnv]) {
-          var toCheck = [
-            { filename: env[AWS3.util.sharedCredentialsFileEnv] },
-            { isConfig: true, filename: env[AWS3.util.sharedConfigFileEnv] },
-          ];
-          var iniLoader = AWS3.util.iniLoader;
-          while (!region && toCheck.length) {
-            var configFile = iniLoader.loadFrom(toCheck.shift());
-            var profile = configFile[env.AWS_PROFILE || AWS3.util.defaultProfile];
-            region = profile && profile.region;
-          }
-        }
-        return region;
+        var region = getRegion();
+        return region ? getRealRegion(region) : void 0;
+      },
+      tokenProvider: function () {
+        return new AWS2.TokenProviderChain();
+      },
+      useFipsEndpoint: function () {
+        var region = getRegion();
+        return isFipsRegion(region) ? true : util.loadConfig(USE_FIPS_ENDPOINT_CONFIG_OPTIONS);
+      },
+      useDualstackEndpoint: function () {
+        return util.loadConfig(USE_DUALSTACK_ENDPOINT_CONFIG_OPTIONS);
       },
     });
-    AWS3.config = new AWS3.Config();
+    AWS2.config = new AWS2.Config();
   },
 });
 
@@ -17054,11 +20397,11 @@ var require_global = __commonJS({
 // node_modules/aws-sdk/lib/services/lambda.js
 var require_lambda = __commonJS({
   'node_modules/aws-sdk/lib/services/lambda.js'() {
-    var AWS3 = require_core();
-    AWS3.util.update(AWS3.Lambda.prototype, {
+    var AWS2 = require_core();
+    AWS2.util.update(AWS2.Lambda.prototype, {
       setupRequestListeners: function setupRequestListeners(request) {
         if (request.operation === 'invoke') {
-          request.addListener('extractData', AWS3.util.convertPayloadToString);
+          request.addListener('extractData', AWS2.util.convertPayloadToString);
         }
       },
     });
@@ -17566,6 +20909,8 @@ var require_lambda_2015_03_31_min = __commonJS({
                 locationName: 'Qualifier',
               },
               RevisionId: {},
+              PrincipalOrgID: {},
+              FunctionUrlAuthType: {},
             },
           },
           output: {
@@ -17592,12 +20937,12 @@ var require_lambda_2015_03_31_min = __commonJS({
               FunctionVersion: {},
               Description: {},
               RoutingConfig: {
-                shape: 'Sn',
+                shape: 'Sp',
               },
             },
           },
           output: {
-            shape: 'Sr',
+            shape: 'St',
           },
         },
         CreateCodeSigningConfig: {
@@ -17611,10 +20956,10 @@ var require_lambda_2015_03_31_min = __commonJS({
             members: {
               Description: {},
               AllowedPublishers: {
-                shape: 'Su',
+                shape: 'Sw',
               },
               CodeSigningPolicies: {
-                shape: 'Sw',
+                shape: 'Sy',
               },
             },
           },
@@ -17623,7 +20968,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             required: ['CodeSigningConfig'],
             members: {
               CodeSigningConfig: {
-                shape: 'Sz',
+                shape: 'S11',
               },
             },
           },
@@ -17645,6 +20990,9 @@ var require_lambda_2015_03_31_min = __commonJS({
               BatchSize: {
                 type: 'integer',
               },
+              FilterCriteria: {
+                shape: 'S18',
+              },
               MaximumBatchingWindowInSeconds: {
                 type: 'integer',
               },
@@ -17656,7 +21004,7 @@ var require_lambda_2015_03_31_min = __commonJS({
                 type: 'timestamp',
               },
               DestinationConfig: {
-                shape: 'S1a',
+                shape: 'S1g',
               },
               MaximumRecordAgeInSeconds: {
                 type: 'integer',
@@ -17671,24 +21019,36 @@ var require_lambda_2015_03_31_min = __commonJS({
                 type: 'integer',
               },
               Topics: {
-                shape: 'S1i',
+                shape: 'S1o',
               },
               Queues: {
-                shape: 'S1k',
-              },
-              SourceAccessConfigurations: {
-                shape: 'S1m',
-              },
-              SelfManagedEventSource: {
                 shape: 'S1q',
               },
+              SourceAccessConfigurations: {
+                shape: 'S1s',
+              },
+              SelfManagedEventSource: {
+                shape: 'S1w',
+              },
               FunctionResponseTypes: {
-                shape: 'S1v',
+                shape: 'S21',
+              },
+              AmazonManagedKafkaEventSourceConfig: {
+                shape: 'S23',
+              },
+              SelfManagedKafkaEventSourceConfig: {
+                shape: 'S24',
+              },
+              ScalingConfig: {
+                shape: 'S25',
+              },
+              DocumentDBEventSourceConfig: {
+                shape: 'S27',
               },
             },
           },
           output: {
-            shape: 'S1x',
+            shape: 'S2b',
           },
         },
         CreateFunction: {
@@ -17708,7 +21068,7 @@ var require_lambda_2015_03_31_min = __commonJS({
                 type: 'structure',
                 members: {
                   ZipFile: {
-                    shape: 'S23',
+                    shape: 'S2h',
                   },
                   S3Bucket: {},
                   S3Key: {},
@@ -17727,36 +21087,87 @@ var require_lambda_2015_03_31_min = __commonJS({
                 type: 'boolean',
               },
               VpcConfig: {
-                shape: 'S2a',
+                shape: 'S2o',
               },
               PackageType: {},
               DeadLetterConfig: {
-                shape: 'S2g',
+                shape: 'S2v',
               },
               Environment: {
-                shape: 'S2i',
+                shape: 'S2x',
               },
               KMSKeyArn: {},
               TracingConfig: {
-                shape: 'S2n',
+                shape: 'S32',
               },
               Tags: {
-                shape: 'S2p',
+                shape: 'S34',
               },
               Layers: {
-                shape: 'S2s',
+                shape: 'S37',
               },
               FileSystemConfigs: {
-                shape: 'S2u',
+                shape: 'S39',
               },
               ImageConfig: {
-                shape: 'S2y',
+                shape: 'S3d',
               },
               CodeSigningConfigArn: {},
+              Architectures: {
+                shape: 'S3g',
+              },
+              EphemeralStorage: {
+                shape: 'S3i',
+              },
+              SnapStart: {
+                shape: 'S3k',
+              },
+              LoggingConfig: {
+                shape: 'S3m',
+              },
             },
           },
           output: {
-            shape: 'S31',
+            shape: 'S3r',
+          },
+        },
+        CreateFunctionUrlConfig: {
+          http: {
+            requestUri: '/2021-10-31/functions/{FunctionName}/url',
+            responseCode: 201,
+          },
+          input: {
+            type: 'structure',
+            required: ['FunctionName', 'AuthType'],
+            members: {
+              FunctionName: {
+                location: 'uri',
+                locationName: 'FunctionName',
+              },
+              Qualifier: {
+                location: 'querystring',
+                locationName: 'Qualifier',
+              },
+              AuthType: {},
+              Cors: {
+                shape: 'S4i',
+              },
+              InvokeMode: {},
+            },
+          },
+          output: {
+            type: 'structure',
+            required: ['FunctionUrl', 'FunctionArn', 'AuthType', 'CreationTime'],
+            members: {
+              FunctionUrl: {},
+              FunctionArn: {},
+              AuthType: {},
+              Cors: {
+                shape: 'S4i',
+              },
+              CreationTime: {},
+              InvokeMode: {},
+            },
           },
         },
         DeleteAlias: {
@@ -17818,7 +21229,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
           output: {
-            shape: 'S1x',
+            shape: 'S2b',
           },
         },
         DeleteFunction: {
@@ -17880,6 +21291,27 @@ var require_lambda_2015_03_31_min = __commonJS({
           http: {
             method: 'DELETE',
             requestUri: '/2019-09-25/functions/{FunctionName}/event-invoke-config',
+            responseCode: 204,
+          },
+          input: {
+            type: 'structure',
+            required: ['FunctionName'],
+            members: {
+              FunctionName: {
+                location: 'uri',
+                locationName: 'FunctionName',
+              },
+              Qualifier: {
+                location: 'querystring',
+                locationName: 'Qualifier',
+              },
+            },
+          },
+        },
+        DeleteFunctionUrlConfig: {
+          http: {
+            method: 'DELETE',
+            requestUri: '/2021-10-31/functions/{FunctionName}/url',
             responseCode: 204,
           },
           input: {
@@ -18008,7 +21440,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
           output: {
-            shape: 'Sr',
+            shape: 'St',
           },
         },
         GetCodeSigningConfig: {
@@ -18032,7 +21464,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             required: ['CodeSigningConfig'],
             members: {
               CodeSigningConfig: {
-                shape: 'Sz',
+                shape: 'S11',
               },
             },
           },
@@ -18054,7 +21486,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
           output: {
-            shape: 'S1x',
+            shape: 'S2b',
           },
         },
         GetFunction: {
@@ -18081,7 +21513,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             type: 'structure',
             members: {
               Configuration: {
-                shape: 'S31',
+                shape: 'S3r',
               },
               Code: {
                 type: 'structure',
@@ -18093,10 +21525,10 @@ var require_lambda_2015_03_31_min = __commonJS({
                 },
               },
               Tags: {
-                shape: 'S2p',
+                shape: 'S34',
               },
               Concurrency: {
-                shape: 'S48',
+                shape: 'S5i',
               },
             },
           },
@@ -18172,7 +21604,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
           output: {
-            shape: 'S31',
+            shape: 'S3r',
           },
         },
         GetFunctionEventInvokeConfig: {
@@ -18196,7 +21628,43 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
           output: {
-            shape: 'S4g',
+            shape: 'S5q',
+          },
+        },
+        GetFunctionUrlConfig: {
+          http: {
+            method: 'GET',
+            requestUri: '/2021-10-31/functions/{FunctionName}/url',
+            responseCode: 200,
+          },
+          input: {
+            type: 'structure',
+            required: ['FunctionName'],
+            members: {
+              FunctionName: {
+                location: 'uri',
+                locationName: 'FunctionName',
+              },
+              Qualifier: {
+                location: 'querystring',
+                locationName: 'Qualifier',
+              },
+            },
+          },
+          output: {
+            type: 'structure',
+            required: ['FunctionUrl', 'FunctionArn', 'AuthType', 'CreationTime', 'LastModifiedTime'],
+            members: {
+              FunctionUrl: {},
+              FunctionArn: {},
+              AuthType: {},
+              Cors: {
+                shape: 'S4i',
+              },
+              CreationTime: {},
+              LastModifiedTime: {},
+              InvokeMode: {},
+            },
           },
         },
         GetLayerVersion: {
@@ -18221,7 +21689,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
           output: {
-            shape: 'S4k',
+            shape: 'S5w',
           },
         },
         GetLayerVersionByArn: {
@@ -18241,7 +21709,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
           output: {
-            shape: 'S4k',
+            shape: 'S5w',
           },
         },
         GetLayerVersionPolicy: {
@@ -18339,6 +21807,35 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
         },
+        GetRuntimeManagementConfig: {
+          http: {
+            method: 'GET',
+            requestUri: '/2021-07-20/functions/{FunctionName}/runtime-management-config',
+            responseCode: 200,
+          },
+          input: {
+            type: 'structure',
+            required: ['FunctionName'],
+            members: {
+              FunctionName: {
+                location: 'uri',
+                locationName: 'FunctionName',
+              },
+              Qualifier: {
+                location: 'querystring',
+                locationName: 'Qualifier',
+              },
+            },
+          },
+          output: {
+            type: 'structure',
+            members: {
+              UpdateRuntimeOn: {},
+              RuntimeVersionArn: {},
+              FunctionArn: {},
+            },
+          },
+        },
         Invoke: {
           http: {
             requestUri: '/2015-03-31/functions/{FunctionName}/invocations',
@@ -18364,7 +21861,7 @@ var require_lambda_2015_03_31_min = __commonJS({
                 locationName: 'X-Amz-Client-Context',
               },
               Payload: {
-                shape: 'S23',
+                shape: 'S2h',
               },
               Qualifier: {
                 location: 'querystring',
@@ -18389,7 +21886,7 @@ var require_lambda_2015_03_31_min = __commonJS({
                 locationName: 'X-Amz-Log-Result',
               },
               Payload: {
-                shape: 'S23',
+                shape: 'S2h',
               },
               ExecutedVersion: {
                 location: 'header',
@@ -18432,6 +21929,84 @@ var require_lambda_2015_03_31_min = __commonJS({
           },
           deprecated: true,
         },
+        InvokeWithResponseStream: {
+          http: {
+            requestUri: '/2021-11-15/functions/{FunctionName}/response-streaming-invocations',
+          },
+          input: {
+            type: 'structure',
+            required: ['FunctionName'],
+            members: {
+              FunctionName: {
+                location: 'uri',
+                locationName: 'FunctionName',
+              },
+              InvocationType: {
+                location: 'header',
+                locationName: 'X-Amz-Invocation-Type',
+              },
+              LogType: {
+                location: 'header',
+                locationName: 'X-Amz-Log-Type',
+              },
+              ClientContext: {
+                location: 'header',
+                locationName: 'X-Amz-Client-Context',
+              },
+              Qualifier: {
+                location: 'querystring',
+                locationName: 'Qualifier',
+              },
+              Payload: {
+                shape: 'S2h',
+              },
+            },
+            payload: 'Payload',
+          },
+          output: {
+            type: 'structure',
+            members: {
+              StatusCode: {
+                location: 'statusCode',
+                type: 'integer',
+              },
+              ExecutedVersion: {
+                location: 'header',
+                locationName: 'X-Amz-Executed-Version',
+              },
+              EventStream: {
+                type: 'structure',
+                members: {
+                  PayloadChunk: {
+                    type: 'structure',
+                    members: {
+                      Payload: {
+                        shape: 'S2h',
+                        eventpayload: true,
+                      },
+                    },
+                    event: true,
+                  },
+                  InvokeComplete: {
+                    type: 'structure',
+                    members: {
+                      ErrorCode: {},
+                      ErrorDetails: {},
+                      LogResult: {},
+                    },
+                    event: true,
+                  },
+                },
+                eventstream: true,
+              },
+              ResponseStreamContentType: {
+                location: 'header',
+                locationName: 'Content-Type',
+              },
+            },
+            payload: 'EventStream',
+          },
+        },
         ListAliases: {
           http: {
             method: 'GET',
@@ -18468,7 +22043,7 @@ var require_lambda_2015_03_31_min = __commonJS({
               Aliases: {
                 type: 'list',
                 member: {
-                  shape: 'Sr',
+                  shape: 'St',
                 },
               },
             },
@@ -18501,7 +22076,7 @@ var require_lambda_2015_03_31_min = __commonJS({
               CodeSigningConfigs: {
                 type: 'list',
                 member: {
-                  shape: 'Sz',
+                  shape: 'S11',
                 },
               },
             },
@@ -18542,7 +22117,7 @@ var require_lambda_2015_03_31_min = __commonJS({
               EventSourceMappings: {
                 type: 'list',
                 member: {
-                  shape: 'S1x',
+                  shape: 'S2b',
                 },
               },
             },
@@ -18579,7 +22154,58 @@ var require_lambda_2015_03_31_min = __commonJS({
               FunctionEventInvokeConfigs: {
                 type: 'list',
                 member: {
-                  shape: 'S4g',
+                  shape: 'S5q',
+                },
+              },
+              NextMarker: {},
+            },
+          },
+        },
+        ListFunctionUrlConfigs: {
+          http: {
+            method: 'GET',
+            requestUri: '/2021-10-31/functions/{FunctionName}/urls',
+            responseCode: 200,
+          },
+          input: {
+            type: 'structure',
+            required: ['FunctionName'],
+            members: {
+              FunctionName: {
+                location: 'uri',
+                locationName: 'FunctionName',
+              },
+              Marker: {
+                location: 'querystring',
+                locationName: 'Marker',
+              },
+              MaxItems: {
+                location: 'querystring',
+                locationName: 'MaxItems',
+                type: 'integer',
+              },
+            },
+          },
+          output: {
+            type: 'structure',
+            required: ['FunctionUrlConfigs'],
+            members: {
+              FunctionUrlConfigs: {
+                type: 'list',
+                member: {
+                  type: 'structure',
+                  required: ['FunctionUrl', 'FunctionArn', 'CreationTime', 'LastModifiedTime', 'AuthType'],
+                  members: {
+                    FunctionUrl: {},
+                    FunctionArn: {},
+                    CreationTime: {},
+                    LastModifiedTime: {},
+                    Cors: {
+                      shape: 'S4i',
+                    },
+                    AuthType: {},
+                    InvokeMode: {},
+                  },
                 },
               },
               NextMarker: {},
@@ -18619,7 +22245,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             members: {
               NextMarker: {},
               Functions: {
-                shape: 'S5p',
+                shape: 'S7g',
               },
             },
           },
@@ -18687,6 +22313,10 @@ var require_lambda_2015_03_31_min = __commonJS({
                 locationName: 'MaxItems',
                 type: 'integer',
               },
+              CompatibleArchitecture: {
+                location: 'querystring',
+                locationName: 'CompatibleArchitecture',
+              },
             },
           },
           output: {
@@ -18696,7 +22326,7 @@ var require_lambda_2015_03_31_min = __commonJS({
               LayerVersions: {
                 type: 'list',
                 member: {
-                  shape: 'S5x',
+                  shape: 'S7o',
                 },
               },
             },
@@ -18724,6 +22354,10 @@ var require_lambda_2015_03_31_min = __commonJS({
                 locationName: 'MaxItems',
                 type: 'integer',
               },
+              CompatibleArchitecture: {
+                location: 'querystring',
+                locationName: 'CompatibleArchitecture',
+              },
             },
           },
           output: {
@@ -18738,7 +22372,7 @@ var require_lambda_2015_03_31_min = __commonJS({
                     LayerName: {},
                     LayerArn: {},
                     LatestMatchingVersion: {
-                      shape: 'S5x',
+                      shape: 'S7o',
                     },
                   },
                 },
@@ -18818,7 +22452,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             type: 'structure',
             members: {
               Tags: {
-                shape: 'S2p',
+                shape: 'S34',
               },
             },
           },
@@ -18853,7 +22487,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             members: {
               NextMarker: {},
               Versions: {
-                shape: 'S5p',
+                shape: 'S7g',
               },
             },
           },
@@ -18879,21 +22513,24 @@ var require_lambda_2015_03_31_min = __commonJS({
                   S3Key: {},
                   S3ObjectVersion: {},
                   ZipFile: {
-                    shape: 'S23',
+                    shape: 'S2h',
                   },
                 },
               },
               CompatibleRuntimes: {
-                shape: 'S4n',
+                shape: 'S5z',
               },
               LicenseInfo: {},
+              CompatibleArchitectures: {
+                shape: 'S61',
+              },
             },
           },
           output: {
             type: 'structure',
             members: {
               Content: {
-                shape: 'S4l',
+                shape: 'S5x',
               },
               LayerArn: {},
               LayerVersionArn: {},
@@ -18903,9 +22540,12 @@ var require_lambda_2015_03_31_min = __commonJS({
                 type: 'long',
               },
               CompatibleRuntimes: {
-                shape: 'S4n',
+                shape: 'S5z',
               },
               LicenseInfo: {},
+              CompatibleArchitectures: {
+                shape: 'S61',
+              },
             },
           },
         },
@@ -18928,7 +22568,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
           output: {
-            shape: 'S31',
+            shape: 'S3r',
           },
         },
         PutFunctionCodeSigningConfig: {
@@ -18977,7 +22617,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
           output: {
-            shape: 'S48',
+            shape: 'S5i',
           },
         },
         PutFunctionEventInvokeConfig: {
@@ -19005,12 +22645,12 @@ var require_lambda_2015_03_31_min = __commonJS({
                 type: 'integer',
               },
               DestinationConfig: {
-                shape: 'S1a',
+                shape: 'S1g',
               },
             },
           },
           output: {
-            shape: 'S4g',
+            shape: 'S5q',
           },
         },
         PutProvisionedConcurrencyConfig: {
@@ -19051,6 +22691,38 @@ var require_lambda_2015_03_31_min = __commonJS({
               Status: {},
               StatusReason: {},
               LastModified: {},
+            },
+          },
+        },
+        PutRuntimeManagementConfig: {
+          http: {
+            method: 'PUT',
+            requestUri: '/2021-07-20/functions/{FunctionName}/runtime-management-config',
+            responseCode: 200,
+          },
+          input: {
+            type: 'structure',
+            required: ['FunctionName', 'UpdateRuntimeOn'],
+            members: {
+              FunctionName: {
+                location: 'uri',
+                locationName: 'FunctionName',
+              },
+              Qualifier: {
+                location: 'querystring',
+                locationName: 'Qualifier',
+              },
+              UpdateRuntimeOn: {},
+              RuntimeVersionArn: {},
+            },
+          },
+          output: {
+            type: 'structure',
+            required: ['UpdateRuntimeOn', 'FunctionArn'],
+            members: {
+              UpdateRuntimeOn: {},
+              FunctionArn: {},
+              RuntimeVersionArn: {},
             },
           },
         },
@@ -19127,7 +22799,7 @@ var require_lambda_2015_03_31_min = __commonJS({
                 locationName: 'ARN',
               },
               Tags: {
-                shape: 'S2p',
+                shape: 'S34',
               },
             },
           },
@@ -19176,13 +22848,13 @@ var require_lambda_2015_03_31_min = __commonJS({
               FunctionVersion: {},
               Description: {},
               RoutingConfig: {
-                shape: 'Sn',
+                shape: 'Sp',
               },
               RevisionId: {},
             },
           },
           output: {
-            shape: 'Sr',
+            shape: 'St',
           },
         },
         UpdateCodeSigningConfig: {
@@ -19201,10 +22873,10 @@ var require_lambda_2015_03_31_min = __commonJS({
               },
               Description: {},
               AllowedPublishers: {
-                shape: 'Su',
+                shape: 'Sw',
               },
               CodeSigningPolicies: {
-                shape: 'Sw',
+                shape: 'Sy',
               },
             },
           },
@@ -19213,7 +22885,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             required: ['CodeSigningConfig'],
             members: {
               CodeSigningConfig: {
-                shape: 'Sz',
+                shape: 'S11',
               },
             },
           },
@@ -19239,11 +22911,14 @@ var require_lambda_2015_03_31_min = __commonJS({
               BatchSize: {
                 type: 'integer',
               },
+              FilterCriteria: {
+                shape: 'S18',
+              },
               MaximumBatchingWindowInSeconds: {
                 type: 'integer',
               },
               DestinationConfig: {
-                shape: 'S1a',
+                shape: 'S1g',
               },
               MaximumRecordAgeInSeconds: {
                 type: 'integer',
@@ -19258,18 +22933,24 @@ var require_lambda_2015_03_31_min = __commonJS({
                 type: 'integer',
               },
               SourceAccessConfigurations: {
-                shape: 'S1m',
+                shape: 'S1s',
               },
               TumblingWindowInSeconds: {
                 type: 'integer',
               },
               FunctionResponseTypes: {
-                shape: 'S1v',
+                shape: 'S21',
+              },
+              ScalingConfig: {
+                shape: 'S25',
+              },
+              DocumentDBEventSourceConfig: {
+                shape: 'S27',
               },
             },
           },
           output: {
-            shape: 'S1x',
+            shape: 'S2b',
           },
         },
         UpdateFunctionCode: {
@@ -19287,7 +22968,7 @@ var require_lambda_2015_03_31_min = __commonJS({
                 locationName: 'FunctionName',
               },
               ZipFile: {
-                shape: 'S23',
+                shape: 'S2h',
               },
               S3Bucket: {},
               S3Key: {},
@@ -19300,10 +22981,13 @@ var require_lambda_2015_03_31_min = __commonJS({
                 type: 'boolean',
               },
               RevisionId: {},
+              Architectures: {
+                shape: 'S3g',
+              },
             },
           },
           output: {
-            shape: 'S31',
+            shape: 'S3r',
           },
         },
         UpdateFunctionConfiguration: {
@@ -19330,33 +23014,42 @@ var require_lambda_2015_03_31_min = __commonJS({
                 type: 'integer',
               },
               VpcConfig: {
-                shape: 'S2a',
+                shape: 'S2o',
               },
               Environment: {
-                shape: 'S2i',
+                shape: 'S2x',
               },
               Runtime: {},
               DeadLetterConfig: {
-                shape: 'S2g',
+                shape: 'S2v',
               },
               KMSKeyArn: {},
               TracingConfig: {
-                shape: 'S2n',
+                shape: 'S32',
               },
               RevisionId: {},
               Layers: {
-                shape: 'S2s',
+                shape: 'S37',
               },
               FileSystemConfigs: {
-                shape: 'S2u',
+                shape: 'S39',
               },
               ImageConfig: {
-                shape: 'S2y',
+                shape: 'S3d',
+              },
+              EphemeralStorage: {
+                shape: 'S3i',
+              },
+              SnapStart: {
+                shape: 'S3k',
+              },
+              LoggingConfig: {
+                shape: 'S3m',
               },
             },
           },
           output: {
-            shape: 'S31',
+            shape: 'S3r',
           },
         },
         UpdateFunctionEventInvokeConfig: {
@@ -19383,17 +23076,58 @@ var require_lambda_2015_03_31_min = __commonJS({
                 type: 'integer',
               },
               DestinationConfig: {
-                shape: 'S1a',
+                shape: 'S1g',
               },
             },
           },
           output: {
-            shape: 'S4g',
+            shape: 'S5q',
+          },
+        },
+        UpdateFunctionUrlConfig: {
+          http: {
+            method: 'PUT',
+            requestUri: '/2021-10-31/functions/{FunctionName}/url',
+            responseCode: 200,
+          },
+          input: {
+            type: 'structure',
+            required: ['FunctionName'],
+            members: {
+              FunctionName: {
+                location: 'uri',
+                locationName: 'FunctionName',
+              },
+              Qualifier: {
+                location: 'querystring',
+                locationName: 'Qualifier',
+              },
+              AuthType: {},
+              Cors: {
+                shape: 'S4i',
+              },
+              InvokeMode: {},
+            },
+          },
+          output: {
+            type: 'structure',
+            required: ['FunctionUrl', 'FunctionArn', 'AuthType', 'CreationTime', 'LastModifiedTime'],
+            members: {
+              FunctionUrl: {},
+              FunctionArn: {},
+              AuthType: {},
+              Cors: {
+                shape: 'S4i',
+              },
+              CreationTime: {},
+              LastModifiedTime: {},
+              InvokeMode: {},
+            },
           },
         },
       },
       shapes: {
-        Sn: {
+        Sp: {
           type: 'structure',
           members: {
             AdditionalVersionWeights: {
@@ -19405,7 +23139,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
         },
-        Sr: {
+        St: {
           type: 'structure',
           members: {
             AliasArn: {},
@@ -19413,12 +23147,12 @@ var require_lambda_2015_03_31_min = __commonJS({
             FunctionVersion: {},
             Description: {},
             RoutingConfig: {
-              shape: 'Sn',
+              shape: 'Sp',
             },
             RevisionId: {},
           },
         },
-        Su: {
+        Sw: {
           type: 'structure',
           required: ['SigningProfileVersionArns'],
           members: {
@@ -19428,13 +23162,13 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
         },
-        Sw: {
+        Sy: {
           type: 'structure',
           members: {
             UntrustedArtifactOnDeployment: {},
           },
         },
-        Sz: {
+        S11: {
           type: 'structure',
           required: [
             'CodeSigningConfigId',
@@ -19448,15 +23182,29 @@ var require_lambda_2015_03_31_min = __commonJS({
             CodeSigningConfigArn: {},
             Description: {},
             AllowedPublishers: {
-              shape: 'Su',
+              shape: 'Sw',
             },
             CodeSigningPolicies: {
-              shape: 'Sw',
+              shape: 'Sy',
             },
             LastModified: {},
           },
         },
-        S1a: {
+        S18: {
+          type: 'structure',
+          members: {
+            Filters: {
+              type: 'list',
+              member: {
+                type: 'structure',
+                members: {
+                  Pattern: {},
+                },
+              },
+            },
+          },
+        },
+        S1g: {
           type: 'structure',
           members: {
             OnSuccess: {
@@ -19473,15 +23221,15 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
         },
-        S1i: {
+        S1o: {
           type: 'list',
           member: {},
         },
-        S1k: {
+        S1q: {
           type: 'list',
           member: {},
         },
-        S1m: {
+        S1s: {
           type: 'list',
           member: {
             type: 'structure',
@@ -19491,7 +23239,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
         },
-        S1q: {
+        S1w: {
           type: 'structure',
           members: {
             Endpoints: {
@@ -19504,11 +23252,39 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
         },
-        S1v: {
+        S21: {
           type: 'list',
           member: {},
         },
-        S1x: {
+        S23: {
+          type: 'structure',
+          members: {
+            ConsumerGroupId: {},
+          },
+        },
+        S24: {
+          type: 'structure',
+          members: {
+            ConsumerGroupId: {},
+          },
+        },
+        S25: {
+          type: 'structure',
+          members: {
+            MaximumConcurrency: {
+              type: 'integer',
+            },
+          },
+        },
+        S27: {
+          type: 'structure',
+          members: {
+            DatabaseName: {},
+            CollectionName: {},
+            FullDocument: {},
+          },
+        },
+        S2b: {
           type: 'structure',
           members: {
             UUID: {},
@@ -19526,6 +23302,9 @@ var require_lambda_2015_03_31_min = __commonJS({
               type: 'integer',
             },
             EventSourceArn: {},
+            FilterCriteria: {
+              shape: 'S18',
+            },
             FunctionArn: {},
             LastModified: {
               type: 'timestamp',
@@ -19534,19 +23313,19 @@ var require_lambda_2015_03_31_min = __commonJS({
             State: {},
             StateTransitionReason: {},
             DestinationConfig: {
-              shape: 'S1a',
+              shape: 'S1g',
             },
             Topics: {
-              shape: 'S1i',
+              shape: 'S1o',
             },
             Queues: {
-              shape: 'S1k',
+              shape: 'S1q',
             },
             SourceAccessConfigurations: {
-              shape: 'S1m',
+              shape: 'S1s',
             },
             SelfManagedEventSource: {
-              shape: 'S1q',
+              shape: 'S1w',
             },
             MaximumRecordAgeInSeconds: {
               type: 'integer',
@@ -19561,48 +23340,63 @@ var require_lambda_2015_03_31_min = __commonJS({
               type: 'integer',
             },
             FunctionResponseTypes: {
-              shape: 'S1v',
+              shape: 'S21',
+            },
+            AmazonManagedKafkaEventSourceConfig: {
+              shape: 'S23',
+            },
+            SelfManagedKafkaEventSourceConfig: {
+              shape: 'S24',
+            },
+            ScalingConfig: {
+              shape: 'S25',
+            },
+            DocumentDBEventSourceConfig: {
+              shape: 'S27',
             },
           },
         },
-        S23: {
+        S2h: {
           type: 'blob',
           sensitive: true,
         },
-        S2a: {
+        S2o: {
           type: 'structure',
           members: {
             SubnetIds: {
-              shape: 'S2b',
+              shape: 'S2p',
             },
             SecurityGroupIds: {
-              shape: 'S2d',
+              shape: 'S2r',
+            },
+            Ipv6AllowedForDualStack: {
+              type: 'boolean',
             },
           },
         },
-        S2b: {
+        S2p: {
           type: 'list',
           member: {},
         },
-        S2d: {
+        S2r: {
           type: 'list',
           member: {},
         },
-        S2g: {
+        S2v: {
           type: 'structure',
           members: {
             TargetArn: {},
           },
         },
-        S2i: {
+        S2x: {
           type: 'structure',
           members: {
             Variables: {
-              shape: 'S2j',
+              shape: 'S2y',
             },
           },
         },
-        S2j: {
+        S2y: {
           type: 'map',
           key: {
             type: 'string',
@@ -19614,22 +23408,22 @@ var require_lambda_2015_03_31_min = __commonJS({
           },
           sensitive: true,
         },
-        S2n: {
+        S32: {
           type: 'structure',
           members: {
             Mode: {},
           },
         },
-        S2p: {
+        S34: {
           type: 'map',
           key: {},
           value: {},
         },
-        S2s: {
+        S37: {
           type: 'list',
           member: {},
         },
-        S2u: {
+        S39: {
           type: 'list',
           member: {
             type: 'structure',
@@ -19640,23 +23434,51 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
         },
-        S2y: {
+        S3d: {
           type: 'structure',
           members: {
             EntryPoint: {
-              shape: 'S2z',
+              shape: 'S3e',
             },
             Command: {
-              shape: 'S2z',
+              shape: 'S3e',
             },
             WorkingDirectory: {},
           },
         },
-        S2z: {
+        S3e: {
           type: 'list',
           member: {},
         },
-        S31: {
+        S3g: {
+          type: 'list',
+          member: {},
+        },
+        S3i: {
+          type: 'structure',
+          required: ['Size'],
+          members: {
+            Size: {
+              type: 'integer',
+            },
+          },
+        },
+        S3k: {
+          type: 'structure',
+          members: {
+            ApplyOn: {},
+          },
+        },
+        S3m: {
+          type: 'structure',
+          members: {
+            LogFormat: {},
+            ApplicationLogLevel: {},
+            SystemLogLevel: {},
+            LogGroup: {},
+          },
+        },
+        S3r: {
           type: 'structure',
           members: {
             FunctionName: {},
@@ -19681,29 +23503,32 @@ var require_lambda_2015_03_31_min = __commonJS({
               type: 'structure',
               members: {
                 SubnetIds: {
-                  shape: 'S2b',
+                  shape: 'S2p',
                 },
                 SecurityGroupIds: {
-                  shape: 'S2d',
+                  shape: 'S2r',
                 },
                 VpcId: {},
+                Ipv6AllowedForDualStack: {
+                  type: 'boolean',
+                },
               },
             },
             DeadLetterConfig: {
-              shape: 'S2g',
+              shape: 'S2v',
             },
             Environment: {
               type: 'structure',
               members: {
                 Variables: {
-                  shape: 'S2j',
+                  shape: 'S2y',
                 },
                 Error: {
                   type: 'structure',
                   members: {
                     ErrorCode: {},
                     Message: {
-                      shape: 'S39',
+                      shape: 'S3z',
                     },
                   },
                 },
@@ -19739,21 +23564,21 @@ var require_lambda_2015_03_31_min = __commonJS({
             LastUpdateStatusReason: {},
             LastUpdateStatusReasonCode: {},
             FileSystemConfigs: {
-              shape: 'S2u',
+              shape: 'S39',
             },
             PackageType: {},
             ImageConfigResponse: {
               type: 'structure',
               members: {
                 ImageConfig: {
-                  shape: 'S2y',
+                  shape: 'S3d',
                 },
                 Error: {
                   type: 'structure',
                   members: {
                     ErrorCode: {},
                     Message: {
-                      shape: 'S39',
+                      shape: 'S3z',
                     },
                   },
                 },
@@ -19761,13 +23586,73 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
             SigningProfileVersionArn: {},
             SigningJobArn: {},
+            Architectures: {
+              shape: 'S3g',
+            },
+            EphemeralStorage: {
+              shape: 'S3i',
+            },
+            SnapStart: {
+              type: 'structure',
+              members: {
+                ApplyOn: {},
+                OptimizationStatus: {},
+              },
+            },
+            RuntimeVersionConfig: {
+              type: 'structure',
+              members: {
+                RuntimeVersionArn: {},
+                Error: {
+                  type: 'structure',
+                  members: {
+                    ErrorCode: {},
+                    Message: {
+                      shape: 'S3z',
+                    },
+                  },
+                },
+              },
+            },
+            LoggingConfig: {
+              shape: 'S3m',
+            },
           },
         },
-        S39: {
+        S3z: {
           type: 'string',
           sensitive: true,
         },
-        S48: {
+        S4i: {
+          type: 'structure',
+          members: {
+            AllowCredentials: {
+              type: 'boolean',
+            },
+            AllowHeaders: {
+              shape: 'S4k',
+            },
+            AllowMethods: {
+              type: 'list',
+              member: {},
+            },
+            AllowOrigins: {
+              type: 'list',
+              member: {},
+            },
+            ExposeHeaders: {
+              shape: 'S4k',
+            },
+            MaxAge: {
+              type: 'integer',
+            },
+          },
+        },
+        S4k: {
+          type: 'list',
+          member: {},
+        },
+        S5i: {
           type: 'structure',
           members: {
             ReservedConcurrentExecutions: {
@@ -19775,7 +23660,7 @@ var require_lambda_2015_03_31_min = __commonJS({
             },
           },
         },
-        S4g: {
+        S5q: {
           type: 'structure',
           members: {
             LastModified: {
@@ -19789,15 +23674,15 @@ var require_lambda_2015_03_31_min = __commonJS({
               type: 'integer',
             },
             DestinationConfig: {
-              shape: 'S1a',
+              shape: 'S1g',
             },
           },
         },
-        S4k: {
+        S5w: {
           type: 'structure',
           members: {
             Content: {
-              shape: 'S4l',
+              shape: 'S5x',
             },
             LayerArn: {},
             LayerVersionArn: {},
@@ -19807,12 +23692,15 @@ var require_lambda_2015_03_31_min = __commonJS({
               type: 'long',
             },
             CompatibleRuntimes: {
-              shape: 'S4n',
+              shape: 'S5z',
             },
             LicenseInfo: {},
+            CompatibleArchitectures: {
+              shape: 'S61',
+            },
           },
         },
-        S4l: {
+        S5x: {
           type: 'structure',
           members: {
             Location: {},
@@ -19824,17 +23712,21 @@ var require_lambda_2015_03_31_min = __commonJS({
             SigningJobArn: {},
           },
         },
-        S4n: {
+        S5z: {
           type: 'list',
           member: {},
         },
-        S5p: {
+        S61: {
+          type: 'list',
+          member: {},
+        },
+        S7g: {
           type: 'list',
           member: {
-            shape: 'S31',
+            shape: 'S3r',
           },
         },
-        S5x: {
+        S7o: {
           type: 'structure',
           members: {
             LayerVersionArn: {},
@@ -19844,9 +23736,12 @@ var require_lambda_2015_03_31_min = __commonJS({
             Description: {},
             CreatedDate: {},
             CompatibleRuntimes: {
-              shape: 'S4n',
+              shape: 'S5z',
             },
             LicenseInfo: {},
+            CompatibleArchitectures: {
+              shape: 'S61',
+            },
           },
         },
       },
@@ -19882,6 +23777,12 @@ var require_lambda_2015_03_31_paginators = __commonJS({
           limit_key: 'MaxItems',
           output_token: 'NextMarker',
           result_key: 'FunctionEventInvokeConfigs',
+        },
+        ListFunctionUrlConfigs: {
+          input_token: 'Marker',
+          limit_key: 'MaxItems',
+          output_token: 'NextMarker',
+          result_key: 'FunctionUrlConfigs',
         },
         ListFunctions: {
           input_token: 'Marker',
@@ -19951,7 +23852,8 @@ var require_lambda_2015_03_31_waiters2 = __commonJS({
           delay: 5,
           maxAttempts: 60,
           operation: 'GetFunctionConfiguration',
-          description: "Waits for the function's State to be Active.",
+          description:
+            "Waits for the function's State to be Active. This waiter uses GetFunctionConfiguration API. This should be used after new function creation.",
           acceptors: [
             {
               state: 'success',
@@ -19977,7 +23879,8 @@ var require_lambda_2015_03_31_waiters2 = __commonJS({
           delay: 5,
           maxAttempts: 60,
           operation: 'GetFunctionConfiguration',
-          description: "Waits for the function's LastUpdateStatus to be Successful.",
+          description:
+            "Waits for the function's LastUpdateStatus to be Successful. This waiter uses GetFunctionConfiguration API. This should be used after function updates.",
           acceptors: [
             {
               state: 'success',
@@ -19999,6 +23902,87 @@ var require_lambda_2015_03_31_waiters2 = __commonJS({
             },
           ],
         },
+        FunctionActiveV2: {
+          delay: 1,
+          maxAttempts: 300,
+          operation: 'GetFunction',
+          description:
+            "Waits for the function's State to be Active. This waiter uses GetFunction API. This should be used after new function creation.",
+          acceptors: [
+            {
+              state: 'success',
+              matcher: 'path',
+              argument: 'Configuration.State',
+              expected: 'Active',
+            },
+            {
+              state: 'failure',
+              matcher: 'path',
+              argument: 'Configuration.State',
+              expected: 'Failed',
+            },
+            {
+              state: 'retry',
+              matcher: 'path',
+              argument: 'Configuration.State',
+              expected: 'Pending',
+            },
+          ],
+        },
+        FunctionUpdatedV2: {
+          delay: 1,
+          maxAttempts: 300,
+          operation: 'GetFunction',
+          description:
+            "Waits for the function's LastUpdateStatus to be Successful. This waiter uses GetFunction API. This should be used after function updates.",
+          acceptors: [
+            {
+              state: 'success',
+              matcher: 'path',
+              argument: 'Configuration.LastUpdateStatus',
+              expected: 'Successful',
+            },
+            {
+              state: 'failure',
+              matcher: 'path',
+              argument: 'Configuration.LastUpdateStatus',
+              expected: 'Failed',
+            },
+            {
+              state: 'retry',
+              matcher: 'path',
+              argument: 'Configuration.LastUpdateStatus',
+              expected: 'InProgress',
+            },
+          ],
+        },
+        PublishedVersionActive: {
+          delay: 5,
+          maxAttempts: 312,
+          operation: 'GetFunctionConfiguration',
+          description:
+            "Waits for the published version's State to be Active. This waiter uses GetFunctionConfiguration API. This should be used after new version is published.",
+          acceptors: [
+            {
+              state: 'success',
+              matcher: 'path',
+              argument: 'State',
+              expected: 'Active',
+            },
+            {
+              state: 'failure',
+              matcher: 'path',
+              argument: 'State',
+              expected: 'Failed',
+            },
+            {
+              state: 'retry',
+              matcher: 'path',
+              argument: 'State',
+              expected: 'Pending',
+            },
+          ],
+        },
       },
     };
   },
@@ -20008,11 +23992,11 @@ var require_lambda_2015_03_31_waiters2 = __commonJS({
 var require_lambda2 = __commonJS({
   'node_modules/aws-sdk/clients/lambda.js'(exports, module2) {
     require_node_loader();
-    var AWS3 = require_core();
-    var Service = AWS3.Service;
-    var apiLoader = AWS3.apiLoader;
+    var AWS2 = require_core();
+    var Service = AWS2.Service;
+    var apiLoader = AWS2.apiLoader;
     apiLoader.services['lambda'] = {};
-    AWS3.Lambda = Service.defineService('lambda', ['2014-11-11', '2015-03-31']);
+    AWS2.Lambda = Service.defineService('lambda', ['2014-11-11', '2015-03-31']);
     require_lambda();
     Object.defineProperty(apiLoader.services['lambda'], '2014-11-11', {
       get: function get() {
@@ -20033,12 +24017,12 @@ var require_lambda2 = __commonJS({
       enumerable: true,
       configurable: true,
     });
-    module2.exports = AWS3.Lambda;
+    module2.exports = AWS2.Lambda;
   },
 });
 
 // node_modules/@actions/core/lib/utils.js
-var require_utils = __commonJS({
+var require_utils2 = __commonJS({
   'node_modules/@actions/core/lib/utils.js'(exports) {
     'use strict';
     Object.defineProperty(exports, '__esModule', { value: true });
@@ -20112,7 +24096,7 @@ var require_command = __commonJS({
     Object.defineProperty(exports, '__esModule', { value: true });
     exports.issue = exports.issueCommand = void 0;
     var os = __importStar(require('os'));
-    var utils_1 = require_utils();
+    var utils_1 = require_utils2();
     function issueCommand(command, properties, message) {
       const cmd = new Command(command, properties, message);
       process.stdout.write(cmd.toString() + os.EOL);
@@ -20215,7 +24199,7 @@ var require_file_command = __commonJS({
     var fs = __importStar(require('fs'));
     var os = __importStar(require('os'));
     var uuid_1 = require_dist();
-    var utils_1 = require_utils();
+    var utils_1 = require_utils2();
     function issueFileCommand(command, message) {
       const filePath = process.env[`GITHUB_${command}`];
       if (!filePath) {
@@ -21696,7 +25680,7 @@ var require_core2 = __commonJS({
         void 0;
     var command_1 = require_command();
     var file_command_1 = require_file_command();
-    var utils_1 = require_utils();
+    var utils_1 = require_utils2();
     var os = __importStar(require('os'));
     var path = __importStar(require('path'));
     var oidc_utils_1 = require_oidc_utils();
