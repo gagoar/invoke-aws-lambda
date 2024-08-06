@@ -2,7 +2,7 @@
   "name": "invoke-aws-lambda",
   "repository": "git@github.com:gagoar/invoke-aws-lambda.git",
   "license": "MIT",
-  "version": "3.3.2",
+  "version": "3.4.0",
   "description": "Invoke AWS Lambda",
   "main": "index.ts",
   "husky": {
