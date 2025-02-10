@@ -1,31 +1,21 @@
 'use strict';
 var __create = Object.create;
 var __defProp = Object.defineProperty;
-var __defProps = Object.defineProperties;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
 var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getOwnPropSymbols = Object.getOwnPropertySymbols;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __propIsEnum = Object.prototype.propertyIsEnumerable;
-var __defNormalProp = (obj, key, value) =>
-  key in obj
-    ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value })
-    : (obj[key] = value);
-var __spreadValues = (a, b) => {
-  for (var prop in b || (b = {})) if (__hasOwnProp.call(b, prop)) __defNormalProp(a, prop, b[prop]);
-  if (__getOwnPropSymbols)
-    for (var prop of __getOwnPropSymbols(b)) {
-      if (__propIsEnum.call(b, prop)) __defNormalProp(a, prop, b[prop]);
-    }
-  return a;
-};
-var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
+var __esm = (fn, res) =>
+  function __init() {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])((fn = 0))), res;
+  };
 var __commonJS = (cb, mod) =>
   function __require() {
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
   };
+var __export = (target, all) => {
+  for (var name in all) __defProp(target, name, { get: all[name], enumerable: true });
+};
 var __copyProps = (to, from, except, desc) => {
   if ((from && typeof from === 'object') || typeof from === 'function') {
     for (let key of __getOwnPropNames(from))
@@ -40,14 +30,19 @@ var __copyProps = (to, from, except, desc) => {
 var __toESM = (mod, isNodeMode, target) => (
   (target = mod != null ? __create(__getProtoOf(mod)) : {}),
   __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
     isNodeMode || !mod || !mod.__esModule ? __defProp(target, 'default', { value: mod, enumerable: true }) : target,
     mod
   )
 );
+var __toCommonJS = (mod) => __copyProps(__defProp({}, '__esModule', { value: true }), mod);
 
 // node_modules/aws-sdk/lib/json/builder.js
 var require_builder = __commonJS({
-  'node_modules/aws-sdk/lib/json/builder.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/json/builder.js'(exports2, module2) {
     var util = require_util();
     function JsonBuilder() {}
     JsonBuilder.prototype.build = function (value, shape) {
@@ -107,7 +102,7 @@ var require_builder = __commonJS({
 
 // node_modules/aws-sdk/lib/json/parser.js
 var require_parser = __commonJS({
-  'node_modules/aws-sdk/lib/json/parser.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/json/parser.js'(exports2, module2) {
     var util = require_util();
     function JsonParser() {}
     JsonParser.prototype.parse = function (value, shape) {
@@ -176,7 +171,7 @@ var require_parser = __commonJS({
 
 // node_modules/aws-sdk/lib/protocol/helpers.js
 var require_helpers = __commonJS({
-  'node_modules/aws-sdk/lib/protocol/helpers.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/protocol/helpers.js'(exports2, module2) {
     var util = require_util();
     var AWS2 = require_core();
     function populateHostPrefix(request) {
@@ -248,7 +243,7 @@ var require_helpers = __commonJS({
 
 // node_modules/aws-sdk/lib/protocol/json.js
 var require_json = __commonJS({
-  'node_modules/aws-sdk/lib/protocol/json.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/protocol/json.js'(exports2, module2) {
     var util = require_util();
     var JsonBuilder = require_builder();
     var JsonParser = require_parser();
@@ -257,10 +252,10 @@ var require_json = __commonJS({
       var httpRequest = req.httpRequest;
       var api = req.service.api;
       var target = api.targetPrefix + '.' + api.operations[req.operation].name;
-      var version = api.jsonVersion || '1.0';
+      var version2 = api.jsonVersion || '1.0';
       var input = api.operations[req.operation].input;
       var builder = new JsonBuilder();
-      if (version === 1) version = '1.0';
+      if (version2 === 1) version2 = '1.0';
       if (api.awsQueryCompatible) {
         if (!httpRequest.params) {
           httpRequest.params = {};
@@ -268,7 +263,7 @@ var require_json = __commonJS({
         Object.assign(httpRequest.params, req.params);
       }
       httpRequest.body = builder.build(req.params || {}, input);
-      httpRequest.headers['Content-Type'] = 'application/x-amz-json-' + version;
+      httpRequest.headers['Content-Type'] = 'application/x-amz-json-' + version2;
       httpRequest.headers['X-Amz-Target'] = target;
       populateHostPrefix(req);
     }
@@ -333,7 +328,7 @@ var require_json = __commonJS({
 
 // node_modules/aws-sdk/lib/query/query_param_serializer.js
 var require_query_param_serializer = __commonJS({
-  'node_modules/aws-sdk/lib/query/query_param_serializer.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/query/query_param_serializer.js'(exports2, module2) {
     var util = require_util();
     function QueryParamSerializer() {}
     QueryParamSerializer.prototype.serialize = function (params, shape, fn) {
@@ -409,7 +404,7 @@ var require_query_param_serializer = __commonJS({
 
 // node_modules/aws-sdk/lib/model/collection.js
 var require_collection = __commonJS({
-  'node_modules/aws-sdk/lib/model/collection.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/model/collection.js'(exports2, module2) {
     var memoizedProperty = require_util().memoizedProperty;
     function memoize(name, value, factory, nameTr) {
       memoizedProperty(this, nameTr(name), function () {
@@ -432,7 +427,7 @@ var require_collection = __commonJS({
 
 // node_modules/aws-sdk/lib/model/shape.js
 var require_shape = __commonJS({
-  'node_modules/aws-sdk/lib/model/shape.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/model/shape.js'(exports2, module2) {
     var Collection = require_collection();
     var util = require_util();
     function property(obj, name, value) {
@@ -792,7 +787,7 @@ var require_shape = __commonJS({
 
 // node_modules/aws-sdk/lib/protocol/query.js
 var require_query = __commonJS({
-  'node_modules/aws-sdk/lib/protocol/query.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/protocol/query.js'(exports2, module2) {
     var AWS2 = require_core();
     var util = require_util();
     var QueryParamSerializer = require_query_param_serializer();
@@ -884,7 +879,7 @@ var require_query = __commonJS({
 
 // node_modules/aws-sdk/lib/protocol/rest.js
 var require_rest = __commonJS({
-  'node_modules/aws-sdk/lib/protocol/rest.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/protocol/rest.js'(exports2, module2) {
     var util = require_util();
     var populateHostPrefix = require_helpers().populateHostPrefix;
     function populateMethod(req) {
@@ -1015,7 +1010,7 @@ var require_rest = __commonJS({
 
 // node_modules/aws-sdk/lib/protocol/rest_json.js
 var require_rest_json = __commonJS({
-  'node_modules/aws-sdk/lib/protocol/rest_json.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/protocol/rest_json.js'(exports2, module2) {
     var AWS2 = require_core();
     var util = require_util();
     var Rest = require_rest();
@@ -1107,7 +1102,7 @@ var require_rest_json = __commonJS({
 
 // node_modules/aws-sdk/lib/protocol/rest_xml.js
 var require_rest_xml = __commonJS({
-  'node_modules/aws-sdk/lib/protocol/rest_xml.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/protocol/rest_xml.js'(exports2, module2) {
     var AWS2 = require_core();
     var util = require_util();
     var Rest = require_rest();
@@ -1207,7 +1202,7 @@ var require_rest_xml = __commonJS({
 
 // node_modules/aws-sdk/lib/xml/escape-attribute.js
 var require_escape_attribute = __commonJS({
-  'node_modules/aws-sdk/lib/xml/escape-attribute.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/xml/escape-attribute.js'(exports2, module2) {
     function escapeAttribute(value) {
       return value
         .replace(/&/g, '&amp;')
@@ -1224,7 +1219,7 @@ var require_escape_attribute = __commonJS({
 
 // node_modules/aws-sdk/lib/xml/xml-node.js
 var require_xml_node = __commonJS({
-  'node_modules/aws-sdk/lib/xml/xml-node.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/xml/xml-node.js'(exports2, module2) {
     var escapeAttribute = require_escape_attribute().escapeAttribute;
     function XmlNode(name, children2) {
       if (children2 === void 0) {
@@ -1277,7 +1272,7 @@ var require_xml_node = __commonJS({
 
 // node_modules/aws-sdk/lib/xml/escape-element.js
 var require_escape_element = __commonJS({
-  'node_modules/aws-sdk/lib/xml/escape-element.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/xml/escape-element.js'(exports2, module2) {
     function escapeElement(value) {
       return value
         .replace(/&/g, '&amp;')
@@ -1296,7 +1291,7 @@ var require_escape_element = __commonJS({
 
 // node_modules/aws-sdk/lib/xml/xml-text.js
 var require_xml_text = __commonJS({
-  'node_modules/aws-sdk/lib/xml/xml-text.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/xml/xml-text.js'(exports2, module2) {
     var escapeElement = require_escape_element().escapeElement;
     function XmlText(value) {
       this.value = value;
@@ -1312,7 +1307,7 @@ var require_xml_text = __commonJS({
 
 // node_modules/aws-sdk/lib/xml/builder.js
 var require_builder2 = __commonJS({
-  'node_modules/aws-sdk/lib/xml/builder.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/xml/builder.js'(exports2, module2) {
     var util = require_util();
     var XmlNode = require_xml_node().XmlNode;
     var XmlText = require_xml_text().XmlText;
@@ -1406,7 +1401,7 @@ var require_builder2 = __commonJS({
 
 // node_modules/aws-sdk/lib/model/operation.js
 var require_operation = __commonJS({
-  'node_modules/aws-sdk/lib/model/operation.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/model/operation.js'(exports2, module2) {
     var Shape = require_shape();
     var util = require_util();
     var property = util.property;
@@ -1503,7 +1498,7 @@ var require_operation = __commonJS({
 
 // node_modules/aws-sdk/lib/model/paginator.js
 var require_paginator = __commonJS({
-  'node_modules/aws-sdk/lib/model/paginator.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/model/paginator.js'(exports2, module2) {
     var property = require_util().property;
     function Paginator(name, paginator) {
       property(this, 'inputToken', paginator.input_token);
@@ -1518,7 +1513,7 @@ var require_paginator = __commonJS({
 
 // node_modules/aws-sdk/lib/model/resource_waiter.js
 var require_resource_waiter = __commonJS({
-  'node_modules/aws-sdk/lib/model/resource_waiter.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/model/resource_waiter.js'(exports2, module2) {
     var util = require_util();
     var property = util.property;
     function ResourceWaiter(name, waiter, options) {
@@ -1543,7 +1538,7 @@ var require_resource_waiter = __commonJS({
 
 // node_modules/aws-sdk/apis/metadata.json
 var require_metadata = __commonJS({
-  'node_modules/aws-sdk/apis/metadata.json'(exports, module2) {
+  'node_modules/aws-sdk/apis/metadata.json'(exports2, module2) {
     module2.exports = {
       acm: {
         name: 'ACM',
@@ -2974,7 +2969,7 @@ var require_metadata = __commonJS({
 
 // node_modules/aws-sdk/lib/model/api.js
 var require_api = __commonJS({
-  'node_modules/aws-sdk/lib/model/api.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/model/api.js'(exports2, module2) {
     var Collection = require_collection();
     var Operation = require_operation();
     var Shape = require_shape();
@@ -3075,12 +3070,12 @@ var require_api = __commonJS({
 
 // node_modules/aws-sdk/lib/api_loader.js
 var require_api_loader = __commonJS({
-  'node_modules/aws-sdk/lib/api_loader.js'(exports, module2) {
-    function apiLoader(svc, version) {
+  'node_modules/aws-sdk/lib/api_loader.js'(exports2, module2) {
+    function apiLoader(svc, version2) {
       if (!apiLoader.services.hasOwnProperty(svc)) {
         throw new Error('InvalidService: Failed to load api for ' + svc);
       }
-      return apiLoader.services[svc][version];
+      return apiLoader.services[svc][version2];
     }
     apiLoader.services = {};
     module2.exports = apiLoader;
@@ -3089,200 +3084,209 @@ var require_api_loader = __commonJS({
 
 // node_modules/aws-sdk/vendor/endpoint-cache/utils/LRU.js
 var require_LRU = __commonJS({
-  'node_modules/aws-sdk/vendor/endpoint-cache/utils/LRU.js'(exports) {
+  'node_modules/aws-sdk/vendor/endpoint-cache/utils/LRU.js'(exports2) {
     'use strict';
-    Object.defineProperty(exports, '__esModule', { value: true });
-    var LinkedListNode = (function () {
-      function LinkedListNode2(key, value) {
-        this.key = key;
-        this.value = value;
-      }
-      return LinkedListNode2;
-    })();
-    var LRUCache = (function () {
-      function LRUCache2(size) {
-        this.nodeMap = {};
-        this.size = 0;
-        if (typeof size !== 'number' || size < 1) {
-          throw new Error('Cache size can only be positive number');
+    Object.defineProperty(exports2, '__esModule', { value: true });
+    var LinkedListNode =
+      /** @class */
+      /* @__PURE__ */ (function () {
+        function LinkedListNode2(key, value) {
+          this.key = key;
+          this.value = value;
         }
-        this.sizeLimit = size;
-      }
-      Object.defineProperty(LRUCache2.prototype, 'length', {
-        get: function () {
-          return this.size;
-        },
-        enumerable: true,
-        configurable: true,
-      });
-      LRUCache2.prototype.prependToList = function (node) {
-        if (!this.headerNode) {
-          this.tailNode = node;
-        } else {
-          this.headerNode.prev = node;
-          node.next = this.headerNode;
+        return LinkedListNode2;
+      })();
+    var LRUCache =
+      /** @class */
+      (function () {
+        function LRUCache2(size) {
+          this.nodeMap = {};
+          this.size = 0;
+          if (typeof size !== 'number' || size < 1) {
+            throw new Error('Cache size can only be positive number');
+          }
+          this.sizeLimit = size;
         }
-        this.headerNode = node;
-        this.size++;
-      };
-      LRUCache2.prototype.removeFromTail = function () {
-        if (!this.tailNode) {
-          return void 0;
-        }
-        var node = this.tailNode;
-        var prevNode = node.prev;
-        if (prevNode) {
-          prevNode.next = void 0;
-        }
-        node.prev = void 0;
-        this.tailNode = prevNode;
-        this.size--;
-        return node;
-      };
-      LRUCache2.prototype.detachFromList = function (node) {
-        if (this.headerNode === node) {
-          this.headerNode = node.next;
-        }
-        if (this.tailNode === node) {
-          this.tailNode = node.prev;
-        }
-        if (node.prev) {
-          node.prev.next = node.next;
-        }
-        if (node.next) {
-          node.next.prev = node.prev;
-        }
-        node.next = void 0;
-        node.prev = void 0;
-        this.size--;
-      };
-      LRUCache2.prototype.get = function (key) {
-        if (this.nodeMap[key]) {
-          var node = this.nodeMap[key];
-          this.detachFromList(node);
-          this.prependToList(node);
-          return node.value;
-        }
-      };
-      LRUCache2.prototype.remove = function (key) {
-        if (this.nodeMap[key]) {
-          var node = this.nodeMap[key];
-          this.detachFromList(node);
-          delete this.nodeMap[key];
-        }
-      };
-      LRUCache2.prototype.put = function (key, value) {
-        if (this.nodeMap[key]) {
-          this.remove(key);
-        } else if (this.size === this.sizeLimit) {
-          var tailNode = this.removeFromTail();
-          var key_1 = tailNode.key;
-          delete this.nodeMap[key_1];
-        }
-        var newNode = new LinkedListNode(key, value);
-        this.nodeMap[key] = newNode;
-        this.prependToList(newNode);
-      };
-      LRUCache2.prototype.empty = function () {
-        var keys = Object.keys(this.nodeMap);
-        for (var i = 0; i < keys.length; i++) {
-          var key = keys[i];
-          var node = this.nodeMap[key];
-          this.detachFromList(node);
-          delete this.nodeMap[key];
-        }
-      };
-      return LRUCache2;
-    })();
-    exports.LRUCache = LRUCache;
+        Object.defineProperty(LRUCache2.prototype, 'length', {
+          get: function () {
+            return this.size;
+          },
+          enumerable: true,
+          configurable: true,
+        });
+        LRUCache2.prototype.prependToList = function (node) {
+          if (!this.headerNode) {
+            this.tailNode = node;
+          } else {
+            this.headerNode.prev = node;
+            node.next = this.headerNode;
+          }
+          this.headerNode = node;
+          this.size++;
+        };
+        LRUCache2.prototype.removeFromTail = function () {
+          if (!this.tailNode) {
+            return void 0;
+          }
+          var node = this.tailNode;
+          var prevNode = node.prev;
+          if (prevNode) {
+            prevNode.next = void 0;
+          }
+          node.prev = void 0;
+          this.tailNode = prevNode;
+          this.size--;
+          return node;
+        };
+        LRUCache2.prototype.detachFromList = function (node) {
+          if (this.headerNode === node) {
+            this.headerNode = node.next;
+          }
+          if (this.tailNode === node) {
+            this.tailNode = node.prev;
+          }
+          if (node.prev) {
+            node.prev.next = node.next;
+          }
+          if (node.next) {
+            node.next.prev = node.prev;
+          }
+          node.next = void 0;
+          node.prev = void 0;
+          this.size--;
+        };
+        LRUCache2.prototype.get = function (key) {
+          if (this.nodeMap[key]) {
+            var node = this.nodeMap[key];
+            this.detachFromList(node);
+            this.prependToList(node);
+            return node.value;
+          }
+        };
+        LRUCache2.prototype.remove = function (key) {
+          if (this.nodeMap[key]) {
+            var node = this.nodeMap[key];
+            this.detachFromList(node);
+            delete this.nodeMap[key];
+          }
+        };
+        LRUCache2.prototype.put = function (key, value) {
+          if (this.nodeMap[key]) {
+            this.remove(key);
+          } else if (this.size === this.sizeLimit) {
+            var tailNode = this.removeFromTail();
+            var key_1 = tailNode.key;
+            delete this.nodeMap[key_1];
+          }
+          var newNode = new LinkedListNode(key, value);
+          this.nodeMap[key] = newNode;
+          this.prependToList(newNode);
+        };
+        LRUCache2.prototype.empty = function () {
+          var keys = Object.keys(this.nodeMap);
+          for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            var node = this.nodeMap[key];
+            this.detachFromList(node);
+            delete this.nodeMap[key];
+          }
+        };
+        return LRUCache2;
+      })();
+    exports2.LRUCache = LRUCache;
   },
 });
 
 // node_modules/aws-sdk/vendor/endpoint-cache/index.js
 var require_endpoint_cache = __commonJS({
-  'node_modules/aws-sdk/vendor/endpoint-cache/index.js'(exports) {
+  'node_modules/aws-sdk/vendor/endpoint-cache/index.js'(exports2) {
     'use strict';
-    Object.defineProperty(exports, '__esModule', { value: true });
+    Object.defineProperty(exports2, '__esModule', { value: true });
     var LRU_1 = require_LRU();
     var CACHE_SIZE = 1e3;
-    var EndpointCache = (function () {
-      function EndpointCache2(maxSize) {
-        if (maxSize === void 0) {
-          maxSize = CACHE_SIZE;
+    var EndpointCache =
+      /** @class */
+      (function () {
+        function EndpointCache2(maxSize) {
+          if (maxSize === void 0) {
+            maxSize = CACHE_SIZE;
+          }
+          this.maxSize = maxSize;
+          this.cache = new LRU_1.LRUCache(maxSize);
         }
-        this.maxSize = maxSize;
-        this.cache = new LRU_1.LRUCache(maxSize);
-      }
-      Object.defineProperty(EndpointCache2.prototype, 'size', {
-        get: function () {
-          return this.cache.length;
-        },
-        enumerable: true,
-        configurable: true,
-      });
-      EndpointCache2.prototype.put = function (key, value) {
-        var keyString = typeof key !== 'string' ? EndpointCache2.getKeyString(key) : key;
-        var endpointRecord = this.populateValue(value);
-        this.cache.put(keyString, endpointRecord);
-      };
-      EndpointCache2.prototype.get = function (key) {
-        var keyString = typeof key !== 'string' ? EndpointCache2.getKeyString(key) : key;
-        var now = Date.now();
-        var records = this.cache.get(keyString);
-        if (records) {
-          for (var i = records.length - 1; i >= 0; i--) {
-            var record = records[i];
-            if (record.Expire < now) {
-              records.splice(i, 1);
+        Object.defineProperty(EndpointCache2.prototype, 'size', {
+          get: function () {
+            return this.cache.length;
+          },
+          enumerable: true,
+          configurable: true,
+        });
+        EndpointCache2.prototype.put = function (key, value) {
+          var keyString = typeof key !== 'string' ? EndpointCache2.getKeyString(key) : key;
+          var endpointRecord = this.populateValue(value);
+          this.cache.put(keyString, endpointRecord);
+        };
+        EndpointCache2.prototype.get = function (key) {
+          var keyString = typeof key !== 'string' ? EndpointCache2.getKeyString(key) : key;
+          var now = Date.now();
+          var records = this.cache.get(keyString);
+          if (records) {
+            for (var i = records.length - 1; i >= 0; i--) {
+              var record = records[i];
+              if (record.Expire < now) {
+                records.splice(i, 1);
+              }
+            }
+            if (records.length === 0) {
+              this.cache.remove(keyString);
+              return void 0;
             }
           }
-          if (records.length === 0) {
-            this.cache.remove(keyString);
-            return void 0;
+          return records;
+        };
+        EndpointCache2.getKeyString = function (key) {
+          var identifiers = [];
+          var identifierNames = Object.keys(key).sort();
+          for (var i = 0; i < identifierNames.length; i++) {
+            var identifierName = identifierNames[i];
+            if (key[identifierName] === void 0) continue;
+            identifiers.push(key[identifierName]);
           }
-        }
-        return records;
-      };
-      EndpointCache2.getKeyString = function (key) {
-        var identifiers = [];
-        var identifierNames = Object.keys(key).sort();
-        for (var i = 0; i < identifierNames.length; i++) {
-          var identifierName = identifierNames[i];
-          if (key[identifierName] === void 0) continue;
-          identifiers.push(key[identifierName]);
-        }
-        return identifiers.join(' ');
-      };
-      EndpointCache2.prototype.populateValue = function (endpoints) {
-        var now = Date.now();
-        return endpoints.map(function (endpoint) {
-          return {
-            Address: endpoint.Address || '',
-            Expire: now + (endpoint.CachePeriodInMinutes || 1) * 60 * 1e3,
-          };
-        });
-      };
-      EndpointCache2.prototype.empty = function () {
-        this.cache.empty();
-      };
-      EndpointCache2.prototype.remove = function (key) {
-        var keyString = typeof key !== 'string' ? EndpointCache2.getKeyString(key) : key;
-        this.cache.remove(keyString);
-      };
-      return EndpointCache2;
-    })();
-    exports.EndpointCache = EndpointCache;
+          return identifiers.join(' ');
+        };
+        EndpointCache2.prototype.populateValue = function (endpoints) {
+          var now = Date.now();
+          return endpoints.map(function (endpoint) {
+            return {
+              Address: endpoint.Address || '',
+              Expire: now + (endpoint.CachePeriodInMinutes || 1) * 60 * 1e3,
+            };
+          });
+        };
+        EndpointCache2.prototype.empty = function () {
+          this.cache.empty();
+        };
+        EndpointCache2.prototype.remove = function (key) {
+          var keyString = typeof key !== 'string' ? EndpointCache2.getKeyString(key) : key;
+          this.cache.remove(keyString);
+        };
+        return EndpointCache2;
+      })();
+    exports2.EndpointCache = EndpointCache;
   },
 });
 
 // node_modules/aws-sdk/lib/sequential_executor.js
 var require_sequential_executor = __commonJS({
-  'node_modules/aws-sdk/lib/sequential_executor.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/sequential_executor.js'(exports2, module2) {
     var AWS2 = require_core();
     AWS2.SequentialExecutor = AWS2.util.inherit({
       constructor: function SequentialExecutor() {
         this._events = {};
       },
+      /**
+       * @api private
+       */
       listeners: function listeners(eventName) {
         return this._events[eventName] ? this._events[eventName].slice(0) : [];
       },
@@ -3322,6 +3326,9 @@ var require_sequential_executor = __commonJS({
         }
         return this;
       },
+      /**
+       * @api private
+       */
       emit: function emit(eventName, eventArgs, doneCallback) {
         if (!doneCallback) doneCallback = function () {};
         var listeners = this.listeners(eventName);
@@ -3329,6 +3336,9 @@ var require_sequential_executor = __commonJS({
         this.callListeners(listeners, eventArgs, doneCallback);
         return count > 0;
       },
+      /**
+       * @api private
+       */
       callListeners: function callListeners(listeners, args, doneCallback, prevError) {
         var self = this;
         var error = prevError || null;
@@ -3360,6 +3370,30 @@ var require_sequential_executor = __commonJS({
         }
         doneCallback.call(self, error);
       },
+      /**
+       * Adds or copies a set of listeners from another list of
+       * listeners or SequentialExecutor object.
+       *
+       * @param listeners [map<String,Array<Function>>, AWS.SequentialExecutor]
+       *   a list of events and callbacks, or an event emitter object
+       *   containing listeners to add to this emitter object.
+       * @return [AWS.SequentialExecutor] the emitter object, for chaining.
+       * @example Adding listeners from a map of listeners
+       *   emitter.addListeners({
+       *     event1: [function() { ... }, function() { ... }],
+       *     event2: [function() { ... }]
+       *   });
+       *   emitter.emit('event1'); // emitter has event1
+       *   emitter.emit('event2'); // emitter has event2
+       * @example Adding listeners from another emitter object
+       *   var emitter1 = new AWS.SequentialExecutor();
+       *   emitter1.on('event1', function() { ... });
+       *   emitter1.on('event2', function() { ... });
+       *   var emitter2 = new AWS.SequentialExecutor();
+       *   emitter2.addListeners(emitter1);
+       *   emitter2.emit('event1'); // emitter2 has event1
+       *   emitter2.emit('event2'); // emitter2 has event2
+       */
       addListeners: function addListeners(listeners) {
         var self = this;
         if (listeners._events) listeners = listeners._events;
@@ -3371,15 +3405,57 @@ var require_sequential_executor = __commonJS({
         });
         return self;
       },
+      /**
+       * Registers an event with {on} and saves the callback handle function
+       * as a property on the emitter object using a given `name`.
+       *
+       * @param name [String] the property name to set on this object containing
+       *   the callback function handle so that the listener can be removed in
+       *   the future.
+       * @param (see on)
+       * @return (see on)
+       * @example Adding a named listener DATA_CALLBACK
+       *   var listener = function() { doSomething(); };
+       *   emitter.addNamedListener('DATA_CALLBACK', 'data', listener);
+       *
+       *   // the following prints: true
+       *   console.log(emitter.DATA_CALLBACK == listener);
+       */
       addNamedListener: function addNamedListener(name, eventName, callback, toHead) {
         this[name] = callback;
         this.addListener(eventName, callback, toHead);
         return this;
       },
+      /**
+       * @api private
+       */
       addNamedAsyncListener: function addNamedAsyncListener(name, eventName, callback, toHead) {
         callback._isAsync = true;
         return this.addNamedListener(name, eventName, callback, toHead);
       },
+      /**
+       * Helper method to add a set of named listeners using
+       * {addNamedListener}. The callback contains a parameter
+       * with a handle to the `addNamedListener` method.
+       *
+       * @callback callback function(add)
+       *   The callback function is called immediately in order to provide
+       *   the `add` function to the block. This simplifies the addition of
+       *   a large group of named listeners.
+       *   @param add [Function] the {addNamedListener} function to call
+       *     when registering listeners.
+       * @example Adding a set of named listeners
+       *   emitter.addNamedListeners(function(add) {
+       *     add('DATA_CALLBACK', 'data', function() { ... });
+       *     add('OTHER', 'otherEvent', function() { ... });
+       *     add('LAST', 'lastEvent', function() { ... });
+       *   });
+       *
+       *   // these properties are now set:
+       *   emitter.DATA_CALLBACK;
+       *   emitter.OTHER;
+       *   emitter.LAST;
+       */
       addNamedListeners: function addNamedListeners(callback) {
         var self = this;
         callback(
@@ -3400,7 +3476,7 @@ var require_sequential_executor = __commonJS({
 
 // node_modules/aws-sdk/lib/region_config_data.json
 var require_region_config_data = __commonJS({
-  'node_modules/aws-sdk/lib/region_config_data.json'(exports, module2) {
+  'node_modules/aws-sdk/lib/region_config_data.json'(exports2, module2) {
     module2.exports = {
       rules: {
         '*/*': {
@@ -3705,7 +3781,7 @@ var require_region_config_data = __commonJS({
 
 // node_modules/aws-sdk/lib/region_config.js
 var require_region_config = __commonJS({
-  'node_modules/aws-sdk/lib/region_config.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/region_config.js'(exports2, module2) {
     var util = require_util();
     var regionConfig = require_region_config_data();
     function generateRegionPrefix(region) {
@@ -3800,7 +3876,7 @@ var require_region_config = __commonJS({
 
 // node_modules/aws-sdk/lib/region/utils.js
 var require_utils = __commonJS({
-  'node_modules/aws-sdk/lib/region/utils.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/region/utils.js'(exports2, module2) {
     function isFipsRegion(region) {
       return typeof region === 'string' && (region.startsWith('fips-') || region.endsWith('-fips'));
     }
@@ -3824,7 +3900,7 @@ var require_utils = __commonJS({
 
 // node_modules/aws-sdk/lib/service.js
 var require_service = __commonJS({
-  'node_modules/aws-sdk/lib/service.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/service.js'(exports2, module2) {
     var AWS2 = require_core();
     var Api = require_api();
     var regionConfig = require_region_config();
@@ -3832,6 +3908,11 @@ var require_service = __commonJS({
     var clientCount = 0;
     var region_utils = require_utils();
     AWS2.Service = inherit({
+      /**
+       * Create a new service object with a configuration object
+       *
+       * @param config [map] a map of configuration options
+       */
       constructor: function Service(config) {
         if (!this.loadServiceClass) {
           throw AWS2.util.error(new Error(), "Service must be constructed with `new' operator");
@@ -3867,6 +3948,9 @@ var require_service = __commonJS({
         }
         this.initialize(config);
       },
+      /**
+       * @api private
+       */
       initialize: function initialize(config) {
         var svcConfig = AWS2.config[this.serviceIdentifier];
         this.config = new AWS2.Config(AWS2.config);
@@ -3892,7 +3976,13 @@ var require_service = __commonJS({
           });
         }
       },
+      /**
+       * @api private
+       */
       validateService: function validateService() {},
+      /**
+       * @api private
+       */
       loadServiceClass: function loadServiceClass(serviceConfig) {
         var config = serviceConfig;
         if (!AWS2.util.isEmpty(this.api)) {
@@ -3904,29 +3994,35 @@ var require_service = __commonJS({
         } else {
           config = new AWS2.Config(AWS2.config);
           config.update(serviceConfig, true);
-          var version = config.apiVersions[this.constructor.serviceIdentifier];
-          version = version || config.apiVersion;
-          return this.getLatestServiceClass(version);
+          var version2 = config.apiVersions[this.constructor.serviceIdentifier];
+          version2 = version2 || config.apiVersion;
+          return this.getLatestServiceClass(version2);
         }
       },
-      getLatestServiceClass: function getLatestServiceClass(version) {
-        version = this.getLatestServiceVersion(version);
-        if (this.constructor.services[version] === null) {
-          AWS2.Service.defineServiceApi(this.constructor, version);
+      /**
+       * @api private
+       */
+      getLatestServiceClass: function getLatestServiceClass(version2) {
+        version2 = this.getLatestServiceVersion(version2);
+        if (this.constructor.services[version2] === null) {
+          AWS2.Service.defineServiceApi(this.constructor, version2);
         }
-        return this.constructor.services[version];
+        return this.constructor.services[version2];
       },
-      getLatestServiceVersion: function getLatestServiceVersion(version) {
+      /**
+       * @api private
+       */
+      getLatestServiceVersion: function getLatestServiceVersion(version2) {
         if (!this.constructor.services || this.constructor.services.length === 0) {
           throw new Error('No services defined on ' + this.constructor.serviceIdentifier);
         }
-        if (!version) {
-          version = 'latest';
-        } else if (AWS2.util.isType(version, Date)) {
-          version = AWS2.util.date.iso8601(version).split('T')[0];
+        if (!version2) {
+          version2 = 'latest';
+        } else if (AWS2.util.isType(version2, Date)) {
+          version2 = AWS2.util.date.iso8601(version2).split('T')[0];
         }
-        if (Object.hasOwnProperty(this.constructor.services, version)) {
-          return version;
+        if (Object.hasOwnProperty(this.constructor.services, version2)) {
+          return version2;
         }
         var keys = Object.keys(this.constructor.services).sort();
         var selectedVersion = null;
@@ -3934,7 +4030,7 @@ var require_service = __commonJS({
           if (keys[i][keys[i].length - 1] !== '*') {
             selectedVersion = keys[i];
           }
-          if (keys[i].substr(0, 10) <= version) {
+          if (keys[i].substr(0, 10) <= version2) {
             return selectedVersion;
           }
         }
@@ -3942,12 +4038,21 @@ var require_service = __commonJS({
           'Could not find ' +
             this.constructor.serviceIdentifier +
             ' API to satisfy version constraint `' +
-            version +
+            version2 +
             "'"
         );
       },
+      /**
+       * @api private
+       */
       api: {},
+      /**
+       * @api private
+       */
       defaultRetryCount: 3,
+      /**
+       * @api private
+       */
       customizeRequests: function customizeRequests(callback) {
         if (!callback) {
           this.customRequestHandler = null;
@@ -3957,6 +4062,19 @@ var require_service = __commonJS({
           throw new Error("Invalid callback type '" + typeof callback + "' provided in customizeRequests");
         }
       },
+      /**
+       * Calls an operation on a service with the given input parameters.
+       *
+       * @param operation [String] the name of the operation to call on the service.
+       * @param params [map] a map of input options for the operation
+       * @callback callback function(err, data)
+       *   If a callback is supplied, it is called when a response is returned
+       *   from the service.
+       *   @param err [Error] the error object returned from the request.
+       *     Set to `null` if the request is successful.
+       *   @param data [Object] the de-serialized data returned from
+       *     the request. Set to `null` if a request error occurs.
+       */
       makeRequest: function makeRequest(operation, params, callback) {
         if (typeof params === 'function') {
           callback = params;
@@ -3982,6 +4100,20 @@ var require_service = __commonJS({
         if (callback) request.send(callback);
         return request;
       },
+      /**
+       * Calls an operation on a service with the given input parameters, without
+       * any authentication data. This method is useful for "public" API operations.
+       *
+       * @param operation [String] the name of the operation to call on the service.
+       * @param params [map] a map of input options for the operation
+       * @callback callback function(err, data)
+       *   If a callback is supplied, it is called when a response is returned
+       *   from the service.
+       *   @param err [Error] the error object returned from the request.
+       *     Set to `null` if the request is successful.
+       *   @param data [Object] the de-serialized data returned from
+       *     the request. Set to `null` if a request error occurs.
+       */
       makeUnauthenticatedRequest: function makeUnauthenticatedRequest(operation, params, callback) {
         if (typeof params === 'function') {
           callback = params;
@@ -3990,10 +4122,31 @@ var require_service = __commonJS({
         var request = this.makeRequest(operation, params).toUnauthenticated();
         return callback ? request.send(callback) : request;
       },
+      /**
+       * Waits for a given state
+       *
+       * @param state [String] the state on the service to wait for
+       * @param params [map] a map of parameters to pass with each request
+       * @option params $waiter [map] a map of configuration options for the waiter
+       * @option params $waiter.delay [Number] The number of seconds to wait between
+       *                                       requests
+       * @option params $waiter.maxAttempts [Number] The maximum number of requests
+       *                                             to send while waiting
+       * @callback callback function(err, data)
+       *   If a callback is supplied, it is called when a response is returned
+       *   from the service.
+       *   @param err [Error] the error object returned from the request.
+       *     Set to `null` if the request is successful.
+       *   @param data [Object] the de-serialized data returned from
+       *     the request. Set to `null` if a request error occurs.
+       */
       waitFor: function waitFor(state, params, callback) {
         var waiter = new AWS2.ResourceWaiter(this, state);
         return waiter.wait(params, callback);
       },
+      /**
+       * @api private
+       */
       addAllRequestListeners: function addAllRequestListeners(request) {
         var list = [AWS2.events, AWS2.EventListeners.Core, this.serviceInterface(), AWS2.EventListeners.CorePost];
         for (var i = 0; i < list.length; i++) {
@@ -4016,6 +4169,11 @@ var require_service = __commonJS({
           this.customRequestHandler(request);
         }
       },
+      /**
+       * Event recording metrics for a whole API call.
+       * @returns {object} a subset of api call metrics
+       * @api private
+       */
       apiCallEvent: function apiCallEvent(request) {
         var api = request.service.api.operations[request.operation];
         var monitoringEvent = {
@@ -4044,6 +4202,11 @@ var require_service = __commonJS({
         }
         return monitoringEvent;
       },
+      /**
+       * Event recording metrics for an API call attempt.
+       * @returns {object} a subset of api call attempt metrics
+       * @api private
+       */
       apiAttemptEvent: function apiAttemptEvent(request) {
         var api = request.service.api.operations[request.operation];
         var monitoringEvent = {
@@ -4080,6 +4243,10 @@ var require_service = __commonJS({
         }
         return monitoringEvent;
       },
+      /**
+       * Add metrics of failed request.
+       * @api private
+       */
       attemptFailEvent: function attemptFailEvent(request) {
         var monitoringEvent = this.apiAttemptEvent(request);
         var response = request.response;
@@ -4093,6 +4260,11 @@ var require_service = __commonJS({
         }
         return monitoringEvent;
       },
+      /**
+       * Attach listeners to request object to fetch metrics of each request
+       * and emit data object through \'ApiCall\' and \'ApiCallAttempt\' events.
+       * @api private
+       */
       attachMonitoringEmitter: function attachMonitoringEmitter(request) {
         var attemptTimestamp;
         var attemptStartRealTime;
@@ -4159,12 +4331,26 @@ var require_service = __commonJS({
           self.emit('apiCall', [apiCallEvent]);
         });
       },
+      /**
+       * Override this method to setup any custom request listeners for each
+       * new request to the service.
+       *
+       * @method_abstract This is an abstract method.
+       */
       setupRequestListeners: function setupRequestListeners(request) {},
+      /**
+       * Gets the signing name for a given request
+       * @api private
+       */
       getSigningName: function getSigningName() {
         return this.api.signingName || this.api.endpointPrefix;
       },
+      /**
+       * Gets the signer class for a given request
+       * @api private
+       */
       getSignerClass: function getSignerClass(request) {
-        var version;
+        var version2;
         var operation = null;
         var authtype = '';
         if (request) {
@@ -4173,16 +4359,19 @@ var require_service = __commonJS({
           authtype = operation ? operation.authtype : '';
         }
         if (this.config.signatureVersion) {
-          version = this.config.signatureVersion;
+          version2 = this.config.signatureVersion;
         } else if (authtype === 'v4' || authtype === 'v4-unsigned-body') {
-          version = 'v4';
+          version2 = 'v4';
         } else if (authtype === 'bearer') {
-          version = 'bearer';
+          version2 = 'bearer';
         } else {
-          version = this.api.signatureVersion;
+          version2 = this.api.signatureVersion;
         }
-        return AWS2.Signers.RequestSigner.getVersion(version);
+        return AWS2.Signers.RequestSigner.getVersion(version2);
       },
+      /**
+       * @api private
+       */
       serviceInterface: function serviceInterface() {
         switch (this.api.protocol) {
           case 'ec2':
@@ -4200,9 +4389,18 @@ var require_service = __commonJS({
           throw new Error("Invalid service `protocol' " + this.api.protocol + ' in API config');
         }
       },
+      /**
+       * @api private
+       */
       successfulResponse: function successfulResponse(resp) {
         return resp.httpResponse.statusCode < 300;
       },
+      /**
+       * How many times a failed request should be retried before giving up.
+       * the defaultRetryCount can be overriden by service classes.
+       *
+       * @api private
+       */
       numRetries: function numRetries() {
         if (this.config.maxRetries !== void 0) {
           return this.config.maxRetries;
@@ -4210,9 +4408,15 @@ var require_service = __commonJS({
           return this.defaultRetryCount;
         }
       },
+      /**
+       * @api private
+       */
       retryDelays: function retryDelays(retryCount, err) {
         return AWS2.util.calculateRetryDelay(retryCount, this.config.retryDelayOptions, err);
       },
+      /**
+       * @api private
+       */
       retryableError: function retryableError(error) {
         if (this.timeoutError(error)) return true;
         if (this.networkingError(error)) return true;
@@ -4221,15 +4425,27 @@ var require_service = __commonJS({
         if (error.statusCode >= 500) return true;
         return false;
       },
+      /**
+       * @api private
+       */
       networkingError: function networkingError(error) {
         return error.code === 'NetworkingError';
       },
+      /**
+       * @api private
+       */
       timeoutError: function timeoutError(error) {
         return error.code === 'TimeoutError';
       },
+      /**
+       * @api private
+       */
       expiredCredentialsError: function expiredCredentialsError(error) {
         return error.code === 'ExpiredTokenException';
       },
+      /**
+       * @api private
+       */
       clockSkewError: function clockSkewError(error) {
         switch (error.code) {
           case 'RequestTimeTooSkewed':
@@ -4243,19 +4459,31 @@ var require_service = __commonJS({
             return false;
         }
       },
+      /**
+       * @api private
+       */
       getSkewCorrectedDate: function getSkewCorrectedDate() {
         return new Date(Date.now() + this.config.systemClockOffset);
       },
+      /**
+       * @api private
+       */
       applyClockOffset: function applyClockOffset(newServerTime) {
         if (newServerTime) {
           this.config.systemClockOffset = newServerTime - Date.now();
         }
       },
+      /**
+       * @api private
+       */
       isClockSkewed: function isClockSkewed(newServerTime) {
         if (newServerTime) {
           return Math.abs(this.getSkewCorrectedDate().getTime() - newServerTime) >= 3e5;
         }
       },
+      /**
+       * @api private
+       */
       throttledError: function throttledError(error) {
         if (error.statusCode === 429) return true;
         switch (error.code) {
@@ -4267,12 +4495,16 @@ var require_service = __commonJS({
           case 'RequestThrottledException':
           case 'TooManyRequestsException':
           case 'TransactionInProgressException':
+          //dynamodb
           case 'EC2ThrottledException':
             return true;
           default:
             return false;
         }
       },
+      /**
+       * @api private
+       */
       endpointFromTemplate: function endpointFromTemplate(endpoint) {
         if (typeof endpoint !== 'string') return endpoint;
         var e = endpoint;
@@ -4281,9 +4513,15 @@ var require_service = __commonJS({
         e = e.replace(/\{scheme\}/g, this.config.sslEnabled ? 'https' : 'http');
         return e;
       },
+      /**
+       * @api private
+       */
       setEndpoint: function setEndpoint(endpoint) {
         this.endpoint = new AWS2.Endpoint(endpoint, this.config);
       },
+      /**
+       * @api private
+       */
       paginationConfig: function paginationConfig(operation, throwException) {
         var paginator = this.api.operations[operation].paginator;
         if (!paginator) {
@@ -4297,6 +4535,11 @@ var require_service = __commonJS({
       },
     });
     AWS2.util.update(AWS2.Service, {
+      /**
+       * Adds one method for each operation described in the api configuration
+       *
+       * @api private
+       */
       defineMethods: function defineMethods(svc) {
         AWS2.util.each(svc.prototype.api.operations, function iterator(method) {
           if (svc.prototype[method]) return;
@@ -4312,6 +4555,17 @@ var require_service = __commonJS({
           }
         });
       },
+      /**
+       * Defines a new Service class using a service identifier and list of versions
+       * including an optional set of features (functions) to apply to the class
+       * prototype.
+       *
+       * @param serviceIdentifier [String] the identifier for the service
+       * @param versions [Array<String>] a list of versions that work with this
+       *   service
+       * @param features [Object] an object to attach to the prototype
+       * @return [Class<Service>] the service class defined by this function.
+       */
       defineService: function defineService(serviceIdentifier, versions, features) {
         AWS2.Service._serviceMap[serviceIdentifier] = true;
         if (!Array.isArray(versions)) {
@@ -4341,6 +4595,9 @@ var require_service = __commonJS({
         AWS2.Service.addDefaultMonitoringListeners(svc.prototype);
         return svc;
       },
+      /**
+       * @api private
+       */
       addVersions: function addVersions(svc, versions) {
         if (!Array.isArray(versions)) versions = [versions];
         svc.services = svc.services || {};
@@ -4351,7 +4608,10 @@ var require_service = __commonJS({
         }
         svc.apiVersions = Object.keys(svc.services).sort();
       },
-      defineServiceApi: function defineServiceApi(superclass, version, apiConfig) {
+      /**
+       * @api private
+       */
+      defineServiceApi: function defineServiceApi(superclass, version2, apiConfig) {
         var svc = inherit(superclass, {
           serviceIdentifier: superclass.serviceIdentifier,
         });
@@ -4364,31 +4624,42 @@ var require_service = __commonJS({
             });
           }
         }
-        if (typeof version === 'string') {
+        if (typeof version2 === 'string') {
           if (apiConfig) {
             setApi(apiConfig);
           } else {
             try {
-              setApi(AWS2.apiLoader(superclass.serviceIdentifier, version));
+              setApi(AWS2.apiLoader(superclass.serviceIdentifier, version2));
             } catch (err) {
               throw AWS2.util.error(err, {
-                message: 'Could not find API configuration ' + superclass.serviceIdentifier + '-' + version,
+                message: 'Could not find API configuration ' + superclass.serviceIdentifier + '-' + version2,
               });
             }
           }
-          if (!Object.prototype.hasOwnProperty.call(superclass.services, version)) {
-            superclass.apiVersions = superclass.apiVersions.concat(version).sort();
+          if (!Object.prototype.hasOwnProperty.call(superclass.services, version2)) {
+            superclass.apiVersions = superclass.apiVersions.concat(version2).sort();
           }
-          superclass.services[version] = svc;
+          superclass.services[version2] = svc;
         } else {
-          setApi(version);
+          setApi(version2);
         }
         AWS2.Service.defineMethods(svc);
         return svc;
       },
+      /**
+       * @api private
+       */
       hasService: function (identifier) {
         return Object.prototype.hasOwnProperty.call(AWS2.Service._serviceMap, identifier);
       },
+      /**
+       * @param attachOn attach default monitoring listeners to object
+       *
+       * Each monitoring event should be emitted from service client to service constructor prototype and then
+       * to global service prototype like bubbling up. These default monitoring events listener will transfer
+       * the monitoring events to the upper layer.
+       * @api private
+       */
       addDefaultMonitoringListeners: function addDefaultMonitoringListeners(attachOn) {
         attachOn.addNamedListener('MONITOR_EVENTS_BUBBLE', 'apiCallAttempt', function EVENTS_BUBBLE(event) {
           var baseClass = Object.getPrototypeOf(attachOn);
@@ -4399,6 +4670,9 @@ var require_service = __commonJS({
           if (baseClass._events) baseClass.emit('apiCall', [event]);
         });
       },
+      /**
+       * @api private
+       */
       _serviceMap: {},
     });
     AWS2.util.mixin(AWS2.Service, AWS2.SequentialExecutor);
@@ -4411,6 +4685,29 @@ var require_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials.js'() {
     var AWS2 = require_core();
     AWS2.Credentials = AWS2.util.inherit({
+      /**
+       * A credentials object can be created using positional arguments or an options
+       * hash.
+       *
+       * @overload AWS.Credentials(accessKeyId, secretAccessKey, sessionToken=null)
+       *   Creates a Credentials object with a given set of credential information
+       *   as positional arguments.
+       *   @param accessKeyId [String] the AWS access key ID
+       *   @param secretAccessKey [String] the AWS secret access key
+       *   @param sessionToken [String] the optional AWS session token
+       *   @example Create a credentials object with AWS credentials
+       *     var creds = new AWS.Credentials('akid', 'secret', 'session');
+       * @overload AWS.Credentials(options)
+       *   Creates a Credentials object with a given set of credential information
+       *   as an options hash.
+       *   @option options accessKeyId [String] the AWS access key ID
+       *   @option options secretAccessKey [String] the AWS secret access key
+       *   @option options sessionToken [String] the optional AWS session token
+       *   @example Create a credentials object with AWS credentials
+       *     var creds = new AWS.Credentials({
+       *       accessKeyId: 'akid', secretAccessKey: 'secret', sessionToken: 'session'
+       *     });
+       */
       constructor: function Credentials() {
         AWS2.util.hideProperties(this, ['secretAccessKey']);
         this.expired = false;
@@ -4427,7 +4724,16 @@ var require_credentials = __commonJS({
           this.sessionToken = arguments[2];
         }
       },
+      /**
+       * @return [Integer] the number of seconds before {expireTime} during which
+       *   the credentials will be considered expired.
+       */
       expiryWindow: 15,
+      /**
+       * @return [Boolean] whether the credentials object should call {refresh}
+       * @note Subclasses should override this method to provide custom refresh
+       *   logic.
+       */
       needsRefresh: function needsRefresh() {
         var currentTime = AWS2.util.date.getDate().getTime();
         var adjustedTime = new Date(currentTime + this.expiryWindow * 1e3);
@@ -4437,6 +4743,19 @@ var require_credentials = __commonJS({
           return this.expired || !this.accessKeyId || !this.secretAccessKey;
         }
       },
+      /**
+       * Gets the existing credentials, refreshing them if they are not yet loaded
+       * or have expired. Users should call this method before using {refresh},
+       * as this will not attempt to reload credentials when they are already
+       * loaded into the object.
+       *
+       * @callback callback function(err)
+       *   When this callback is called with no error, it means either credentials
+       *   do not need to be refreshed or refreshed credentials information has
+       *   been loaded into the object (as the `accessKeyId`, `secretAccessKey`,
+       *   and `sessionToken` properties).
+       *   @param err [Error] if an error occurred, this value will be filled
+       */
       get: function get(callback) {
         var self = this;
         if (this.needsRefresh()) {
@@ -4448,10 +4767,74 @@ var require_credentials = __commonJS({
           callback();
         }
       },
+      /**
+       * @!method  getPromise()
+       *   Returns a 'thenable' promise.
+       *   Gets the existing credentials, refreshing them if they are not yet loaded
+       *   or have expired. Users should call this method before using {refresh},
+       *   as this will not attempt to reload credentials when they are already
+       *   loaded into the object.
+       *
+       *   Two callbacks can be provided to the `then` method on the returned promise.
+       *   The first callback will be called if the promise is fulfilled, and the second
+       *   callback will be called if the promise is rejected.
+       *   @callback fulfilledCallback function()
+       *     Called if the promise is fulfilled. When this callback is called, it
+       *     means either credentials do not need to be refreshed or refreshed
+       *     credentials information has been loaded into the object (as the
+       *     `accessKeyId`, `secretAccessKey`, and `sessionToken` properties).
+       *   @callback rejectedCallback function(err)
+       *     Called if the promise is rejected.
+       *     @param err [Error] if an error occurred, this value will be filled
+       *   @return [Promise] A promise that represents the state of the `get` call.
+       *   @example Calling the `getPromise` method.
+       *     var promise = credProvider.getPromise();
+       *     promise.then(function() { ... }, function(err) { ... });
+       */
+      /**
+       * @!method  refreshPromise()
+       *   Returns a 'thenable' promise.
+       *   Refreshes the credentials. Users should call {get} before attempting
+       *   to forcibly refresh credentials.
+       *
+       *   Two callbacks can be provided to the `then` method on the returned promise.
+       *   The first callback will be called if the promise is fulfilled, and the second
+       *   callback will be called if the promise is rejected.
+       *   @callback fulfilledCallback function()
+       *     Called if the promise is fulfilled. When this callback is called, it
+       *     means refreshed credentials information has been loaded into the object
+       *     (as the `accessKeyId`, `secretAccessKey`, and `sessionToken` properties).
+       *   @callback rejectedCallback function(err)
+       *     Called if the promise is rejected.
+       *     @param err [Error] if an error occurred, this value will be filled
+       *   @return [Promise] A promise that represents the state of the `refresh` call.
+       *   @example Calling the `refreshPromise` method.
+       *     var promise = credProvider.refreshPromise();
+       *     promise.then(function() { ... }, function(err) { ... });
+       */
+      /**
+       * Refreshes the credentials. Users should call {get} before attempting
+       * to forcibly refresh credentials.
+       *
+       * @callback callback function(err)
+       *   When this callback is called with no error, it means refreshed
+       *   credentials information has been loaded into the object (as the
+       *   `accessKeyId`, `secretAccessKey`, and `sessionToken` properties).
+       *   @param err [Error] if an error occurred, this value will be filled
+       * @note Subclasses should override this class to reset the
+       *   {accessKeyId}, {secretAccessKey} and optional {sessionToken}
+       *   on the credentials object and then call the callback with
+       *   any error information.
+       * @see get
+       */
       refresh: function refresh(callback) {
         this.expired = false;
         callback();
       },
+      /**
+       * @api private
+       * @param callback
+       */
       coalesceRefresh: function coalesceRefresh(callback, sync) {
         var self = this;
         if (self.refreshCallbacks.push(callback) === 1) {
@@ -4469,6 +4852,10 @@ var require_credentials = __commonJS({
           });
         }
       },
+      /**
+       * @api private
+       * @param callback
+       */
       load: function load(callback) {
         callback();
       },
@@ -4490,6 +4877,10 @@ var require_credential_provider_chain = __commonJS({
   'node_modules/aws-sdk/lib/credentials/credential_provider_chain.js'() {
     var AWS2 = require_core();
     AWS2.CredentialProviderChain = AWS2.util.inherit(AWS2.Credentials, {
+      /**
+       * Creates a new CredentialProviderChain with a default set of providers
+       * specified by {defaultProviders}.
+       */
       constructor: function CredentialProviderChain(providers) {
         if (providers) {
           this.providers = providers;
@@ -4498,6 +4889,42 @@ var require_credential_provider_chain = __commonJS({
         }
         this.resolveCallbacks = [];
       },
+      /**
+       * @!method  resolvePromise()
+       *   Returns a 'thenable' promise.
+       *   Resolves the provider chain by searching for the first set of
+       *   credentials in {providers}.
+       *
+       *   Two callbacks can be provided to the `then` method on the returned promise.
+       *   The first callback will be called if the promise is fulfilled, and the second
+       *   callback will be called if the promise is rejected.
+       *   @callback fulfilledCallback function(credentials)
+       *     Called if the promise is fulfilled and the provider resolves the chain
+       *     to a credentials object
+       *     @param credentials [AWS.Credentials] the credentials object resolved
+       *       by the provider chain.
+       *   @callback rejectedCallback function(error)
+       *     Called if the promise is rejected.
+       *     @param err [Error] the error object returned if no credentials are found.
+       *   @return [Promise] A promise that represents the state of the `resolve` method call.
+       *   @example Calling the `resolvePromise` method.
+       *     var promise = chain.resolvePromise();
+       *     promise.then(function(credentials) { ... }, function(err) { ... });
+       */
+      /**
+       * Resolves the provider chain by searching for the first set of
+       * credentials in {providers}.
+       *
+       * @callback callback function(err, credentials)
+       *   Called when the provider resolves the chain to a credentials object
+       *   or null if no credentials can be found.
+       *
+       *   @param err [Error] the error object returned if no credentials are
+       *     found.
+       *   @param credentials [AWS.Credentials] the credentials object resolved
+       *     by the provider chain.
+       * @return [AWS.CredentialProviderChain] the provider, for chaining.
+       */
       resolve: function resolve(callback) {
         var self = this;
         if (self.providers.length === 0) {
@@ -4554,6 +4981,162 @@ var require_config = __commonJS({
     require_credential_provider_chain();
     var PromisesDependency;
     AWS2.Config = AWS2.util.inherit({
+      /**
+       * @!endgroup
+       */
+      /**
+       * Creates a new configuration object. This is the object that passes
+       * option data along to service requests, including credentials, security,
+       * region information, and some service specific settings.
+       *
+       * @example Creating a new configuration object with credentials and region
+       *   var config = new AWS.Config({
+       *     accessKeyId: 'AKID', secretAccessKey: 'SECRET', region: 'us-west-2'
+       *   });
+       * @option options accessKeyId [String] your AWS access key ID.
+       * @option options secretAccessKey [String] your AWS secret access key.
+       * @option options sessionToken [AWS.Credentials] the optional AWS
+       *   session token to sign requests with.
+       * @option options credentials [AWS.Credentials] the AWS credentials
+       *   to sign requests with. You can either specify this object, or
+       *   specify the accessKeyId and secretAccessKey options directly.
+       * @option options credentialProvider [AWS.CredentialProviderChain] the
+       *   provider chain used to resolve credentials if no static `credentials`
+       *   property is set.
+       * @option options region [String] the region to send service requests to.
+       *   See {region} for more information.
+       * @option options maxRetries [Integer] the maximum amount of retries to
+       *   attempt with a request. See {maxRetries} for more information.
+       * @option options maxRedirects [Integer] the maximum amount of redirects to
+       *   follow with a request. See {maxRedirects} for more information.
+       * @option options sslEnabled [Boolean] whether to enable SSL for
+       *   requests.
+       * @option options paramValidation [Boolean|map] whether input parameters
+       *   should be validated against the operation description before sending
+       *   the request. Defaults to true. Pass a map to enable any of the
+       *   following specific validation features:
+       *
+       *   * **min** [Boolean] &mdash; Validates that a value meets the min
+       *     constraint. This is enabled by default when paramValidation is set
+       *     to `true`.
+       *   * **max** [Boolean] &mdash; Validates that a value meets the max
+       *     constraint.
+       *   * **pattern** [Boolean] &mdash; Validates that a string value matches a
+       *     regular expression.
+       *   * **enum** [Boolean] &mdash; Validates that a string value matches one
+       *     of the allowable enum values.
+       * @option options computeChecksums [Boolean] whether to compute checksums
+       *   for payload bodies when the service accepts it (currently supported
+       *   in S3 only)
+       * @option options convertResponseTypes [Boolean] whether types are converted
+       *     when parsing response data. Currently only supported for JSON based
+       *     services. Turning this off may improve performance on large response
+       *     payloads. Defaults to `true`.
+       * @option options correctClockSkew [Boolean] whether to apply a clock skew
+       *     correction and retry requests that fail because of an skewed client
+       *     clock. Defaults to `false`.
+       * @option options s3ForcePathStyle [Boolean] whether to force path
+       *   style URLs for S3 objects.
+       * @option options s3BucketEndpoint [Boolean] whether the provided endpoint
+       *   addresses an individual bucket (false if it addresses the root API
+       *   endpoint). Note that setting this configuration option requires an
+       *   `endpoint` to be provided explicitly to the service constructor.
+       * @option options s3DisableBodySigning [Boolean] whether S3 body signing
+       *   should be disabled when using signature version `v4`. Body signing
+       *   can only be disabled when using https. Defaults to `true`.
+       * @option options s3UsEast1RegionalEndpoint ['legacy'|'regional'] when region
+       *   is set to 'us-east-1', whether to send s3 request to global endpoints or
+       *   'us-east-1' regional endpoints. This config is only applicable to S3 client.
+       *   Defaults to `legacy`
+       * @option options s3UseArnRegion [Boolean] whether to override the request region
+       *   with the region inferred from requested resource's ARN. Only available for S3 buckets
+       *   Defaults to `true`
+       *
+       * @option options retryDelayOptions [map] A set of options to configure
+       *   the retry delay on retryable errors. Currently supported options are:
+       *
+       *   * **base** [Integer] &mdash; The base number of milliseconds to use in the
+       *     exponential backoff for operation retries. Defaults to 100 ms for all
+       *     services except DynamoDB, where it defaults to 50ms.
+       *   * **customBackoff ** [function] &mdash; A custom function that accepts a
+       *     retry count and error and returns the amount of time to delay in
+       *     milliseconds. If the result is a non-zero negative value, no further
+       *     retry attempts will be made. The `base` option will be ignored if this
+       *     option is supplied. The function is only called for retryable errors.
+       * @option options httpOptions [map] A set of options to pass to the low-level
+       *   HTTP request. Currently supported options are:
+       *
+       *   * **proxy** [String] &mdash; the URL to proxy requests through
+       *   * **agent** [http.Agent, https.Agent] &mdash; the Agent object to perform
+       *     HTTP requests with. Used for connection pooling. Defaults to the global
+       *     agent (`http.globalAgent`) for non-SSL connections. Note that for
+       *     SSL connections, a special Agent object is used in order to enable
+       *     peer certificate verification. This feature is only available in the
+       *     Node.js environment.
+       *   * **connectTimeout** [Integer] &mdash; Sets the socket to timeout after
+       *     failing to establish a connection with the server after
+       *     `connectTimeout` milliseconds. This timeout has no effect once a socket
+       *     connection has been established.
+       *   * **timeout** [Integer] &mdash; Sets the socket to timeout after timeout
+       *     milliseconds of inactivity on the socket. Defaults to two minutes
+       *     (120000).
+       *   * **xhrAsync** [Boolean] &mdash; Whether the SDK will send asynchronous
+       *     HTTP requests. Used in the browser environment only. Set to false to
+       *     send requests synchronously. Defaults to true (async on).
+       *   * **xhrWithCredentials** [Boolean] &mdash; Sets the "withCredentials"
+       *     property of an XMLHttpRequest object. Used in the browser environment
+       *     only. Defaults to false.
+       * @option options apiVersion [String, Date] a String in YYYY-MM-DD format
+       *   (or a date) that represents the latest possible API version that can be
+       *   used in all services (unless overridden by `apiVersions`). Specify
+       *   'latest' to use the latest possible version.
+       * @option options apiVersions [map<String, String|Date>] a map of service
+       *   identifiers (the lowercase service class name) with the API version to
+       *   use when instantiating a service. Specify 'latest' for each individual
+       *   that can use the latest available version.
+       * @option options logger [#write,#log] an object that responds to .write()
+       *   (like a stream) or .log() (like the console object) in order to log
+       *   information about requests
+       * @option options systemClockOffset [Number] an offset value in milliseconds
+       *   to apply to all signing times. Use this to compensate for clock skew
+       *   when your system may be out of sync with the service time. Note that
+       *   this configuration option can only be applied to the global `AWS.config`
+       *   object and cannot be overridden in service-specific configuration.
+       *   Defaults to 0 milliseconds.
+       * @option options signatureVersion [String] the signature version to sign
+       *   requests with (overriding the API configuration). Possible values are:
+       *   'v2', 'v3', 'v4'.
+       * @option options signatureCache [Boolean] whether the signature to sign
+       *   requests with (overriding the API configuration) is cached. Only applies
+       *   to the signature version 'v4'. Defaults to `true`.
+       * @option options dynamoDbCrc32 [Boolean] whether to validate the CRC32
+       *   checksum of HTTP response bodies returned by DynamoDB. Default: `true`.
+       * @option options useAccelerateEndpoint [Boolean] Whether to use the
+       *   S3 Transfer Acceleration endpoint with the S3 service. Default: `false`.
+       * @option options clientSideMonitoring [Boolean] whether to collect and
+       *   publish this client's performance metrics of all its API requests.
+       * @option options endpointDiscoveryEnabled [Boolean|undefined] whether to
+       *   call operations with endpoints given by service dynamically. Setting this
+       * config to `true` will enable endpoint discovery for all applicable operations.
+       *   Setting it to `false` will explicitly disable endpoint discovery even though
+       *   operations that require endpoint discovery will presumably fail. Leaving it
+       *   to `undefined` means SDK will only do endpoint discovery when it's required.
+       *   Defaults to `undefined`
+       * @option options endpointCacheSize [Number] the size of the global cache storing
+       *   endpoints from endpoint discovery operations. Once endpoint cache is created,
+       *   updating this setting cannot change existing cache size.
+       *   Defaults to 1000
+       * @option options hostPrefixEnabled [Boolean] whether to marshal request
+       *   parameters to the prefix of hostname.
+       *   Defaults to `true`.
+       * @option options stsRegionalEndpoints ['legacy'|'regional'] whether to send sts request
+       *   to global endpoints or regional endpoints.
+       *   Defaults to 'legacy'.
+       * @option options useFipsEndpoint [Boolean] Enables FIPS compatible endpoints.
+       *   Defaults to `false`.
+       * @option options useDualstackEndpoint [Boolean] Enables IPv6 dualstack endpoint.
+       *   Defaults to `false`.
+       */
       constructor: function Config(options) {
         if (options === void 0) options = {};
         options = this.extractCredentials(options);
@@ -4561,6 +5144,34 @@ var require_config = __commonJS({
           this.set(key, options[key], value);
         });
       },
+      /**
+       * @!group Managing Credentials
+       */
+      /**
+       * Loads credentials from the configuration object. This is used internally
+       * by the SDK to ensure that refreshable {Credentials} objects are properly
+       * refreshed and loaded when sending a request. If you want to ensure that
+       * your credentials are loaded prior to a request, you can use this method
+       * directly to provide accurate credential data stored in the object.
+       *
+       * @note If you configure the SDK with static or environment credentials,
+       *   the credential data should already be present in {credentials} attribute.
+       *   This method is primarily necessary to load credentials from asynchronous
+       *   sources, or sources that can refresh credentials periodically.
+       * @example Getting your access key
+       *   AWS.config.getCredentials(function(err) {
+       *     if (err) console.log(err.stack); // credentials not loaded
+       *     else console.log("Access Key:", AWS.config.credentials.accessKeyId);
+       *   })
+       * @callback callback function(err)
+       *   Called when the {credentials} have been properly set on the configuration
+       *   object.
+       *
+       *   @param err [Error] if this is set, credentials were not successfully
+       *     loaded and this error provides information why.
+       * @see credentials
+       * @see Credentials
+       */
       getCredentials: function getCredentials(callback) {
         var self = this;
         function finish(err) {
@@ -4607,6 +5218,29 @@ var require_config = __commonJS({
           finish(credError('No credentials to load'));
         }
       },
+      /**
+       * Loads token from the configuration object. This is used internally
+       * by the SDK to ensure that refreshable {Token} objects are properly
+       * refreshed and loaded when sending a request. If you want to ensure that
+       * your token is loaded prior to a request, you can use this method
+       * directly to provide accurate token data stored in the object.
+       *
+       * @note If you configure the SDK with static token, the token data should
+       *   already be present in {token} attribute. This method is primarily necessary
+       *   to load token from asynchronous sources, or sources that can refresh
+       *   token periodically.
+       * @example Getting your access token
+       *   AWS.config.getToken(function(err) {
+       *     if (err) console.log(err.stack); // token not loaded
+       *     else console.log("Token:", AWS.config.token.token);
+       *   })
+       * @callback callback function(err)
+       *   Called when the {token} have been properly set on the configuration object.
+       *
+       *   @param err [Error] if this is set, token was not successfully loaded and
+       *     this error provides information why.
+       * @see token
+       */
       getToken: function getToken(callback) {
         var self = this;
         function finish(err) {
@@ -4653,6 +5287,20 @@ var require_config = __commonJS({
           finish(tokenError('No token to load'));
         }
       },
+      /**
+       * @!group Loading and Setting Configuration Options
+       */
+      /**
+       * @overload update(options, allowUnknownKeys = false)
+       *   Updates the current configuration object with new options.
+       *
+       *   @example Update maxRetries property of a configuration object
+       *     config.update({maxRetries: 10});
+       *   @param [Object] options a map of option keys and values.
+       *   @param [Boolean] allowUnknownKeys whether unknown keys can be set on
+       *     the configuration object. Defaults to `false`.
+       *   @see constructor
+       */
       update: function update(options, allowUnknownKeys) {
         allowUnknownKeys = allowUnknownKeys || false;
         options = this.extractCredentials(options);
@@ -4666,6 +5314,15 @@ var require_config = __commonJS({
           }
         });
       },
+      /**
+       * Loads configuration data from a JSON file into this config object.
+       * @note Loading configuration will reset all existing configuration
+       *   on the object.
+       * @!macro nobrowser
+       * @param path [String] the path relative to your process's current
+       *    working directory to load configuration from.
+       * @return [AWS.Config] the same configuration object
+       */
       loadFromPath: function loadFromPath(path) {
         this.clear();
         var options = JSON.parse(AWS2.util.readFileSync(path));
@@ -4679,6 +5336,11 @@ var require_config = __commonJS({
         this.constructor(options);
         return this;
       },
+      /**
+       * Clears configuration data on this object
+       *
+       * @api private
+       */
       clear: function clear() {
         AWS2.util.each.call(this, this.keys, function (key) {
           delete this[key];
@@ -4686,6 +5348,11 @@ var require_config = __commonJS({
         this.set('credentials', void 0);
         this.set('credentialProvider', void 0);
       },
+      /**
+       * Sets a property on the configuration object, allowing for a
+       * default value
+       * @api private
+       */
       set: function set(property, value, defaultValue) {
         if (value === void 0) {
           if (defaultValue === void 0) {
@@ -4702,6 +5369,12 @@ var require_config = __commonJS({
           this[property] = value;
         }
       },
+      /**
+       * All of the keys with their default values.
+       *
+       * @constant
+       * @api private
+       */
       keys: {
         credentials: null,
         credentialProvider: null,
@@ -4741,6 +5414,12 @@ var require_config = __commonJS({
         useDualstackEndpoint: false,
         token: null,
       },
+      /**
+       * Extracts accessKeyId, secretAccessKey and sessionToken
+       * from a configuration hash.
+       *
+       * @api private
+       */
       extractCredentials: function extractCredentials(options) {
         if (options.accessKeyId && options.secretAccessKey) {
           options = AWS2.util.copy(options);
@@ -4748,6 +5427,12 @@ var require_config = __commonJS({
         }
         return options;
       },
+      /**
+       * Sets the promise dependency the SDK will use wherever Promises are returned.
+       * Passing `null` will force the SDK to use native Promises if they are available.
+       * If native Promises are not available, passing `null` will have no effect.
+       * @param [Constructor] dep A reference to a Promise constructor
+       */
       setPromisesDependency: function setPromisesDependency(dep) {
         PromisesDependency = dep;
         if (dep === null && typeof Promise === 'function') {
@@ -4762,6 +5447,9 @@ var require_config = __commonJS({
         }
         AWS2.util.addPromises(constructors, PromisesDependency);
       },
+      /**
+       * Gets the promise dependency set by `AWS.config.setPromisesDependency`.
+       */
       getPromisesDependency: function getPromisesDependency() {
         return PromisesDependency;
       },
@@ -4776,6 +5464,13 @@ var require_http = __commonJS({
     var AWS2 = require_core();
     var inherit = AWS2.util.inherit;
     AWS2.Endpoint = inherit({
+      /**
+       * @overload Endpoint(endpoint)
+       *   Constructs a new endpoint given an endpoint URL. If the
+       *   URL omits a protocol (http or https), the default protocol
+       *   set in the global {AWS.config} will be used.
+       *   @param endpoint [String] the URL to construct an endpoint from
+       */
       constructor: function Endpoint(endpoint, config) {
         AWS2.util.hideProperties(this, ['slashes', 'auth', 'hash', 'search', 'query']);
         if (typeof endpoint === 'undefined' || endpoint === null) {
@@ -4796,6 +5491,9 @@ var require_http = __commonJS({
       },
     });
     AWS2.HttpRequest = inherit({
+      /**
+       * @api private
+       */
       constructor: function HttpRequest(endpoint, region) {
         endpoint = new AWS2.Endpoint(endpoint);
         this.method = 'POST';
@@ -4807,6 +5505,9 @@ var require_http = __commonJS({
         this._userAgent = '';
         this.setUserAgent();
       },
+      /**
+       * @api private
+       */
       setUserAgent: function setUserAgent() {
         this._userAgent = this.headers[this.getUserAgentHeaderName()] = AWS2.util.userAgent();
       },
@@ -4814,18 +5515,31 @@ var require_http = __commonJS({
         var prefix = AWS2.util.isBrowser() ? 'X-Amz-' : '';
         return prefix + 'User-Agent';
       },
+      /**
+       * @api private
+       */
       appendToUserAgent: function appendToUserAgent(agentPartial) {
         if (typeof agentPartial === 'string' && agentPartial) {
           this._userAgent += ' ' + agentPartial;
         }
         this.headers[this.getUserAgentHeaderName()] = this._userAgent;
       },
+      /**
+       * @api private
+       */
       getUserAgent: function getUserAgent() {
         return this._userAgent;
       },
+      /**
+       * @return [String] the part of the {path} excluding the
+       *   query string
+       */
       pathname: function pathname() {
         return this.path.split('?', 1)[0];
       },
+      /**
+       * @return [String] the query string portion of the {path}
+       */
       search: function search() {
         var query = this.path.split('?', 2)[1];
         if (query) {
@@ -4834,6 +5548,10 @@ var require_http = __commonJS({
         }
         return '';
       },
+      /**
+       * @api private
+       * update httpRequest endpoint with endpoint string
+       */
       updateEndpoint: function updateEndpoint(endpointStr) {
         var newEndpoint = new AWS2.Endpoint(endpointStr);
         this.endpoint = newEndpoint;
@@ -4844,6 +5562,9 @@ var require_http = __commonJS({
       },
     });
     AWS2.HttpResponse = inherit({
+      /**
+       * @api private
+       */
       constructor: function HttpResponse() {
         this.statusCode = void 0;
         this.headers = {};
@@ -4851,6 +5572,27 @@ var require_http = __commonJS({
         this.streaming = false;
         this.stream = null;
       },
+      /**
+       * Disables buffering on the HTTP response and returns the stream for reading.
+       * @return [Stream, XMLHttpRequest, null] the underlying stream object.
+       *   Use this object to directly read data off of the stream.
+       * @note This object is only available after the {AWS.Request~httpHeaders}
+       *   event has fired. This method must be called prior to
+       *   {AWS.Request~httpData}.
+       * @example Taking control of a stream
+       *   request.on('httpHeaders', function(statusCode, headers) {
+       *     if (statusCode < 300) {
+       *       if (headers.etag === 'xyz') {
+       *         // pipe the stream, disabling buffering
+       *         var stream = this.response.httpResponse.createUnbufferedStream();
+       *         stream.pipe(process.stdout);
+       *       } else { // abort this request and set a better error message
+       *         this.abort();
+       *         this.response.error = new Error('Invalid ETag');
+       *       }
+       *     }
+       *   }).send(console.log);
+       */
       createUnbufferedStream: function createUnbufferedStream() {
         this.streaming = true;
         return this.stream;
@@ -4868,7 +5610,7 @@ var require_http = __commonJS({
 
 // node_modules/aws-sdk/lib/discover_endpoint.js
 var require_discover_endpoint = __commonJS({
-  'node_modules/aws-sdk/lib/discover_endpoint.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/discover_endpoint.js'(exports2, module2) {
     var AWS2 = require_core();
     var util = require_util();
     var endpointDiscoveryEnabledEnvs = ['AWS_ENABLE_ENDPOINT_DISCOVERY', 'AWS_ENDPOINT_DISCOVERY_ENABLED'];
@@ -4945,6 +5687,7 @@ var require_discover_endpoint = __commonJS({
               {
                 Address: '',
                 CachePeriodInMinutes: 1,
+                //not to make more endpoint operation in next 1 minute
               },
             ]);
           }
@@ -4983,6 +5726,7 @@ var require_discover_endpoint = __commonJS({
           {
             Address: '',
             CachePeriodInMinutes: 60,
+            //long-live cache
           },
         ]);
         endpointRequest.send(function (err, data) {
@@ -5154,7 +5898,61 @@ var require_event_listeners = __commonJS({
     var SequentialExecutor = require_sequential_executor();
     var DISCOVER_ENDPOINT = require_discover_endpoint().discoverEndpoint;
     AWS2.EventListeners = {
+      /**
+       * @!attribute VALIDATE_CREDENTIALS
+       *   A request listener that validates whether the request is being
+       *   sent with credentials.
+       *   Handles the {AWS.Request~validate 'validate' Request event}
+       *   @example Sending a request without validating credentials
+       *     var listener = AWS.EventListeners.Core.VALIDATE_CREDENTIALS;
+       *     request.removeListener('validate', listener);
+       *   @readonly
+       *   @return [Function]
+       * @!attribute VALIDATE_REGION
+       *   A request listener that validates whether the region is set
+       *   for a request.
+       *   Handles the {AWS.Request~validate 'validate' Request event}
+       *   @example Sending a request without validating region configuration
+       *     var listener = AWS.EventListeners.Core.VALIDATE_REGION;
+       *     request.removeListener('validate', listener);
+       *   @readonly
+       *   @return [Function]
+       * @!attribute VALIDATE_PARAMETERS
+       *   A request listener that validates input parameters in a request.
+       *   Handles the {AWS.Request~validate 'validate' Request event}
+       *   @example Sending a request without validating parameters
+       *     var listener = AWS.EventListeners.Core.VALIDATE_PARAMETERS;
+       *     request.removeListener('validate', listener);
+       *   @example Disable parameter validation globally
+       *     AWS.EventListeners.Core.removeListener('validate',
+       *       AWS.EventListeners.Core.VALIDATE_REGION);
+       *   @readonly
+       *   @return [Function]
+       * @!attribute SEND
+       *   A request listener that initiates the HTTP connection for a
+       *   request being sent. Handles the {AWS.Request~send 'send' Request event}
+       *   @example Replacing the HTTP handler
+       *     var listener = AWS.EventListeners.Core.SEND;
+       *     request.removeListener('send', listener);
+       *     request.on('send', function(response) {
+       *       customHandler.send(response);
+       *     });
+       *   @return [Function]
+       *   @readonly
+       * @!attribute HTTP_DATA
+       *   A request listener that reads data from the HTTP connection in order
+       *   to build the response data.
+       *   Handles the {AWS.Request~httpData 'httpData' Request event}.
+       *   Remove this handler if you are overriding the 'httpData' event and
+       *   do not want extra data processing and buffering overhead.
+       *   @example Disabling default data processing
+       *     var listener = AWS.EventListeners.Core.HTTP_DATA;
+       *     request.removeListener('httpData', listener);
+       *   @return [Function]
+       *   @readonly
+       */
       Core: {},
+      /* doc hack */
     };
     function getOperationAuthtype(req) {
       if (!req.service.api.operations) {
@@ -5258,8 +6056,8 @@ var require_event_listeners = __commonJS({
             isNonStreamingPayload &&
             !headers['Content-MD5']
           ) {
-            var md5 = AWS2.util.crypto.md5(body, 'base64');
-            headers['Content-MD5'] = md5;
+            var md52 = AWS2.util.crypto.md5(body, 'base64');
+            headers['Content-MD5'] = md52;
           }
         });
         addAsync('COMPUTE_SHA256', 'afterBuild', function COMPUTE_SHA256(req, done) {
@@ -5551,6 +6349,7 @@ var require_event_listeners = __commonJS({
           if (!resp.error) return;
           switch (resp.error.code) {
             case 'RequestExpired':
+            // EC2 only
             case 'ExpiredTokenException':
             case 'ExpiredToken':
               resp.error.retryable = true;
@@ -5756,7 +6555,7 @@ var require_event_listeners = __commonJS({
 
 // node_modules/aws-sdk/lib/state_machine.js
 var require_state_machine = __commonJS({
-  'node_modules/aws-sdk/lib/state_machine.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/state_machine.js'(exports2, module2) {
     function AcceptorStateMachine(states, state) {
       this.currentState = state || null;
       this.states = states || {};
@@ -5803,8 +6602,8 @@ var require_state_machine = __commonJS({
 
 // node_modules/jmespath/jmespath.js
 var require_jmespath = __commonJS({
-  'node_modules/jmespath/jmespath.js'(exports) {
-    (function (exports2) {
+  'node_modules/jmespath/jmespath.js'(exports2) {
+    (function (exports3) {
       'use strict';
       function isArray(obj) {
         if (obj !== null) {
@@ -6822,6 +7621,19 @@ var require_jmespath = __commonJS({
       function Runtime(interpreter) {
         this._interpreter = interpreter;
         this.functionTable = {
+          // name: [function, <signature>]
+          // The <signature> can be:
+          //
+          // {
+          //   args: [[type1, type2], [type1, type2]],
+          //   variadic: true|false
+          // }
+          //
+          // Each arg in the arg list is a list of valid types
+          // (if the function is overloaded and supports multiple
+          // types.  If the type is "any" then no type checking
+          // occurs on the argument.  Variadic is optional
+          // and if not provided is assumed to be false.
           abs: { _func: this._functionAbs, _signature: [{ types: [TYPE_NUMBER] }] },
           avg: { _func: this._functionAvg, _signature: [{ types: [TYPE_ARRAY_NUMBER] }] },
           ceil: { _func: this._functionCeil, _signature: [{ types: [TYPE_NUMBER] }] },
@@ -7291,11 +8103,11 @@ var require_jmespath = __commonJS({
         var node = parser.parse(expression);
         return interpreter.search(node, data);
       }
-      exports2.tokenize = tokenize;
-      exports2.compile = compile;
-      exports2.search = search;
-      exports2.strictDeepEqual = strictDeepEqual;
-    })(typeof exports === 'undefined' ? (exports.jmespath = {}) : exports);
+      exports3.tokenize = tokenize;
+      exports3.compile = compile;
+      exports3.search = search;
+      exports3.strictDeepEqual = strictDeepEqual;
+    })(typeof exports2 === 'undefined' ? (exports2.jmespath = {}) : exports2);
   },
 });
 
@@ -7353,6 +8165,16 @@ var require_request = __commonJS({
     };
     fsm.setupStates();
     AWS2.Request = inherit({
+      /**
+       * Creates a request for an operation on a given service with
+       * a set of input parameters.
+       *
+       * @param service [AWS.Service] the service to perform the operation on
+       * @param operation [String] the operation to perform on the service
+       * @param params [Object] parameters to send to the operation.
+       *   See the operation's documentation for the format of the
+       *   parameters.
+       */
       constructor: function Request(service, operation, params) {
         var endpoint = service.endpoint;
         var region = service.config.region;
@@ -7375,6 +8197,29 @@ var require_request = __commonJS({
         AWS2.SequentialExecutor.call(this);
         this.emit = this.emitEvent;
       },
+      /**
+       * @!group Sending a Request
+       */
+      /**
+       * @overload send(callback = null)
+       *   Sends the request object.
+       *
+       *   @callback callback function(err, data)
+       *     If a callback is supplied, it is called when a response is returned
+       *     from the service.
+       *     @context [AWS.Request] the request object being sent.
+       *     @param err [Error] the error object returned from the request.
+       *       Set to `null` if the request is successful.
+       *     @param data [Object] the de-serialized data returned from
+       *       the request. Set to `null` if a request error occurs.
+       *   @example Sending a request with a callback
+       *     request = s3.putObject({Bucket: 'bucket', Key: 'key'});
+       *     request.send(function(err, data) { console.log(err, data); });
+       *   @example Sending a request with no callback (using event handlers)
+       *     request = s3.putObject({Bucket: 'bucket', Key: 'key'});
+       *     request.on('complete', function(response) { ... }); // register a callback
+       *     request.send();
+       */
       send: function send(callback) {
         if (callback) {
           this.httpRequest.appendToUserAgent('callback');
@@ -7385,13 +8230,60 @@ var require_request = __commonJS({
         this.runTo();
         return this.response;
       },
+      /**
+       * @!method  promise()
+       *   Sends the request and returns a 'thenable' promise.
+       *
+       *   Two callbacks can be provided to the `then` method on the returned promise.
+       *   The first callback will be called if the promise is fulfilled, and the second
+       *   callback will be called if the promise is rejected.
+       *   @callback fulfilledCallback function(data)
+       *     Called if the promise is fulfilled.
+       *     @param data [Object] the de-serialized data returned from the request.
+       *   @callback rejectedCallback function(error)
+       *     Called if the promise is rejected.
+       *     @param error [Error] the error object returned from the request.
+       *   @return [Promise] A promise that represents the state of the request.
+       *   @example Sending a request using promises.
+       *     var request = s3.putObject({Bucket: 'bucket', Key: 'key'});
+       *     var result = request.promise();
+       *     result.then(function(data) { ... }, function(error) { ... });
+       */
+      /**
+       * @api private
+       */
       build: function build(callback) {
         return this.runTo('send', callback);
       },
+      /**
+       * @api private
+       */
       runTo: function runTo(state, done) {
         this._asm.runTo(state, done, this);
         return this;
       },
+      /**
+       * Aborts a request, emitting the error and complete events.
+       *
+       * @!macro nobrowser
+       * @example Aborting a request after sending
+       *   var params = {
+       *     Bucket: 'bucket', Key: 'key',
+       *     Body: Buffer.alloc(1024 * 1024 * 5) // 5MB payload
+       *   };
+       *   var request = s3.putObject(params);
+       *   request.send(function (err, data) {
+       *     if (err) console.log("Error:", err.code, err.message);
+       *     else console.log(data);
+       *   });
+       *
+       *   // abort request in 1 second
+       *   setTimeout(request.abort.bind(request), 1000);
+       *
+       *   // prints "Error: RequestAbortedError Request aborted by user"
+       * @return [AWS.Request] the same request object, for chaining.
+       * @since v1.4.0
+       */
       abort: function abort() {
         this.removeAllListeners('validateResponse');
         this.removeAllListeners('extractError');
@@ -7411,6 +8303,45 @@ var require_request = __commonJS({
         }
         return this;
       },
+      /**
+       * Iterates over each page of results given a pageable request, calling
+       * the provided callback with each page of data. After all pages have been
+       * retrieved, the callback is called with `null` data.
+       *
+       * @note This operation can generate multiple requests to a service.
+       * @example Iterating over multiple pages of objects in an S3 bucket
+       *   var pages = 1;
+       *   s3.listObjects().eachPage(function(err, data) {
+       *     if (err) return;
+       *     console.log("Page", pages++);
+       *     console.log(data);
+       *   });
+       * @example Iterating over multiple pages with an asynchronous callback
+       *   s3.listObjects(params).eachPage(function(err, data, done) {
+       *     doSomethingAsyncAndOrExpensive(function() {
+       *       // The next page of results isn't fetched until done is called
+       *       done();
+       *     });
+       *   });
+       * @callback callback function(err, data, [doneCallback])
+       *   Called with each page of resulting data from the request. If the
+       *   optional `doneCallback` is provided in the function, it must be called
+       *   when the callback is complete.
+       *
+       *   @param err [Error] an error object, if an error occurred.
+       *   @param data [Object] a single page of response data. If there is no
+       *     more data, this object will be `null`.
+       *   @param doneCallback [Function] an optional done callback. If this
+       *     argument is defined in the function declaration, it should be called
+       *     when the next page is ready to be retrieved. This is useful for
+       *     controlling serial pagination across asynchronous operations.
+       *   @return [Boolean] if the callback returns `false`, pagination will
+       *     stop.
+       *
+       * @see AWS.Request.eachItem
+       * @see AWS.Response.nextPage
+       * @since v1.4.0
+       */
       eachPage: function eachPage(callback) {
         callback = AWS2.util.fn.makeAsync(callback, 3);
         function wrappedCallback(response) {
@@ -7425,6 +8356,13 @@ var require_request = __commonJS({
         }
         this.on('complete', wrappedCallback).send();
       },
+      /**
+       * Enumerates over individual items of a request, paging the responses if
+       * necessary.
+       *
+       * @api experimental
+       * @since v1.4.0
+       */
       eachItem: function eachItem(callback) {
         var self = this;
         function wrappedCallback(err, data) {
@@ -7445,9 +8383,32 @@ var require_request = __commonJS({
         }
         this.eachPage(wrappedCallback);
       },
+      /**
+       * @return [Boolean] whether the operation can return multiple pages of
+       *   response data.
+       * @see AWS.Response.eachPage
+       * @since v1.4.0
+       */
       isPageable: function isPageable() {
         return this.service.paginationConfig(this.operation) ? true : false;
       },
+      /**
+       * Sends the request and converts the request object into a readable stream
+       * that can be read from or piped into a writable stream.
+       *
+       * @note The data read from a readable stream contains only
+       *   the raw HTTP body contents.
+       * @example Manually reading from a stream
+       *   request.createReadStream().on('data', function(data) {
+       *     console.log("Got data:", data.toString());
+       *   });
+       * @example Piping a request body into a file
+       *   var out = fs.createWriteStream('/path/to/outfile.jpg');
+       *   s3.service.getObject(params).createReadStream().pipe(out);
+       * @return [Stream] the readable stream object that can be piped
+       *   or read from (by registering 'data' event listeners).
+       * @!macro nobrowser
+       */
       createReadStream: function createReadStream() {
         var streams = AWS2.util.stream;
         var req = this;
@@ -7549,6 +8510,11 @@ var require_request = __commonJS({
         });
         return stream;
       },
+      /**
+       * @param [Array,Response] args This should be the response object,
+       *   or an array of args to send to the event.
+       * @api private
+       */
       emitEvent: function emit(eventName, args, done) {
         if (typeof args === 'function') {
           done = args;
@@ -7562,6 +8528,9 @@ var require_request = __commonJS({
           done.call(this, err);
         });
       },
+      /**
+       * @api private
+       */
       eventParameters: function eventParameters(eventName) {
         switch (eventName) {
           case 'restart':
@@ -7577,6 +8546,9 @@ var require_request = __commonJS({
             return [this.response];
         }
       },
+      /**
+       * @api private
+       */
       presign: function presign(expires, callback) {
         if (!callback && typeof expires === 'function') {
           callback = expires;
@@ -7584,15 +8556,24 @@ var require_request = __commonJS({
         }
         return new AWS2.Signers.Presign().sign(this.toGet(), expires, callback);
       },
+      /**
+       * @api private
+       */
       isPresigned: function isPresigned() {
         return Object.prototype.hasOwnProperty.call(this.httpRequest.headers, 'presigned-expires');
       },
+      /**
+       * @api private
+       */
       toUnauthenticated: function toUnauthenticated() {
         this._unAuthenticated = true;
         this.removeListener('validate', AWS2.EventListeners.Core.VALIDATE_CREDENTIALS);
         this.removeListener('sign', AWS2.EventListeners.Core.SIGN);
         return this;
       },
+      /**
+       * @api private
+       */
       toGet: function toGet() {
         if (this.service.api.protocol === 'query' || this.service.api.protocol === 'ec2') {
           this.removeListener('build', this.buildAsGet);
@@ -7600,6 +8581,9 @@ var require_request = __commonJS({
         }
         return this;
       },
+      /**
+       * @api private
+       */
       buildAsGet: function buildAsGet(request) {
         request.httpRequest.method = 'GET';
         request.httpRequest.path = request.service.endpoint.path + '?' + request.httpRequest.body;
@@ -7607,6 +8591,9 @@ var require_request = __commonJS({
         delete request.httpRequest.headers['Content-Length'];
         delete request.httpRequest.headers['Content-Type'];
       },
+      /**
+       * @api private
+       */
       haltHandlersOnError: function haltHandlersOnError() {
         this._haltHandlersOnError = true;
       },
@@ -7642,6 +8629,9 @@ var require_response = __commonJS({
     var inherit = AWS2.util.inherit;
     var jmespath = require_jmespath();
     AWS2.Response = inherit({
+      /**
+       * @api private
+       */
       constructor: function Response(request) {
         this.request = request;
         this.data = null;
@@ -7654,6 +8644,21 @@ var require_response = __commonJS({
           this.maxRedirects = request.service.config.maxRedirects;
         }
       },
+      /**
+       * Creates a new request for the next page of response data, calling the
+       * callback with the page data if a callback is provided.
+       *
+       * @callback callback function(err, data)
+       *   Called when a page of data is returned from the next request.
+       *
+       *   @param err [Error] an error object, if an error occurred in the request
+       *   @param data [Object] the next page of data, or null, if there are no
+       *     more pages left.
+       * @return [AWS.Request] the request object for the next page of data
+       * @return [null] if no callback is provided and there are no pages left
+       *   to retrieve.
+       * @since v1.4.0
+       */
       nextPage: function nextPage(callback) {
         var config;
         var service = this.request.service;
@@ -7680,12 +8685,20 @@ var require_response = __commonJS({
           return service.makeRequest(this.request.operation, params, callback);
         }
       },
+      /**
+       * @return [Boolean] whether more pages of data can be returned by further
+       *   requests
+       * @since v1.4.0
+       */
       hasNextPage: function hasNextPage() {
         this.cacheNextPageTokens();
         if (this.nextPageTokens) return true;
         if (this.nextPageTokens === void 0) return void 0;
         else return false;
       },
+      /**
+       * @api private
+       */
       cacheNextPageTokens: function cacheNextPageTokens() {
         if (Object.prototype.hasOwnProperty.call(this, 'nextPageTokens')) return this.nextPageTokens;
         this.nextPageTokens = void 0;
@@ -7740,6 +8753,15 @@ var require_resource_waiter2 = __commonJS({
       }
     }
     AWS2.ResourceWaiter = inherit({
+      /**
+       * Waits for a given state on a service object
+       * @param service [Service] the service object to wait on
+       * @param state [String] the state (defined in waiter configuration) to wait
+       *   for.
+       * @example Create a waiter for running EC2 instances
+       *   var ec2 = new AWS.EC2;
+       *   var waiter = new AWS.ResourceWaiter(ec2, 'instanceRunning');
+       */
       constructor: function constructor(service, state) {
         this.service = service;
         this.state = state;
@@ -7809,6 +8831,9 @@ var require_resource_waiter2 = __commonJS({
         add('CHECK_OUTPUT', 'extractData', CHECK_ACCEPTORS);
         add('CHECK_ERROR', 'extractError', CHECK_ACCEPTORS);
       }),
+      /**
+       * @return [AWS.Request]
+       */
       wait: function wait(params, callback) {
         if (typeof params === 'function') {
           callback = params;
@@ -7844,6 +8869,11 @@ var require_resource_waiter2 = __commonJS({
           retryable,
         });
       },
+      /**
+       * Loads waiter configuration from API configuration
+       *
+       * @api private
+       */
       loadWaiterConfig: function loadWaiterConfig(state) {
         if (!this.service.api.waiters[state]) {
           throw new AWS2.util.error(new Error(), {
@@ -7859,7 +8889,7 @@ var require_resource_waiter2 = __commonJS({
 
 // node_modules/aws-sdk/lib/signers/v2.js
 var require_v2 = __commonJS({
-  'node_modules/aws-sdk/lib/signers/v2.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/signers/v2.js'(exports2, module2) {
     var AWS2 = require_core();
     var inherit = AWS2.util.inherit;
     AWS2.Signers.V2 = inherit(AWS2.Signers.RequestSigner, {
@@ -7896,7 +8926,7 @@ var require_v2 = __commonJS({
 
 // node_modules/aws-sdk/lib/signers/v3.js
 var require_v3 = __commonJS({
-  'node_modules/aws-sdk/lib/signers/v3.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/signers/v3.js'(exports2, module2) {
     var AWS2 = require_core();
     var inherit = AWS2.util.inherit;
     AWS2.Signers.V3 = inherit(AWS2.Signers.RequestSigner, {
@@ -7961,7 +8991,7 @@ var require_v3 = __commonJS({
 
 // node_modules/aws-sdk/lib/signers/v3https.js
 var require_v3https = __commonJS({
-  'node_modules/aws-sdk/lib/signers/v3https.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/signers/v3https.js'(exports2, module2) {
     var AWS2 = require_core();
     var inherit = AWS2.util.inherit;
     require_v3();
@@ -7984,16 +9014,34 @@ var require_v3https = __commonJS({
 
 // node_modules/aws-sdk/lib/signers/v4_credentials.js
 var require_v4_credentials = __commonJS({
-  'node_modules/aws-sdk/lib/signers/v4_credentials.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/signers/v4_credentials.js'(exports2, module2) {
     var AWS2 = require_core();
     var cachedSecret = {};
     var cacheQueue = [];
     var maxCacheEntries = 50;
     var v4Identifier = 'aws4_request';
     module2.exports = {
+      /**
+       * @api private
+       *
+       * @param date [String]
+       * @param region [String]
+       * @param serviceName [String]
+       * @return [String]
+       */
       createScope: function createScope(date, region, serviceName) {
         return [date.substr(0, 8), region, serviceName, v4Identifier].join('/');
       },
+      /**
+       * @api private
+       *
+       * @param credentials [Credentials]
+       * @param date [String]
+       * @param region [String]
+       * @param service [String]
+       * @param shouldCache [Boolean]
+       * @return [String]
+       */
       getSigningKey: function getSigningKey(credentials, date, region, service, shouldCache) {
         var credsIdentifier = AWS2.util.crypto.hmac(credentials.secretAccessKey, credentials.accessKeyId, 'base64');
         var cacheKey = [credsIdentifier, date, region, service].join('_');
@@ -8014,6 +9062,12 @@ var require_v4_credentials = __commonJS({
         }
         return signingKey;
       },
+      /**
+       * @api private
+       *
+       * Empties the derived signing key cache. Made available for testing purposes
+       * only.
+       */
       emptyCache: function emptyCache() {
         cachedSecret = {};
         cacheQueue = [];
@@ -8024,7 +9078,7 @@ var require_v4_credentials = __commonJS({
 
 // node_modules/aws-sdk/lib/signers/v4.js
 var require_v4 = __commonJS({
-  'node_modules/aws-sdk/lib/signers/v4.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/signers/v4.js'(exports2, module2) {
     var AWS2 = require_core();
     var v4Credentials = require_v4_credentials();
     var inherit = AWS2.util.inherit;
@@ -8200,10 +9254,14 @@ var require_v4 = __commonJS({
 
 // node_modules/aws-sdk/lib/signers/s3.js
 var require_s3 = __commonJS({
-  'node_modules/aws-sdk/lib/signers/s3.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/signers/s3.js'(exports2, module2) {
     var AWS2 = require_core();
     var inherit = AWS2.util.inherit;
     AWS2.Signers.S3 = inherit(AWS2.Signers.RequestSigner, {
+      /**
+       * When building the stringToSign, these sub resource params should be
+       * part of the canonical resource string with their NON-decoded values
+       */
       subResources: {
         acl: 1,
         accelerate: 1,
@@ -8230,6 +9288,8 @@ var require_s3 = __commonJS({
         versions: 1,
         website: 1,
       },
+      // when building the stringToSign, these querystring params should be
+      // part of the canonical resource string with their NON-encoded values
       responseHeaders: {
         'response-content-type': 1,
         'response-content-language': 1,
@@ -8327,7 +9387,7 @@ var require_s3 = __commonJS({
 
 // node_modules/aws-sdk/lib/signers/presign.js
 var require_presign = __commonJS({
-  'node_modules/aws-sdk/lib/signers/presign.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/signers/presign.js'(exports2, module2) {
     var AWS2 = require_core();
     var inherit = AWS2.util.inherit;
     var expiresHeader = 'presigned-expires';
@@ -8394,6 +9454,9 @@ var require_presign = __commonJS({
       endpoint.search = AWS2.util.queryParamsToString(queryParams);
     }
     AWS2.Signers.Presign = inherit({
+      /**
+       * @api private
+       */
       sign: function sign(request, expireTime, callback) {
         request.httpRequest.headers[expiresHeader] = expireTime || 3600;
         request.on('build', signedUrlBuilder);
@@ -8450,8 +9513,8 @@ var require_request_signer = __commonJS({
         return this.serviceClientId;
       },
     });
-    AWS2.Signers.RequestSigner.getVersion = function getVersion(version) {
-      switch (version) {
+    AWS2.Signers.RequestSigner.getVersion = function getVersion(version2) {
+      switch (version2) {
         case 'v2':
           return AWS2.Signers.V2;
         case 'v3':
@@ -8467,7 +9530,7 @@ var require_request_signer = __commonJS({
         case 'bearer':
           return AWS2.Signers.Bearer;
       }
-      throw new Error('Unknown signing version ' + version);
+      throw new Error('Unknown signing version ' + version2);
     };
     require_v2();
     require_v3();
@@ -8484,13 +9547,31 @@ var require_param_validator = __commonJS({
   'node_modules/aws-sdk/lib/param_validator.js'() {
     var AWS2 = require_core();
     AWS2.ParamValidator = AWS2.util.inherit({
+      /**
+       * Create a new validator object.
+       *
+       * @param validation [Boolean|map] whether input parameters should be
+       *     validated against the operation description before sending the
+       *     request. Pass a map to enable any of the following specific
+       *     validation features:
+       *
+       *     * **min** [Boolean] &mdash; Validates that a value meets the min
+       *       constraint. This is enabled by default when paramValidation is set
+       *       to `true`.
+       *     * **max** [Boolean] &mdash; Validates that a value meets the max
+       *       constraint.
+       *     * **pattern** [Boolean] &mdash; Validates that a string value matches a
+       *       regular expression.
+       *     * **enum** [Boolean] &mdash; Validates that a string value matches one
+       *       of the allowable enum values.
+       */
       constructor: function ParamValidator(validation) {
         if (validation === true || validation === void 0) {
           validation = { min: true };
         }
         this.validation = validation;
       },
-      validate: function validate(shape, params, context) {
+      validate: function validate2(shape, params, context) {
         this.errors = [];
         this.validateMember(shape, params || {}, context || 'params');
         if (this.errors.length > 1) {
@@ -8709,7 +9790,7 @@ var require_param_validator = __commonJS({
 
 // node_modules/aws-sdk/lib/maintenance_mode_message.js
 var require_maintenance_mode_message = __commonJS({
-  'node_modules/aws-sdk/lib/maintenance_mode_message.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/maintenance_mode_message.js'(exports2, module2) {
     var warning = [
       'The AWS SDK for JavaScript (v2) will enter maintenance mode',
       'on September 8, 2024 and reach end-of-support on September 8, 2025.\n',
@@ -8750,14 +9831,23 @@ var require_maintenance_mode_message = __commonJS({
 
 // node_modules/aws-sdk/lib/core.js
 var require_core = __commonJS({
-  'node_modules/aws-sdk/lib/core.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/core.js'(exports2, module2) {
     var AWS2 = { util: require_util() };
     var _hidden = {};
     _hidden.toString();
     module2.exports = AWS2;
     AWS2.util.update(AWS2, {
+      /**
+       * @constant
+       */
       VERSION: '2.1668.0',
+      /**
+       * @api private
+       */
       Signers: {},
+      /**
+       * @api private
+       */
       Protocol: {
         Json: require_json(),
         Query: require_query(),
@@ -8765,14 +9855,24 @@ var require_core = __commonJS({
         RestJson: require_rest_json(),
         RestXml: require_rest_xml(),
       },
+      /**
+       * @api private
+       */
       XML: {
         Builder: require_builder2(),
         Parser: null,
+        // conditionally set based on environment
       },
+      /**
+       * @api private
+       */
       JSON: {
         Builder: require_builder(),
         Parser: require_parser(),
       },
+      /**
+       * @api private
+       */
       Model: {
         Api: require_api(),
         Operation: require_operation(),
@@ -8780,7 +9880,13 @@ var require_core = __commonJS({
         Paginator: require_paginator(),
         ResourceWaiter: require_resource_waiter(),
       },
+      /**
+       * @api private
+       */
       apiLoader: require_api_loader(),
+      /**
+       * @api private
+       */
       EndpointCache: require_endpoint_cache().EndpointCache,
     });
     require_sequential_executor();
@@ -8806,299 +9912,211 @@ var require_core = __commonJS({
   },
 });
 
-// node_modules/uuid/dist/rng.js
+// node_modules/aws-sdk/node_modules/uuid/dist/rng.js
 var require_rng = __commonJS({
-  'node_modules/uuid/dist/rng.js'(exports) {
+  'node_modules/aws-sdk/node_modules/uuid/dist/rng.js'(exports2) {
     'use strict';
-    Object.defineProperty(exports, '__esModule', {
+    Object.defineProperty(exports2, '__esModule', {
       value: true,
     });
-    exports.default = rng;
+    exports2.default = rng2;
     var _crypto = _interopRequireDefault(require('crypto'));
     function _interopRequireDefault(obj) {
       return obj && obj.__esModule ? obj : { default: obj };
     }
-    var rnds8Pool = new Uint8Array(256);
-    var poolPtr = rnds8Pool.length;
-    function rng() {
-      if (poolPtr > rnds8Pool.length - 16) {
-        _crypto.default.randomFillSync(rnds8Pool);
-        poolPtr = 0;
-      }
-      return rnds8Pool.slice(poolPtr, (poolPtr += 16));
+    function rng2() {
+      return _crypto.default.randomBytes(16);
     }
   },
 });
 
-// node_modules/uuid/dist/regex.js
-var require_regex = __commonJS({
-  'node_modules/uuid/dist/regex.js'(exports) {
+// node_modules/aws-sdk/node_modules/uuid/dist/bytesToUuid.js
+var require_bytesToUuid = __commonJS({
+  'node_modules/aws-sdk/node_modules/uuid/dist/bytesToUuid.js'(exports2) {
     'use strict';
-    Object.defineProperty(exports, '__esModule', {
+    Object.defineProperty(exports2, '__esModule', {
       value: true,
     });
-    exports.default = void 0;
-    var _default =
-      /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000)$/i;
-    exports.default = _default;
+    exports2.default = void 0;
+    var byteToHex2 = [];
+    for (i = 0; i < 256; ++i) {
+      byteToHex2[i] = (i + 256).toString(16).substr(1);
+    }
+    var i;
+    function bytesToUuid(buf, offset) {
+      var i2 = offset || 0;
+      var bth = byteToHex2;
+      return [
+        bth[buf[i2++]],
+        bth[buf[i2++]],
+        bth[buf[i2++]],
+        bth[buf[i2++]],
+        '-',
+        bth[buf[i2++]],
+        bth[buf[i2++]],
+        '-',
+        bth[buf[i2++]],
+        bth[buf[i2++]],
+        '-',
+        bth[buf[i2++]],
+        bth[buf[i2++]],
+        '-',
+        bth[buf[i2++]],
+        bth[buf[i2++]],
+        bth[buf[i2++]],
+        bth[buf[i2++]],
+        bth[buf[i2++]],
+        bth[buf[i2++]],
+      ].join('');
+    }
+    var _default = bytesToUuid;
+    exports2.default = _default;
   },
 });
 
-// node_modules/uuid/dist/validate.js
-var require_validate = __commonJS({
-  'node_modules/uuid/dist/validate.js'(exports) {
-    'use strict';
-    Object.defineProperty(exports, '__esModule', {
-      value: true,
-    });
-    exports.default = void 0;
-    var _regex = _interopRequireDefault(require_regex());
-    function _interopRequireDefault(obj) {
-      return obj && obj.__esModule ? obj : { default: obj };
-    }
-    function validate(uuid) {
-      return typeof uuid === 'string' && _regex.default.test(uuid);
-    }
-    var _default = validate;
-    exports.default = _default;
-  },
-});
-
-// node_modules/uuid/dist/stringify.js
-var require_stringify = __commonJS({
-  'node_modules/uuid/dist/stringify.js'(exports) {
-    'use strict';
-    Object.defineProperty(exports, '__esModule', {
-      value: true,
-    });
-    exports.default = void 0;
-    var _validate = _interopRequireDefault(require_validate());
-    function _interopRequireDefault(obj) {
-      return obj && obj.__esModule ? obj : { default: obj };
-    }
-    var byteToHex = [];
-    for (let i = 0; i < 256; ++i) {
-      byteToHex.push((i + 256).toString(16).substr(1));
-    }
-    function stringify(arr, offset = 0) {
-      const uuid = (
-        byteToHex[arr[offset + 0]] +
-        byteToHex[arr[offset + 1]] +
-        byteToHex[arr[offset + 2]] +
-        byteToHex[arr[offset + 3]] +
-        '-' +
-        byteToHex[arr[offset + 4]] +
-        byteToHex[arr[offset + 5]] +
-        '-' +
-        byteToHex[arr[offset + 6]] +
-        byteToHex[arr[offset + 7]] +
-        '-' +
-        byteToHex[arr[offset + 8]] +
-        byteToHex[arr[offset + 9]] +
-        '-' +
-        byteToHex[arr[offset + 10]] +
-        byteToHex[arr[offset + 11]] +
-        byteToHex[arr[offset + 12]] +
-        byteToHex[arr[offset + 13]] +
-        byteToHex[arr[offset + 14]] +
-        byteToHex[arr[offset + 15]]
-      ).toLowerCase();
-      if (!(0, _validate.default)(uuid)) {
-        throw TypeError('Stringified UUID is invalid');
-      }
-      return uuid;
-    }
-    var _default = stringify;
-    exports.default = _default;
-  },
-});
-
-// node_modules/uuid/dist/v1.js
+// node_modules/aws-sdk/node_modules/uuid/dist/v1.js
 var require_v1 = __commonJS({
-  'node_modules/uuid/dist/v1.js'(exports) {
+  'node_modules/aws-sdk/node_modules/uuid/dist/v1.js'(exports2) {
     'use strict';
-    Object.defineProperty(exports, '__esModule', {
+    Object.defineProperty(exports2, '__esModule', {
       value: true,
     });
-    exports.default = void 0;
+    exports2.default = void 0;
     var _rng = _interopRequireDefault(require_rng());
-    var _stringify = _interopRequireDefault(require_stringify());
+    var _bytesToUuid = _interopRequireDefault(require_bytesToUuid());
     function _interopRequireDefault(obj) {
       return obj && obj.__esModule ? obj : { default: obj };
     }
-    var _nodeId;
-    var _clockseq;
-    var _lastMSecs = 0;
-    var _lastNSecs = 0;
-    function v1(options, buf, offset) {
-      let i = (buf && offset) || 0;
-      const b = buf || new Array(16);
+    var _nodeId2;
+    var _clockseq2;
+    var _lastMSecs2 = 0;
+    var _lastNSecs2 = 0;
+    function v12(options, buf, offset) {
+      var i = (buf && offset) || 0;
+      var b = buf || [];
       options = options || {};
-      let node = options.node || _nodeId;
-      let clockseq = options.clockseq !== void 0 ? options.clockseq : _clockseq;
+      var node = options.node || _nodeId2;
+      var clockseq = options.clockseq !== void 0 ? options.clockseq : _clockseq2;
       if (node == null || clockseq == null) {
-        const seedBytes = options.random || (options.rng || _rng.default)();
+        var seedBytes = options.random || (options.rng || _rng.default)();
         if (node == null) {
-          node = _nodeId = [seedBytes[0] | 1, seedBytes[1], seedBytes[2], seedBytes[3], seedBytes[4], seedBytes[5]];
+          node = _nodeId2 = [seedBytes[0] | 1, seedBytes[1], seedBytes[2], seedBytes[3], seedBytes[4], seedBytes[5]];
         }
         if (clockseq == null) {
-          clockseq = _clockseq = ((seedBytes[6] << 8) | seedBytes[7]) & 16383;
+          clockseq = _clockseq2 = ((seedBytes[6] << 8) | seedBytes[7]) & 16383;
         }
       }
-      let msecs = options.msecs !== void 0 ? options.msecs : Date.now();
-      let nsecs = options.nsecs !== void 0 ? options.nsecs : _lastNSecs + 1;
-      const dt = msecs - _lastMSecs + (nsecs - _lastNSecs) / 1e4;
+      var msecs = options.msecs !== void 0 ? options.msecs : /* @__PURE__ */ new Date().getTime();
+      var nsecs = options.nsecs !== void 0 ? options.nsecs : _lastNSecs2 + 1;
+      var dt = msecs - _lastMSecs2 + (nsecs - _lastNSecs2) / 1e4;
       if (dt < 0 && options.clockseq === void 0) {
         clockseq = (clockseq + 1) & 16383;
       }
-      if ((dt < 0 || msecs > _lastMSecs) && options.nsecs === void 0) {
+      if ((dt < 0 || msecs > _lastMSecs2) && options.nsecs === void 0) {
         nsecs = 0;
       }
       if (nsecs >= 1e4) {
         throw new Error("uuid.v1(): Can't create more than 10M uuids/sec");
       }
-      _lastMSecs = msecs;
-      _lastNSecs = nsecs;
-      _clockseq = clockseq;
+      _lastMSecs2 = msecs;
+      _lastNSecs2 = nsecs;
+      _clockseq2 = clockseq;
       msecs += 122192928e5;
-      const tl = ((msecs & 268435455) * 1e4 + nsecs) % 4294967296;
+      var tl = ((msecs & 268435455) * 1e4 + nsecs) % 4294967296;
       b[i++] = (tl >>> 24) & 255;
       b[i++] = (tl >>> 16) & 255;
       b[i++] = (tl >>> 8) & 255;
       b[i++] = tl & 255;
-      const tmh = ((msecs / 4294967296) * 1e4) & 268435455;
+      var tmh = ((msecs / 4294967296) * 1e4) & 268435455;
       b[i++] = (tmh >>> 8) & 255;
       b[i++] = tmh & 255;
       b[i++] = ((tmh >>> 24) & 15) | 16;
       b[i++] = (tmh >>> 16) & 255;
       b[i++] = (clockseq >>> 8) | 128;
       b[i++] = clockseq & 255;
-      for (let n = 0; n < 6; ++n) {
+      for (var n = 0; n < 6; ++n) {
         b[i + n] = node[n];
       }
-      return buf || (0, _stringify.default)(b);
+      return buf ? buf : (0, _bytesToUuid.default)(b);
     }
-    var _default = v1;
-    exports.default = _default;
+    var _default = v12;
+    exports2.default = _default;
   },
 });
 
-// node_modules/uuid/dist/parse.js
-var require_parse = __commonJS({
-  'node_modules/uuid/dist/parse.js'(exports) {
-    'use strict';
-    Object.defineProperty(exports, '__esModule', {
-      value: true,
-    });
-    exports.default = void 0;
-    var _validate = _interopRequireDefault(require_validate());
-    function _interopRequireDefault(obj) {
-      return obj && obj.__esModule ? obj : { default: obj };
-    }
-    function parse(uuid) {
-      if (!(0, _validate.default)(uuid)) {
-        throw TypeError('Invalid UUID');
-      }
-      let v;
-      const arr = new Uint8Array(16);
-      arr[0] = (v = parseInt(uuid.slice(0, 8), 16)) >>> 24;
-      arr[1] = (v >>> 16) & 255;
-      arr[2] = (v >>> 8) & 255;
-      arr[3] = v & 255;
-      arr[4] = (v = parseInt(uuid.slice(9, 13), 16)) >>> 8;
-      arr[5] = v & 255;
-      arr[6] = (v = parseInt(uuid.slice(14, 18), 16)) >>> 8;
-      arr[7] = v & 255;
-      arr[8] = (v = parseInt(uuid.slice(19, 23), 16)) >>> 8;
-      arr[9] = v & 255;
-      arr[10] = ((v = parseInt(uuid.slice(24, 36), 16)) / 1099511627776) & 255;
-      arr[11] = (v / 4294967296) & 255;
-      arr[12] = (v >>> 24) & 255;
-      arr[13] = (v >>> 16) & 255;
-      arr[14] = (v >>> 8) & 255;
-      arr[15] = v & 255;
-      return arr;
-    }
-    var _default = parse;
-    exports.default = _default;
-  },
-});
-
-// node_modules/uuid/dist/v35.js
+// node_modules/aws-sdk/node_modules/uuid/dist/v35.js
 var require_v35 = __commonJS({
-  'node_modules/uuid/dist/v35.js'(exports) {
+  'node_modules/aws-sdk/node_modules/uuid/dist/v35.js'(exports2) {
     'use strict';
-    Object.defineProperty(exports, '__esModule', {
+    Object.defineProperty(exports2, '__esModule', {
       value: true,
     });
-    exports.default = _default;
-    exports.URL = exports.DNS = void 0;
-    var _stringify = _interopRequireDefault(require_stringify());
-    var _parse = _interopRequireDefault(require_parse());
+    exports2.default = _default;
+    exports2.URL = exports2.DNS = void 0;
+    var _bytesToUuid = _interopRequireDefault(require_bytesToUuid());
     function _interopRequireDefault(obj) {
       return obj && obj.__esModule ? obj : { default: obj };
     }
-    function stringToBytes(str) {
+    function uuidToBytes(uuid) {
+      var bytes = [];
+      uuid.replace(/[a-fA-F0-9]{2}/g, function (hex) {
+        bytes.push(parseInt(hex, 16));
+      });
+      return bytes;
+    }
+    function stringToBytes2(str) {
       str = unescape(encodeURIComponent(str));
-      const bytes = [];
-      for (let i = 0; i < str.length; ++i) {
-        bytes.push(str.charCodeAt(i));
+      var bytes = new Array(str.length);
+      for (var i = 0; i < str.length; i++) {
+        bytes[i] = str.charCodeAt(i);
       }
       return bytes;
     }
-    var DNS = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
-    exports.DNS = DNS;
-    var URL2 = '6ba7b811-9dad-11d1-80b4-00c04fd430c8';
-    exports.URL = URL2;
-    function _default(name, version, hashfunc) {
-      function generateUUID(value, namespace, buf, offset) {
-        if (typeof value === 'string') {
-          value = stringToBytes(value);
-        }
-        if (typeof namespace === 'string') {
-          namespace = (0, _parse.default)(namespace);
-        }
-        if (namespace.length !== 16) {
-          throw TypeError('Namespace must be array-like (16 iterable integer values, 0-255)');
-        }
-        let bytes = new Uint8Array(16 + value.length);
-        bytes.set(namespace);
-        bytes.set(value, namespace.length);
-        bytes = hashfunc(bytes);
-        bytes[6] = (bytes[6] & 15) | version;
+    var DNS2 = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+    exports2.DNS = DNS2;
+    var URL3 = '6ba7b811-9dad-11d1-80b4-00c04fd430c8';
+    exports2.URL = URL3;
+    function _default(name, version2, hashfunc) {
+      var generateUUID = function (value, namespace, buf, offset) {
+        var off = (buf && offset) || 0;
+        if (typeof value == 'string') value = stringToBytes2(value);
+        if (typeof namespace == 'string') namespace = uuidToBytes(namespace);
+        if (!Array.isArray(value)) throw TypeError('value must be an array of bytes');
+        if (!Array.isArray(namespace) || namespace.length !== 16)
+          throw TypeError('namespace must be uuid string or an Array of 16 byte values');
+        var bytes = hashfunc(namespace.concat(value));
+        bytes[6] = (bytes[6] & 15) | version2;
         bytes[8] = (bytes[8] & 63) | 128;
         if (buf) {
-          offset = offset || 0;
-          for (let i = 0; i < 16; ++i) {
-            buf[offset + i] = bytes[i];
+          for (var idx = 0; idx < 16; ++idx) {
+            buf[off + idx] = bytes[idx];
           }
-          return buf;
         }
-        return (0, _stringify.default)(bytes);
-      }
+        return buf || (0, _bytesToUuid.default)(bytes);
+      };
       try {
         generateUUID.name = name;
       } catch (err) {}
-      generateUUID.DNS = DNS;
-      generateUUID.URL = URL2;
+      generateUUID.DNS = DNS2;
+      generateUUID.URL = URL3;
       return generateUUID;
     }
   },
 });
 
-// node_modules/uuid/dist/md5.js
+// node_modules/aws-sdk/node_modules/uuid/dist/md5.js
 var require_md5 = __commonJS({
-  'node_modules/uuid/dist/md5.js'(exports) {
+  'node_modules/aws-sdk/node_modules/uuid/dist/md5.js'(exports2) {
     'use strict';
-    Object.defineProperty(exports, '__esModule', {
+    Object.defineProperty(exports2, '__esModule', {
       value: true,
     });
-    exports.default = void 0;
+    exports2.default = void 0;
     var _crypto = _interopRequireDefault(require('crypto'));
     function _interopRequireDefault(obj) {
       return obj && obj.__esModule ? obj : { default: obj };
     }
-    function md5(bytes) {
+    function md52(bytes) {
       if (Array.isArray(bytes)) {
         bytes = Buffer.from(bytes);
       } else if (typeof bytes === 'string') {
@@ -9106,75 +10124,78 @@ var require_md5 = __commonJS({
       }
       return _crypto.default.createHash('md5').update(bytes).digest();
     }
-    var _default = md5;
-    exports.default = _default;
+    var _default = md52;
+    exports2.default = _default;
   },
 });
 
-// node_modules/uuid/dist/v3.js
+// node_modules/aws-sdk/node_modules/uuid/dist/v3.js
 var require_v32 = __commonJS({
-  'node_modules/uuid/dist/v3.js'(exports) {
+  'node_modules/aws-sdk/node_modules/uuid/dist/v3.js'(exports2) {
     'use strict';
-    Object.defineProperty(exports, '__esModule', {
+    Object.defineProperty(exports2, '__esModule', {
       value: true,
     });
-    exports.default = void 0;
+    exports2.default = void 0;
     var _v = _interopRequireDefault(require_v35());
     var _md = _interopRequireDefault(require_md5());
     function _interopRequireDefault(obj) {
       return obj && obj.__esModule ? obj : { default: obj };
     }
-    var v3 = (0, _v.default)('v3', 48, _md.default);
-    var _default = v3;
-    exports.default = _default;
+    var v32 = (0, _v.default)('v3', 48, _md.default);
+    var _default = v32;
+    exports2.default = _default;
   },
 });
 
-// node_modules/uuid/dist/v4.js
+// node_modules/aws-sdk/node_modules/uuid/dist/v4.js
 var require_v42 = __commonJS({
-  'node_modules/uuid/dist/v4.js'(exports) {
+  'node_modules/aws-sdk/node_modules/uuid/dist/v4.js'(exports2) {
     'use strict';
-    Object.defineProperty(exports, '__esModule', {
+    Object.defineProperty(exports2, '__esModule', {
       value: true,
     });
-    exports.default = void 0;
+    exports2.default = void 0;
     var _rng = _interopRequireDefault(require_rng());
-    var _stringify = _interopRequireDefault(require_stringify());
+    var _bytesToUuid = _interopRequireDefault(require_bytesToUuid());
     function _interopRequireDefault(obj) {
       return obj && obj.__esModule ? obj : { default: obj };
     }
-    function v4(options, buf, offset) {
+    function v42(options, buf, offset) {
+      var i = (buf && offset) || 0;
+      if (typeof options == 'string') {
+        buf = options === 'binary' ? new Array(16) : null;
+        options = null;
+      }
       options = options || {};
-      const rnds = options.random || (options.rng || _rng.default)();
+      var rnds = options.random || (options.rng || _rng.default)();
       rnds[6] = (rnds[6] & 15) | 64;
       rnds[8] = (rnds[8] & 63) | 128;
       if (buf) {
-        offset = offset || 0;
-        for (let i = 0; i < 16; ++i) {
-          buf[offset + i] = rnds[i];
+        for (var ii = 0; ii < 16; ++ii) {
+          buf[i + ii] = rnds[ii];
         }
-        return buf;
       }
-      return (0, _stringify.default)(rnds);
+      return buf || (0, _bytesToUuid.default)(rnds);
     }
-    var _default = v4;
-    exports.default = _default;
+    var _default = v42;
+    exports2.default = _default;
   },
 });
 
-// node_modules/uuid/dist/sha1.js
+// node_modules/aws-sdk/node_modules/uuid/dist/sha1.js
 var require_sha1 = __commonJS({
-  'node_modules/uuid/dist/sha1.js'(exports) {
+  'node_modules/aws-sdk/node_modules/uuid/dist/sha1.js'(exports2) {
     'use strict';
-    Object.defineProperty(exports, '__esModule', {
+    Object.defineProperty(exports2, '__esModule', {
       value: true,
     });
-    exports.default = void 0;
+    exports2.default = void 0;
     var _crypto = _interopRequireDefault(require('crypto'));
     function _interopRequireDefault(obj) {
       return obj && obj.__esModule ? obj : { default: obj };
     }
-    function sha1(bytes) {
+    function sha12(bytes) {
       if (Array.isArray(bytes)) {
         bytes = Buffer.from(bytes);
       } else if (typeof bytes === 'string') {
@@ -9182,136 +10203,65 @@ var require_sha1 = __commonJS({
       }
       return _crypto.default.createHash('sha1').update(bytes).digest();
     }
-    var _default = sha1;
-    exports.default = _default;
+    var _default = sha12;
+    exports2.default = _default;
   },
 });
 
-// node_modules/uuid/dist/v5.js
+// node_modules/aws-sdk/node_modules/uuid/dist/v5.js
 var require_v5 = __commonJS({
-  'node_modules/uuid/dist/v5.js'(exports) {
+  'node_modules/aws-sdk/node_modules/uuid/dist/v5.js'(exports2) {
     'use strict';
-    Object.defineProperty(exports, '__esModule', {
+    Object.defineProperty(exports2, '__esModule', {
       value: true,
     });
-    exports.default = void 0;
+    exports2.default = void 0;
     var _v = _interopRequireDefault(require_v35());
     var _sha = _interopRequireDefault(require_sha1());
     function _interopRequireDefault(obj) {
       return obj && obj.__esModule ? obj : { default: obj };
     }
-    var v5 = (0, _v.default)('v5', 80, _sha.default);
-    var _default = v5;
-    exports.default = _default;
+    var v52 = (0, _v.default)('v5', 80, _sha.default);
+    var _default = v52;
+    exports2.default = _default;
   },
 });
 
-// node_modules/uuid/dist/nil.js
-var require_nil = __commonJS({
-  'node_modules/uuid/dist/nil.js'(exports) {
-    'use strict';
-    Object.defineProperty(exports, '__esModule', {
-      value: true,
-    });
-    exports.default = void 0;
-    var _default = '00000000-0000-0000-0000-000000000000';
-    exports.default = _default;
-  },
-});
-
-// node_modules/uuid/dist/version.js
-var require_version = __commonJS({
-  'node_modules/uuid/dist/version.js'(exports) {
-    'use strict';
-    Object.defineProperty(exports, '__esModule', {
-      value: true,
-    });
-    exports.default = void 0;
-    var _validate = _interopRequireDefault(require_validate());
-    function _interopRequireDefault(obj) {
-      return obj && obj.__esModule ? obj : { default: obj };
-    }
-    function version(uuid) {
-      if (!(0, _validate.default)(uuid)) {
-        throw TypeError('Invalid UUID');
-      }
-      return parseInt(uuid.substr(14, 1), 16);
-    }
-    var _default = version;
-    exports.default = _default;
-  },
-});
-
-// node_modules/uuid/dist/index.js
+// node_modules/aws-sdk/node_modules/uuid/dist/index.js
 var require_dist = __commonJS({
-  'node_modules/uuid/dist/index.js'(exports) {
+  'node_modules/aws-sdk/node_modules/uuid/dist/index.js'(exports2) {
     'use strict';
-    Object.defineProperty(exports, '__esModule', {
+    Object.defineProperty(exports2, '__esModule', {
       value: true,
     });
-    Object.defineProperty(exports, 'v1', {
+    Object.defineProperty(exports2, 'v1', {
       enumerable: true,
       get: function () {
         return _v.default;
       },
     });
-    Object.defineProperty(exports, 'v3', {
+    Object.defineProperty(exports2, 'v3', {
       enumerable: true,
       get: function () {
         return _v2.default;
       },
     });
-    Object.defineProperty(exports, 'v4', {
+    Object.defineProperty(exports2, 'v4', {
       enumerable: true,
       get: function () {
         return _v3.default;
       },
     });
-    Object.defineProperty(exports, 'v5', {
+    Object.defineProperty(exports2, 'v5', {
       enumerable: true,
       get: function () {
         return _v4.default;
-      },
-    });
-    Object.defineProperty(exports, 'NIL', {
-      enumerable: true,
-      get: function () {
-        return _nil.default;
-      },
-    });
-    Object.defineProperty(exports, 'version', {
-      enumerable: true,
-      get: function () {
-        return _version.default;
-      },
-    });
-    Object.defineProperty(exports, 'validate', {
-      enumerable: true,
-      get: function () {
-        return _validate.default;
-      },
-    });
-    Object.defineProperty(exports, 'stringify', {
-      enumerable: true,
-      get: function () {
-        return _stringify.default;
-      },
-    });
-    Object.defineProperty(exports, 'parse', {
-      enumerable: true,
-      get: function () {
-        return _parse.default;
       },
     });
     var _v = _interopRequireDefault(require_v1());
     var _v2 = _interopRequireDefault(require_v32());
     var _v3 = _interopRequireDefault(require_v42());
     var _v4 = _interopRequireDefault(require_v5());
-    var _nil = _interopRequireDefault(require_nil());
-    var _version = _interopRequireDefault(require_version());
-    var _validate = _interopRequireDefault(require_validate());
-    var _stringify = _interopRequireDefault(require_stringify());
-    var _parse = _interopRequireDefault(require_parse());
     function _interopRequireDefault(obj) {
       return obj && obj.__esModule ? obj : { default: obj };
     }
@@ -9320,7 +10270,7 @@ var require_dist = __commonJS({
 
 // node_modules/aws-sdk/lib/util.js
 var require_util = __commonJS({
-  'node_modules/aws-sdk/lib/util.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/util.js'(exports2, module2) {
     var AWS2;
     var util = {
       environment: 'nodejs',
@@ -9412,6 +10362,9 @@ var require_util = __commonJS({
         },
       },
       buffer: {
+        /**
+         * Buffer constructor for Node buffer and buffer pollyfill
+         */
         toBuffer: function (data, encoding) {
           return typeof util.Buffer.from === 'function' && util.Buffer.from !== Uint8Array.from
             ? util.Buffer.from(data, encoding)
@@ -9444,6 +10397,9 @@ var require_util = __commonJS({
           };
           return readable;
         },
+        /**
+         * Concatenates a list of Buffer objects.
+         */
         concat: function (buffers) {
           var length = 0,
             offset = 0,
@@ -9516,6 +10472,12 @@ var require_util = __commonJS({
         callback: function (err) {
           if (err) throw err;
         },
+        /**
+         * Turn a synchronous function into as "async" function by making it call
+         * a callback. The underlying function is called with all but the last argument,
+         * which is treated as the callback. The callback is passed passed a first argument
+         * of null on success to mimick standard node callbacks.
+         */
         makeAsync: function makeAsync(fn, expectedArgs) {
           if (expectedArgs && expectedArgs <= fn.length) {
             return fn;
@@ -9528,33 +10490,55 @@ var require_util = __commonJS({
           };
         },
       },
+      /**
+       * Date and time utility functions.
+       */
       date: {
+        /**
+         * @return [Date] the current JavaScript date object. Since all
+         *   AWS services rely on this date object, you can override
+         *   this function to provide a special time value to AWS service
+         *   requests.
+         */
         getDate: function getDate() {
           if (!AWS2) AWS2 = require_core();
           if (AWS2.config.systemClockOffset) {
-            return new Date(new Date().getTime() + AWS2.config.systemClockOffset);
+            return new Date(/* @__PURE__ */ new Date().getTime() + AWS2.config.systemClockOffset);
           } else {
-            return new Date();
+            return /* @__PURE__ */ new Date();
           }
         },
+        /**
+         * @return [String] the date in ISO-8601 format
+         */
         iso8601: function iso8601(date) {
           if (date === void 0) {
             date = util.date.getDate();
           }
           return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
         },
+        /**
+         * @return [String] the date in RFC 822 format
+         */
         rfc822: function rfc822(date) {
           if (date === void 0) {
             date = util.date.getDate();
           }
           return date.toUTCString();
         },
+        /**
+         * @return [Integer] the UNIX timestamp value for the current time
+         */
         unixTimestamp: function unixTimestamp(date) {
           if (date === void 0) {
             date = util.date.getDate();
           }
           return date.getTime() / 1e3;
         },
+        /**
+         * @param [String,number,Date] date
+         * @return [Date]
+         */
         from: function format(date) {
           if (typeof date === 'number') {
             return new Date(date * 1e3);
@@ -9562,6 +10546,16 @@ var require_util = __commonJS({
             return new Date(date);
           }
         },
+        /**
+         * Given a Date or date-like value, this function formats the
+         * date into a string of the requested value.
+         * @param [String,number,Date] date
+         * @param [String] formatter Valid formats are:
+         #   * 'iso8601'
+         #   * 'rfc822'
+         #   * 'unixTimestamp'
+         * @return [String]
+         */
         format: function format(date, formatter) {
           if (!formatter) formatter = 'iso8601';
           return util.date[formatter](util.date.from(date));
@@ -9633,7 +10627,7 @@ var require_util = __commonJS({
           if (typeof string === 'string') string = util.buffer.toBuffer(string);
           return util.crypto.lib.createHmac(fn, key).update(string).digest(digest);
         },
-        md5: function md5(data, digest, callback) {
+        md5: function md52(data, digest, callback) {
           return util.crypto.hash('md5', data, digest, callback);
         },
         sha256: function sha256(data, digest, callback) {
@@ -9705,6 +10699,8 @@ var require_util = __commonJS({
           return util.crypto.lib.createHash(algorithm);
         },
       },
+      /** @!ignore */
+      /* Abort constant */
       abort: {},
       each: function each(object, iterFunction) {
         for (var key in object) {
@@ -9783,7 +10779,7 @@ var require_util = __commonJS({
           Object.defineProperty(err, 'message', { enumerable: true });
         }
         err.name = String((options && options.name) || err.name || err.code || 'Error');
-        err.time = new Date();
+        err.time = /* @__PURE__ */ new Date();
         if (originalError) {
           err.originalError = originalError;
         }
@@ -9803,6 +10799,9 @@ var require_util = __commonJS({
         }
         return err;
       },
+      /**
+       * @api private
+       */
       inherit: function inherit(klass, features) {
         var newObject = null;
         if (features === void 0) {
@@ -9826,6 +10825,9 @@ var require_util = __commonJS({
         features.constructor.__super__ = klass;
         return features.constructor;
       },
+      /**
+       * @api private
+       */
       mixin: function mixin() {
         var klass = arguments[0];
         for (var i = 1; i < arguments.length; i++) {
@@ -9838,6 +10840,9 @@ var require_util = __commonJS({
         }
         return klass;
       },
+      /**
+       * @api private
+       */
       hideProperties: function hideProperties(obj, props) {
         if (typeof Object.defineProperty !== 'function') return;
         util.arrayEach(props, function (key) {
@@ -9848,6 +10853,9 @@ var require_util = __commonJS({
           });
         });
       },
+      /**
+       * @api private
+       */
       property: function property(obj, name, value, enumerable, isValue) {
         var opts = {
           configurable: true,
@@ -9861,6 +10869,9 @@ var require_util = __commonJS({
         }
         Object.defineProperty(obj, name, opts);
       },
+      /**
+       * @api private
+       */
       memoizedProperty: function memoizedProperty(obj, name, get, enumerable) {
         var cachedValue = null;
         util.property(
@@ -9875,6 +10886,13 @@ var require_util = __commonJS({
           enumerable
         );
       },
+      /**
+       * TODO Remove in major version revision
+       * This backfill populates response data without the
+       * top-level payload name.
+       *
+       * @api private
+       */
       hoistPayloadMember: function hoistPayloadMember(resp) {
         var req = resp.request;
         var operationName = req.operation;
@@ -9890,6 +10908,11 @@ var require_util = __commonJS({
           }
         }
       },
+      /**
+       * Compute SHA-256 checksums of streams
+       *
+       * @api private
+       */
       computeSha256: function computeSha256(body, done) {
         if (util.isNode()) {
           var Stream = util.stream.Stream;
@@ -9914,15 +10937,26 @@ var require_util = __commonJS({
           else done(null, sha);
         });
       },
+      /**
+       * @api private
+       */
       isClockSkewed: function isClockSkewed(serverTime) {
         if (serverTime) {
-          util.property(AWS2.config, 'isClockSkewed', Math.abs(new Date().getTime() - serverTime) >= 3e5, false);
+          util.property(
+            AWS2.config,
+            'isClockSkewed',
+            Math.abs(/* @__PURE__ */ new Date().getTime() - serverTime) >= 3e5,
+            false
+          );
           return AWS2.config.isClockSkewed;
         }
       },
       applyClockOffset: function applyClockOffset(serverTime) {
-        if (serverTime) AWS2.config.systemClockOffset = serverTime - new Date().getTime();
+        if (serverTime) AWS2.config.systemClockOffset = serverTime - /* @__PURE__ */ new Date().getTime();
       },
+      /**
+       * @api private
+       */
       extractRequestId: function extractRequestId(resp) {
         var requestId = resp.httpResponse.headers['x-amz-request-id'] || resp.httpResponse.headers['x-amzn-requestid'];
         if (!requestId && resp.data && resp.data.ResponseMetadata) {
@@ -9935,6 +10969,9 @@ var require_util = __commonJS({
           resp.error.requestId = requestId;
         }
       },
+      /**
+       * @api private
+       */
       addPromises: function addPromises(constructors, PromiseDependency) {
         var deletePromises = false;
         if (PromiseDependency === void 0 && AWS2 && AWS2.config) {
@@ -9956,6 +10993,14 @@ var require_util = __commonJS({
           }
         }
       },
+      /**
+       * @api private
+       * Return a function that will return a promise whose fate is decided by the
+       * callback behavior of the given method with `methodName`. The method to be
+       * promisified should conform to node.js convention of accepting a callback as
+       * last argument and calling that callback with error as the first argument
+       * and success value on the second argument.
+       */
       promisifyMethod: function promisifyMethod(methodName, PromiseDependency) {
         return function promise() {
           var self = this;
@@ -9972,6 +11017,9 @@ var require_util = __commonJS({
           });
         };
       },
+      /**
+       * @api private
+       */
       isDualstackAvailable: function isDualstackAvailable(service) {
         if (!service) return false;
         var metadata = require_metadata();
@@ -9979,6 +11027,9 @@ var require_util = __commonJS({
         if (typeof service !== 'string' || !metadata.hasOwnProperty(service)) return false;
         return !!metadata[service].dualstackAvailable;
       },
+      /**
+       * @api private
+       */
       calculateRetryDelay: function calculateRetryDelay(retryCount, retryDelayOptions, err) {
         if (!retryDelayOptions) retryDelayOptions = {};
         var customBackoff = retryDelayOptions.customBackoff || null;
@@ -9989,6 +11040,9 @@ var require_util = __commonJS({
         var delay = Math.random() * (Math.pow(2, retryCount) * base);
         return delay;
       },
+      /**
+       * @api private
+       */
       handleRequestWithRetries: function handleRequestWithRetries(httpRequest, options, cb) {
         if (!options) options = {};
         var http = AWS2.HttpClient.getInstance();
@@ -10036,11 +11090,17 @@ var require_util = __commonJS({
         };
         AWS2.util.defer(sendRequest);
       },
+      /**
+       * @api private
+       */
       uuid: {
         v4: function uuidV4() {
           return require_dist().v4();
         },
       },
+      /**
+       * @api private
+       */
       convertPayloadToString: function convertPayloadToString(resp) {
         var req = resp.request;
         var operation = req.operation;
@@ -10049,6 +11109,9 @@ var require_util = __commonJS({
           resp.data[rules.payload] = resp.data[rules.payload].toString();
         }
       },
+      /**
+       * @api private
+       */
       defer: function defer(callback) {
         if (typeof process === 'object' && typeof process.nextTick === 'function') {
           process.nextTick(callback);
@@ -10058,6 +11121,9 @@ var require_util = __commonJS({
           setTimeout(callback, 0);
         }
       },
+      /**
+       * @api private
+       */
       getRequestPayloadShape: function getRequestPayloadShape(req) {
         var operations = req.service.api.operations;
         if (!operations) return void 0;
@@ -10099,6 +11165,9 @@ var require_util = __commonJS({
           return target;
         }
       },
+      /**
+       * @api private
+       */
       ARN: {
         validate: function validateARN(str) {
           return str && str.indexOf('arn:') === 0 && str.split(':').length >= 6;
@@ -10135,10 +11204,25 @@ var require_util = __commonJS({
           );
         },
       },
+      /**
+       * @api private
+       */
       defaultProfile: 'default',
+      /**
+       * @api private
+       */
       configOptInEnv: 'AWS_SDK_LOAD_CONFIG',
+      /**
+       * @api private
+       */
       sharedCredentialsFileEnv: 'AWS_SHARED_CREDENTIALS_FILE',
+      /**
+       * @api private
+       */
       sharedConfigFileEnv: 'AWS_CONFIG_FILE',
+      /**
+       * @api private
+       */
       imdsDisabledEnv: 'AWS_EC2_METADATA_DISABLED',
     };
     module2.exports = util;
@@ -10147,7 +11231,7 @@ var require_util = __commonJS({
 
 // node_modules/aws-sdk/lib/event-stream/event-message-chunker-stream.js
 var require_event_message_chunker_stream = __commonJS({
-  'node_modules/aws-sdk/lib/event-stream/event-message-chunker-stream.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/event-stream/event-message-chunker-stream.js'(exports2, module2) {
     var util = require_core().util;
     var Transform = require('stream').Transform;
     var allocBuffer = util.buffer.alloc;
@@ -10168,7 +11252,12 @@ var require_event_message_chunker_stream = __commonJS({
           if (!this.messageLengthBuffer) {
             this.messageLengthBuffer = allocBuffer(4);
           }
-          var numBytesForTotal = Math.min(4 - this.currentMessagePendingLength, bytesRemaining);
+          var numBytesForTotal = Math.min(
+            4 - this.currentMessagePendingLength,
+            // remaining bytes to fill the messageLengthBuffer
+            bytesRemaining
+            // bytes left in chunk
+          );
           chunk.copy(
             this.messageLengthBuffer,
             this.currentMessagePendingLength,
@@ -10185,13 +11274,19 @@ var require_event_message_chunker_stream = __commonJS({
         }
         var numBytesToWrite = Math.min(
           this.currentMessageTotalLength - this.currentMessagePendingLength,
+          // number of bytes left to complete message
           chunkLength - currentOffset
+          // number of bytes left in the original chunk
         );
         chunk.copy(
           this.currentMessage,
+          // target buffer
           this.currentMessagePendingLength,
+          // target offset
           currentOffset,
+          // chunk offset
           currentOffset + numBytesToWrite
+          // chunk end to write
         );
         this.currentMessagePendingLength += numBytesToWrite;
         currentOffset += numBytesToWrite;
@@ -10232,7 +11327,7 @@ var require_event_message_chunker_stream = __commonJS({
 
 // node_modules/aws-sdk/lib/event-stream/int64.js
 var require_int64 = __commonJS({
-  'node_modules/aws-sdk/lib/event-stream/int64.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/event-stream/int64.js'(exports2, module2) {
     var util = require_core().util;
     var toBuffer = util.buffer.toBuffer;
     function Int64(bytes) {
@@ -10285,7 +11380,7 @@ var require_int64 = __commonJS({
 
 // node_modules/aws-sdk/lib/event-stream/split-message.js
 var require_split_message = __commonJS({
-  'node_modules/aws-sdk/lib/event-stream/split-message.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/event-stream/split-message.js'(exports2, module2) {
     var util = require_core().util;
     var toBuffer = util.buffer.toBuffer;
     var PRELUDE_MEMBER_LENGTH = 4;
@@ -10327,7 +11422,7 @@ var require_split_message = __commonJS({
 
 // node_modules/aws-sdk/lib/event-stream/parse-message.js
 var require_parse_message = __commonJS({
-  'node_modules/aws-sdk/lib/event-stream/parse-message.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/event-stream/parse-message.js'(exports2, module2) {
     var Int64 = require_int64().Int64;
     var splitMessage = require_split_message().splitMessage;
     var BOOLEAN_TAG = 'boolean';
@@ -10446,7 +11541,7 @@ var require_parse_message = __commonJS({
 
 // node_modules/aws-sdk/lib/event-stream/parse-event.js
 var require_parse_event = __commonJS({
-  'node_modules/aws-sdk/lib/event-stream/parse-event.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/event-stream/parse-event.js'(exports2, module2) {
     var parseMessage = require_parse_message().parseMessage;
     function parseEvent(parser, message, shape) {
       var parsedMessage = parseMessage(message);
@@ -10499,7 +11594,7 @@ var require_parse_event = __commonJS({
 
 // node_modules/aws-sdk/lib/event-stream/event-message-unmarshaller-stream.js
 var require_event_message_unmarshaller_stream = __commonJS({
-  'node_modules/aws-sdk/lib/event-stream/event-message-unmarshaller-stream.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/event-stream/event-message-unmarshaller-stream.js'(exports2, module2) {
     var Transform = require('stream').Transform;
     var parseEvent = require_parse_event().parseEvent;
     function EventUnmarshallerStream(options) {
@@ -10528,7 +11623,7 @@ var require_event_message_unmarshaller_stream = __commonJS({
 
 // node_modules/aws-sdk/lib/event-stream/streaming-create-event-stream.js
 var require_streaming_create_event_stream = __commonJS({
-  'node_modules/aws-sdk/lib/event-stream/streaming-create-event-stream.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/event-stream/streaming-create-event-stream.js'(exports2, module2) {
     var EventMessageChunkerStream = require_event_message_chunker_stream().EventMessageChunkerStream;
     var EventUnmarshallerStream = require_event_message_unmarshaller_stream().EventUnmarshallerStream;
     function createEventStream(stream, parser, model) {
@@ -10554,7 +11649,7 @@ var require_streaming_create_event_stream = __commonJS({
 
 // node_modules/aws-sdk/lib/event-stream/event-message-chunker.js
 var require_event_message_chunker = __commonJS({
-  'node_modules/aws-sdk/lib/event-stream/event-message-chunker.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/event-stream/event-message-chunker.js'(exports2, module2) {
     function eventMessageChunker(buffer) {
       var messages = [];
       var offset = 0;
@@ -10574,7 +11669,7 @@ var require_event_message_chunker = __commonJS({
 
 // node_modules/aws-sdk/lib/event-stream/buffered-create-event-stream.js
 var require_buffered_create_event_stream = __commonJS({
-  'node_modules/aws-sdk/lib/event-stream/buffered-create-event-stream.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/event-stream/buffered-create-event-stream.js'(exports2, module2) {
     var eventMessageChunker = require_event_message_chunker().eventMessageChunker;
     var parseEvent = require_parse_event().parseEvent;
     function createEventStream(body, parser, model) {
@@ -10593,8 +11688,9 @@ var require_buffered_create_event_stream = __commonJS({
 
 // node_modules/aws-sdk/lib/realclock/nodeClock.js
 var require_nodeClock = __commonJS({
-  'node_modules/aws-sdk/lib/realclock/nodeClock.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/realclock/nodeClock.js'(exports2, module2) {
     module2.exports = {
+      //provide realtime clock for performance measurement
       now: function now() {
         var second = process.hrtime();
         return second[0] * 1e3 + second[1] / 1e6;
@@ -10605,7 +11701,7 @@ var require_nodeClock = __commonJS({
 
 // node_modules/aws-sdk/lib/publisher/index.js
 var require_publisher = __commonJS({
-  'node_modules/aws-sdk/lib/publisher/index.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/publisher/index.js'(exports2, module2) {
     var util = require_core().util;
     var dgram = require('dgram');
     var stringToBuffer = util.buffer.toBuffer;
@@ -10685,7 +11781,7 @@ var require_publisher = __commonJS({
 
 // node_modules/aws-sdk/lib/publisher/configuration.js
 var require_configuration = __commonJS({
-  'node_modules/aws-sdk/lib/publisher/configuration.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/publisher/configuration.js'(exports2, module2) {
     var AWS2 = require_core();
     function resolveMonitoringConfig() {
       var config = {
@@ -10740,7 +11836,7 @@ var require_configuration = __commonJS({
 
 // node_modules/aws-sdk/lib/shared-ini/ini-loader.js
 var require_ini_loader = __commonJS({
-  'node_modules/aws-sdk/lib/shared-ini/ini-loader.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/shared-ini/ini-loader.js'(exports2, module2) {
     var AWS2 = require_core();
     var os = require('os');
     var path = require('path');
@@ -10774,10 +11870,24 @@ var require_ini_loader = __commonJS({
         this.resolvedProfiles = {};
         this.resolvedSsoSessions = {};
       },
+      /** Remove all cached files. Used after config files are updated. */
       clearCachedFiles: function clearCachedFiles() {
         this.resolvedProfiles = {};
         this.resolvedSsoSessions = {};
       },
+      /**
+       * Load configurations from config/credentials files and cache them
+       * for later use. If no file is specified it will try to load default files.
+       *
+       * @param options [map] information describing the file
+       * @option options filename [String] ('~/.aws/credentials' or defined by
+       *   AWS_SHARED_CREDENTIALS_FILE process env var or '~/.aws/config' if
+       *   isConfig is set to true)
+       *   path to the file to be read.
+       * @option options isConfig [Boolean] (false) True to read config file.
+       * @return [map<String,String>] object containing contents from file in key-value
+       *   pairs.
+       */
       loadFrom: function loadFrom(options) {
         options = options || {};
         var isConfig = options.isConfig === true;
@@ -10794,6 +11904,16 @@ var require_ini_loader = __commonJS({
         }
         return this.resolvedProfiles[filename];
       },
+      /**
+       * Load sso sessions from config/credentials files and cache them
+       * for later use. If no file is specified it will try to load default file.
+       *
+       * @param options [map] information describing the file
+       * @option options filename [String] ('~/.aws/config' or defined by
+       *   AWS_CONFIG_FILE process env var)
+       * @return [map<String,String>] object containing contents from file in key-value
+       *   pairs.
+       */
       loadSsoSessionsFrom: function loadSsoSessionsFrom(options) {
         options = options || {};
         var filename = options.filename || this.getDefaultFilePath(true);
@@ -10829,7 +11949,7 @@ var require_ini_loader = __commonJS({
 
 // node_modules/aws-sdk/lib/shared-ini/index.js
 var require_shared_ini = __commonJS({
-  'node_modules/aws-sdk/lib/shared-ini/index.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/shared-ini/index.js'(exports2, module2) {
     var IniLoader = require_ini_loader().IniLoader;
     module2.exports.iniLoader = new IniLoader();
   },
@@ -10837,7 +11957,7 @@ var require_shared_ini = __commonJS({
 
 // node_modules/aws-sdk/lib/config_regional_endpoint.js
 var require_config_regional_endpoint = __commonJS({
-  'node_modules/aws-sdk/lib/config_regional_endpoint.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/config_regional_endpoint.js'(exports2, module2) {
     var AWS2 = require_core();
     function validateRegionalEndpointsFlagValue(configValue, errorOptions) {
       if (typeof configValue !== 'string') return void 0;
@@ -10908,6 +12028,31 @@ var require_sts = __commonJS({
     var ENV_REGIONAL_ENDPOINT_ENABLED = 'AWS_STS_REGIONAL_ENDPOINTS';
     var CONFIG_REGIONAL_ENDPOINT_ENABLED = 'sts_regional_endpoints';
     AWS2.util.update(AWS2.STS.prototype, {
+      /**
+       * @overload credentialsFrom(data, credentials = null)
+       *   Creates a credentials object from STS response data containing
+       *   credentials information. Useful for quickly setting AWS credentials.
+       *
+       *   @note This is a low-level utility function. If you want to load temporary
+       *     credentials into your process for subsequent requests to AWS resources,
+       *     you should use {AWS.TemporaryCredentials} instead.
+       *   @param data [map] data retrieved from a call to {getFederatedToken},
+       *     {getSessionToken}, {assumeRole}, or {assumeRoleWithWebIdentity}.
+       *   @param credentials [AWS.Credentials] an optional credentials object to
+       *     fill instead of creating a new object. Useful when modifying an
+       *     existing credentials object from a refresh call.
+       *   @return [AWS.TemporaryCredentials] the set of temporary credentials
+       *     loaded from a raw STS operation response.
+       *   @example Using credentialsFrom to load global AWS credentials
+       *     var sts = new AWS.STS();
+       *     sts.getSessionToken(function (err, data) {
+       *       if (err) console.log("Error getting credentials");
+       *       else {
+       *         AWS.config.credentials = sts.credentialsFrom(data);
+       *       }
+       *     });
+       *   @see AWS.TemporaryCredentials
+       */
       credentialsFrom: function credentialsFrom(data, credentials) {
         if (!data) return null;
         if (!credentials) credentials = new AWS2.TemporaryCredentials();
@@ -10924,9 +12069,15 @@ var require_sts = __commonJS({
       assumeRoleWithSAML: function assumeRoleWithSAML(params, callback) {
         return this.makeUnauthenticatedRequest('assumeRoleWithSAML', params, callback);
       },
+      /**
+       * @api private
+       */
       setupRequestListeners: function setupRequestListeners(request) {
         request.addListener('validate', this.optInRegionalEndpoint, true);
       },
+      /**
+       * @api private
+       */
       optInRegionalEndpoint: function optInRegionalEndpoint(req) {
         var service = req.service;
         var config = service.config;
@@ -10952,7 +12103,7 @@ var require_sts = __commonJS({
 
 // node_modules/aws-sdk/apis/sts-2011-06-15.min.json
 var require_sts_2011_06_15_min = __commonJS({
-  'node_modules/aws-sdk/apis/sts-2011-06-15.min.json'(exports, module2) {
+  'node_modules/aws-sdk/apis/sts-2011-06-15.min.json'(exports2, module2) {
     module2.exports = {
       version: '2.0',
       metadata: {
@@ -11264,7 +12415,7 @@ var require_sts_2011_06_15_min = __commonJS({
 
 // node_modules/aws-sdk/apis/sts-2011-06-15.paginators.json
 var require_sts_2011_06_15_paginators = __commonJS({
-  'node_modules/aws-sdk/apis/sts-2011-06-15.paginators.json'(exports, module2) {
+  'node_modules/aws-sdk/apis/sts-2011-06-15.paginators.json'(exports2, module2) {
     module2.exports = {
       pagination: {},
     };
@@ -11273,7 +12424,7 @@ var require_sts_2011_06_15_paginators = __commonJS({
 
 // node_modules/aws-sdk/clients/sts.js
 var require_sts2 = __commonJS({
-  'node_modules/aws-sdk/clients/sts.js'(exports, module2) {
+  'node_modules/aws-sdk/clients/sts.js'(exports2, module2) {
     require_node_loader();
     var AWS2 = require_core();
     var Service = AWS2.Service;
@@ -11300,6 +12451,28 @@ var require_temporary_credentials = __commonJS({
     var AWS2 = require_core();
     var STS = require_sts2();
     AWS2.TemporaryCredentials = AWS2.util.inherit(AWS2.Credentials, {
+      /**
+       * Creates a new temporary credentials object.
+       *
+       * @note In order to create temporary credentials, you first need to have
+       *   "master" credentials configured in {AWS.Config.credentials}. These
+       *   master credentials are necessary to retrieve the temporary credentials,
+       *   as well as refresh the credentials when they expire.
+       * @param params [map] a map of options that are passed to the
+       *   {AWS.STS.assumeRole} or {AWS.STS.getSessionToken} operations.
+       *   If a `RoleArn` parameter is passed in, credentials will be based on the
+       *   IAM role.
+       * @param masterCredentials [AWS.Credentials] the master (non-temporary) credentials
+       *  used to get and refresh temporary credentials from AWS STS.
+       * @example Creating a new credentials object for generic temporary credentials
+       *   AWS.config.credentials = new AWS.TemporaryCredentials();
+       * @example Creating a new credentials object for an IAM role
+       *   AWS.config.credentials = new AWS.TemporaryCredentials({
+       *     RoleArn: 'arn:aws:iam::1234567890:role/TemporaryCredentials',
+       *   });
+       * @see AWS.STS.assumeRole
+       * @see AWS.STS.getSessionToken
+       */
       constructor: function TemporaryCredentials(params, masterCredentials) {
         AWS2.Credentials.call(this);
         this.loadMasterCredentials(masterCredentials);
@@ -11309,9 +12482,25 @@ var require_temporary_credentials = __commonJS({
           this.params.RoleSessionName = this.params.RoleSessionName || 'temporary-credentials';
         }
       },
+      /**
+       * Refreshes credentials using {AWS.STS.assumeRole} or
+       * {AWS.STS.getSessionToken}, depending on whether an IAM role ARN was passed
+       * to the credentials {constructor}.
+       *
+       * @callback callback function(err)
+       *   Called when the STS service responds (or fails). When
+       *   this callback is called with no error, it means that the credentials
+       *   information has been loaded into the object (as the `accessKeyId`,
+       *   `secretAccessKey`, and `sessionToken` properties).
+       *   @param err [Error] if an error occurred, this value will be filled
+       * @see get
+       */
       refresh: function refresh(callback) {
         this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
+      /**
+       * @api private
+       */
       load: function load(callback) {
         var self = this;
         self.createClients();
@@ -11326,6 +12515,9 @@ var require_temporary_credentials = __commonJS({
           });
         });
       },
+      /**
+       * @api private
+       */
       loadMasterCredentials: function loadMasterCredentials(masterCredentials) {
         this.masterCredentials = masterCredentials || AWS2.config.credentials;
         while (this.masterCredentials.masterCredentials) {
@@ -11335,6 +12527,9 @@ var require_temporary_credentials = __commonJS({
           this.masterCredentials = new AWS2.Credentials(this.masterCredentials);
         }
       },
+      /**
+       * @api private
+       */
       createClients: function () {
         this.service = this.service || new STS({ params: this.params });
       },
@@ -11348,6 +12543,34 @@ var require_chainable_temporary_credentials = __commonJS({
     var AWS2 = require_core();
     var STS = require_sts2();
     AWS2.ChainableTemporaryCredentials = AWS2.util.inherit(AWS2.Credentials, {
+      /**
+       * Creates a new temporary credentials object.
+       *
+       * @param options [map] a set of options
+       * @option options params [map] ({}) a map of options that are passed to the
+       *   {AWS.STS.assumeRole} or {AWS.STS.getSessionToken} operations.
+       *   If a `RoleArn` parameter is passed in, credentials will be based on the
+       *   IAM role. If a `SerialNumber` parameter is passed in, {tokenCodeFn} must
+       *   also be passed in or an error will be thrown.
+       * @option options masterCredentials [AWS.Credentials] the master credentials
+       *   used to get and refresh temporary credentials from AWS STS. By default,
+       *   AWS.config.credentials or AWS.config.credentialProvider will be used.
+       * @option options tokenCodeFn [Function] (null) Function to provide
+       *   `TokenCode`, if `SerialNumber` is provided for profile in {params}. Function
+       *   is called with value of `SerialNumber` and `callback`, and should provide
+       *   the `TokenCode` or an error to the callback in the format
+       *   `callback(err, token)`.
+       * @example Creating a new credentials object for generic temporary credentials
+       *   AWS.config.credentials = new AWS.ChainableTemporaryCredentials();
+       * @example Creating a new credentials object for an IAM role
+       *   AWS.config.credentials = new AWS.ChainableTemporaryCredentials({
+       *     params: {
+       *       RoleArn: 'arn:aws:iam::1234567890:role/TemporaryCredentials'
+       *     }
+       *   });
+       * @see AWS.STS.assumeRole
+       * @see AWS.STS.getSessionToken
+       */
       constructor: function ChainableTemporaryCredentials(options) {
         AWS2.Credentials.call(this);
         options = options || {};
@@ -11376,9 +12599,26 @@ var require_chainable_temporary_credentials = __commonJS({
         );
         this.service = new STS(config);
       },
+      /**
+       * Refreshes credentials using {AWS.STS.assumeRole} or
+       * {AWS.STS.getSessionToken}, depending on whether an IAM role ARN was passed
+       * to the credentials {constructor}.
+       *
+       * @callback callback function(err)
+       *   Called when the STS service responds (or fails). When
+       *   this callback is called with no error, it means that the credentials
+       *   information has been loaded into the object (as the `accessKeyId`,
+       *   `secretAccessKey`, and `sessionToken` properties).
+       *   @param err [Error] if an error occurred, this value will be filled
+       * @see AWS.Credentials.get
+       */
       refresh: function refresh(callback) {
         this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
+      /**
+       * @api private
+       * @param callback
+       */
       load: function load(callback) {
         var self = this;
         var operation = self.service.config.params.RoleArn ? 'assumeRole' : 'getSessionToken';
@@ -11399,6 +12639,9 @@ var require_chainable_temporary_credentials = __commonJS({
           });
         });
       },
+      /**
+       * @api private
+       */
       getTokenCode: function getTokenCode(callback) {
         var self = this;
         if (this.tokenCodeFn) {
@@ -11427,6 +12670,26 @@ var require_web_identity_credentials = __commonJS({
     var AWS2 = require_core();
     var STS = require_sts2();
     AWS2.WebIdentityCredentials = AWS2.util.inherit(AWS2.Credentials, {
+      /**
+       * Creates a new credentials object.
+       * @param (see AWS.STS.assumeRoleWithWebIdentity)
+       * @example Creating a new credentials object
+       *   AWS.config.credentials = new AWS.WebIdentityCredentials({
+       *     RoleArn: 'arn:aws:iam::1234567890:role/WebIdentity',
+       *     WebIdentityToken: 'ABCDEFGHIJKLMNOP', // token from identity service
+       *     RoleSessionName: 'web' // optional name, defaults to web-identity
+       *   }, {
+       *     // optionally provide configuration to apply to the underlying AWS.STS service client
+       *     // if configuration is not provided, then configuration will be pulled from AWS.config
+       *
+       *     // specify timeout options
+       *     httpOptions: {
+       *       timeout: 100
+       *     }
+       *   });
+       * @see AWS.STS.assumeRoleWithWebIdentity
+       * @see AWS.Config
+       */
       constructor: function WebIdentityCredentials(params, clientConfig) {
         AWS2.Credentials.call(this);
         this.expired = true;
@@ -11435,9 +12698,23 @@ var require_web_identity_credentials = __commonJS({
         this.data = null;
         this._clientConfig = AWS2.util.copy(clientConfig || {});
       },
+      /**
+       * Refreshes credentials using {AWS.STS.assumeRoleWithWebIdentity}
+       *
+       * @callback callback function(err)
+       *   Called when the STS service responds (or fails). When
+       *   this callback is called with no error, it means that the credentials
+       *   information has been loaded into the object (as the `accessKeyId`,
+       *   `secretAccessKey`, and `sessionToken` properties).
+       *   @param err [Error] if an error occurred, this value will be filled
+       * @see get
+       */
       refresh: function refresh(callback) {
         this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
+      /**
+       * @api private
+       */
       load: function load(callback) {
         var self = this;
         self.createClients();
@@ -11450,6 +12727,9 @@ var require_web_identity_credentials = __commonJS({
           callback(err);
         });
       },
+      /**
+       * @api private
+       */
       createClients: function () {
         if (!this.service) {
           var stsConfig = AWS2.util.merge({}, this._clientConfig);
@@ -11463,7 +12743,7 @@ var require_web_identity_credentials = __commonJS({
 
 // node_modules/aws-sdk/apis/cognito-identity-2014-06-30.min.json
 var require_cognito_identity_2014_06_30_min = __commonJS({
-  'node_modules/aws-sdk/apis/cognito-identity-2014-06-30.min.json'(exports, module2) {
+  'node_modules/aws-sdk/apis/cognito-identity-2014-06-30.min.json'(exports2, module2) {
     module2.exports = {
       version: '2.0',
       metadata: {
@@ -12085,7 +13365,7 @@ var require_cognito_identity_2014_06_30_min = __commonJS({
 
 // node_modules/aws-sdk/apis/cognito-identity-2014-06-30.paginators.json
 var require_cognito_identity_2014_06_30_paginators = __commonJS({
-  'node_modules/aws-sdk/apis/cognito-identity-2014-06-30.paginators.json'(exports, module2) {
+  'node_modules/aws-sdk/apis/cognito-identity-2014-06-30.paginators.json'(exports2, module2) {
     module2.exports = {
       pagination: {
         ListIdentityPools: {
@@ -12101,7 +13381,7 @@ var require_cognito_identity_2014_06_30_paginators = __commonJS({
 
 // node_modules/aws-sdk/clients/cognitoidentity.js
 var require_cognitoidentity = __commonJS({
-  'node_modules/aws-sdk/clients/cognitoidentity.js'(exports, module2) {
+  'node_modules/aws-sdk/clients/cognitoidentity.js'(exports2, module2) {
     require_node_loader();
     var AWS2 = require_core();
     var Service = AWS2.Service;
@@ -12128,10 +13408,70 @@ var require_cognito_identity_credentials = __commonJS({
     var CognitoIdentity = require_cognitoidentity();
     var STS = require_sts2();
     AWS2.CognitoIdentityCredentials = AWS2.util.inherit(AWS2.Credentials, {
+      /**
+       * @api private
+       */
       localStorageKey: {
         id: 'aws.cognito.identity-id.',
         providers: 'aws.cognito.identity-providers.',
       },
+      /**
+       * Creates a new credentials object.
+       * @example Creating a new credentials object
+       *   AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+       *
+       *     // either IdentityPoolId or IdentityId is required
+       *     // See the IdentityPoolId param for AWS.CognitoIdentity.getID (linked below)
+       *     // See the IdentityId param for AWS.CognitoIdentity.getCredentialsForIdentity
+       *     // or AWS.CognitoIdentity.getOpenIdToken (linked below)
+       *     IdentityPoolId: 'us-east-1:1699ebc0-7900-4099-b910-2df94f52a030',
+       *     IdentityId: 'us-east-1:128d0a74-c82f-4553-916d-90053e4a8b0f'
+       *
+       *     // optional, only necessary when the identity pool is not configured
+       *     // to use IAM roles in the Amazon Cognito Console
+       *     // See the RoleArn param for AWS.STS.assumeRoleWithWebIdentity (linked below)
+       *     RoleArn: 'arn:aws:iam::1234567890:role/MYAPP-CognitoIdentity',
+       *
+       *     // optional tokens, used for authenticated login
+       *     // See the Logins param for AWS.CognitoIdentity.getID (linked below)
+       *     Logins: {
+       *       'graph.facebook.com': 'FBTOKEN',
+       *       'www.amazon.com': 'AMAZONTOKEN',
+       *       'accounts.google.com': 'GOOGLETOKEN',
+       *       'api.twitter.com': 'TWITTERTOKEN',
+       *       'www.digits.com': 'DIGITSTOKEN'
+       *     },
+       *
+       *     // optional name, defaults to web-identity
+       *     // See the RoleSessionName param for AWS.STS.assumeRoleWithWebIdentity (linked below)
+       *     RoleSessionName: 'web',
+       *
+       *     // optional, only necessary when application runs in a browser
+       *     // and multiple users are signed in at once, used for caching
+       *     LoginId: 'example@gmail.com'
+       *
+       *   }, {
+       *      // optionally provide configuration to apply to the underlying service clients
+       *      // if configuration is not provided, then configuration will be pulled from AWS.config
+       *
+       *      // region should match the region your identity pool is located in
+       *      region: 'us-east-1',
+       *
+       *      // specify timeout options
+       *      httpOptions: {
+       *        timeout: 100
+       *      }
+       *   });
+       * @see AWS.CognitoIdentity.getId
+       * @see AWS.CognitoIdentity.getCredentialsForIdentity
+       * @see AWS.STS.assumeRoleWithWebIdentity
+       * @see AWS.CognitoIdentity.getOpenIdToken
+       * @see AWS.Config
+       * @note If a region is not provided in the global AWS.config, or
+       *   specified in the `clientConfig` to the CognitoIdentityCredentials
+       *   constructor, you may encounter a 'Missing credentials in config' error
+       *   when calling making a service call.
+       */
       constructor: function CognitoIdentityCredentials(params, clientConfig) {
         AWS2.Credentials.call(this);
         this.expired = true;
@@ -12151,9 +13491,25 @@ var require_cognito_identity_credentials = __commonJS({
           },
         });
       },
+      /**
+       * Refreshes credentials using {AWS.CognitoIdentity.getCredentialsForIdentity},
+       * or {AWS.STS.assumeRoleWithWebIdentity}.
+       *
+       * @callback callback function(err)
+       *   Called when the STS service responds (or fails). When
+       *   this callback is called with no error, it means that the credentials
+       *   information has been loaded into the object (as the `accessKeyId`,
+       *   `secretAccessKey`, and `sessionToken` properties).
+       *   @param err [Error] if an error occurred, this value will be filled
+       * @see AWS.Credentials.get
+       */
       refresh: function refresh(callback) {
         this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
+      /**
+       * @api private
+       * @param callback
+       */
       load: function load(callback) {
         var self = this;
         self.createClients();
@@ -12172,6 +13528,11 @@ var require_cognito_identity_credentials = __commonJS({
           }
         });
       },
+      /**
+       * Clears the cached Cognito ID associated with the currently configured
+       * identity pool ID. Use this to manually invalidate your cache if
+       * the identity pool ID was deleted.
+       */
       clearCachedId: function clearCache() {
         this._identityId = null;
         delete this.params.IdentityId;
@@ -12180,12 +13541,28 @@ var require_cognito_identity_credentials = __commonJS({
         delete this.storage[this.localStorageKey.id + poolId + loginId];
         delete this.storage[this.localStorageKey.providers + poolId + loginId];
       },
+      /**
+       * @api private
+       */
       clearIdOnNotAuthorized: function clearIdOnNotAuthorized(err) {
         var self = this;
         if (err.code == 'NotAuthorizedException') {
           self.clearCachedId();
         }
       },
+      /**
+       * Retrieves a Cognito ID, loading from cache if it was already retrieved
+       * on this device.
+       *
+       * @callback callback function(err, identityId)
+       *   @param err [Error, null] an error object if the call failed or null if
+       *     it succeeded.
+       *   @param identityId [String, null] if successful, the callback will return
+       *     the Cognito ID.
+       * @note If not loaded explicitly, the Cognito ID is loaded and stored in
+       *   localStorage in the browser environment of a device.
+       * @api private
+       */
       getId: function getId(callback) {
         var self = this;
         if (typeof self.params.IdentityId === 'string') {
@@ -12200,6 +13577,9 @@ var require_cognito_identity_credentials = __commonJS({
           }
         });
       },
+      /**
+       * @api private
+       */
       loadCredentials: function loadCredentials(data, credentials) {
         if (!data || !credentials) return;
         credentials.expired = false;
@@ -12208,6 +13588,9 @@ var require_cognito_identity_credentials = __commonJS({
         credentials.sessionToken = data.Credentials.SessionToken;
         credentials.expireTime = data.Credentials.Expiration;
       },
+      /**
+       * @api private
+       */
       getCredentialsForIdentity: function getCredentialsForIdentity(callback) {
         var self = this;
         self.cognito.getCredentialsForIdentity(function (err, data) {
@@ -12221,6 +13604,9 @@ var require_cognito_identity_credentials = __commonJS({
           callback(err);
         });
       },
+      /**
+       * @api private
+       */
       getCredentialsFromSTS: function getCredentialsFromSTS(callback) {
         var self = this;
         self.cognito.getOpenIdToken(function (err, data) {
@@ -12240,6 +13626,9 @@ var require_cognito_identity_credentials = __commonJS({
           }
         });
       },
+      /**
+       * @api private
+       */
       loadCachedId: function loadCachedId() {
         var self = this;
         if (AWS2.util.isBrowser() && !self.params.IdentityId) {
@@ -12258,6 +13647,9 @@ var require_cognito_identity_credentials = __commonJS({
           }
         }
       },
+      /**
+       * @api private
+       */
       createClients: function () {
         var clientConfig = this._clientConfig;
         this.webIdentityCredentials =
@@ -12269,6 +13661,9 @@ var require_cognito_identity_credentials = __commonJS({
         }
         this.sts = this.sts || new STS(clientConfig);
       },
+      /**
+       * @api private
+       */
       cacheId: function cacheId(data) {
         this._identityId = data.IdentityId;
         this.params.IdentityId = this._identityId;
@@ -12279,14 +13674,23 @@ var require_cognito_identity_credentials = __commonJS({
           }
         }
       },
+      /**
+       * @api private
+       */
       getStorage: function getStorage(key) {
         return this.storage[this.localStorageKey[key] + this.params.IdentityPoolId + (this.params.LoginId || '')];
       },
+      /**
+       * @api private
+       */
       setStorage: function setStorage(key, val) {
         try {
           this.storage[this.localStorageKey[key] + this.params.IdentityPoolId + (this.params.LoginId || '')] = val;
         } catch (_) {}
       },
+      /**
+       * @api private
+       */
       storage: (function () {
         try {
           var storage =
@@ -12310,14 +13714,39 @@ var require_saml_credentials = __commonJS({
     var AWS2 = require_core();
     var STS = require_sts2();
     AWS2.SAMLCredentials = AWS2.util.inherit(AWS2.Credentials, {
+      /**
+       * Creates a new credentials object.
+       * @param (see AWS.STS.assumeRoleWithSAML)
+       * @example Creating a new credentials object
+       *   AWS.config.credentials = new AWS.SAMLCredentials({
+       *     RoleArn: 'arn:aws:iam::1234567890:role/SAMLRole',
+       *     PrincipalArn: 'arn:aws:iam::1234567890:role/SAMLPrincipal',
+       *     SAMLAssertion: 'base64-token', // base64-encoded token from IdP
+       *   });
+       * @see AWS.STS.assumeRoleWithSAML
+       */
       constructor: function SAMLCredentials(params) {
         AWS2.Credentials.call(this);
         this.expired = true;
         this.params = params;
       },
+      /**
+       * Refreshes credentials using {AWS.STS.assumeRoleWithSAML}
+       *
+       * @callback callback function(err)
+       *   Called when the STS service responds (or fails). When
+       *   this callback is called with no error, it means that the credentials
+       *   information has been loaded into the object (as the `accessKeyId`,
+       *   `secretAccessKey`, and `sessionToken` properties).
+       *   @param err [Error] if an error occurred, this value will be filled
+       * @see get
+       */
       refresh: function refresh(callback) {
         this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
+      /**
+       * @api private
+       */
       load: function load(callback) {
         var self = this;
         self.createClients();
@@ -12328,6 +13757,9 @@ var require_saml_credentials = __commonJS({
           callback(err);
         });
       },
+      /**
+       * @api private
+       */
       createClients: function () {
         this.service = this.service || new STS({ params: this.params });
       },
@@ -12342,6 +13774,19 @@ var require_process_credentials = __commonJS({
     var proc = require('child_process');
     var iniLoader = AWS2.util.iniLoader;
     AWS2.ProcessCredentials = AWS2.util.inherit(AWS2.Credentials, {
+      /**
+       * Creates a new ProcessCredentials object.
+       *
+       * @param options [map] a set of options
+       * @option options profile [String] (AWS_PROFILE env var or 'default')
+       *   the name of the profile to load.
+       * @option options filename [String] ('~/.aws/credentials' or defined by
+       *   AWS_SHARED_CREDENTIALS_FILE process env var)
+       *   the filename to use when loading credentials.
+       * @option options callback [Function] (err) Credentials are eagerly loaded
+       *   by the constructor. When the callback is called with no error, the
+       *   credentials have been loaded successfully.
+       */
       constructor: function ProcessCredentials(options) {
         AWS2.Credentials.call(this);
         options = options || {};
@@ -12349,6 +13794,9 @@ var require_process_credentials = __commonJS({
         this.profile = options.profile || process.env.AWS_PROFILE || AWS2.util.defaultProfile;
         this.get(options.callback || AWS2.util.fn.noop);
       },
+      /**
+       * @api private
+       */
       load: function load(callback) {
         var self = this;
         try {
@@ -12383,6 +13831,13 @@ var require_process_credentials = __commonJS({
           callback(err);
         }
       },
+      /**
+       * Executes the credential_process and retrieves
+       * credentials from the output
+       * @api private
+       * @param profile [map] credentials profile
+       * @throws ProcessCredentialsProviderFailure
+       */
       loadViaCredentialProcess: function loadViaCredentialProcess(profile, callback) {
         proc.exec(profile['credential_process'], { env: process.env }, function (err, stdOut, stdErr) {
           if (err) {
@@ -12412,6 +13867,17 @@ var require_process_credentials = __commonJS({
           }
         });
       },
+      /**
+       * Loads the credentials from the credential process
+       *
+       * @callback callback function(err)
+       *   Called after the credential process has been executed. When this
+       *   callback is called with no error, it means that the credentials
+       *   information has been loaded into the object (as the `accessKeyId`,
+       *   `secretAccessKey`, and `sessionToken` properties).
+       *   @param err [Error] if an error occurred, this value will be filled
+       * @see get
+       */
       refresh: function refresh(callback) {
         iniLoader.clearCachedFiles();
         this.coalesceRefresh(callback || AWS2.util.fn.callback);
@@ -12422,9 +13888,9 @@ var require_process_credentials = __commonJS({
 
 // node_modules/xml2js/lib/defaults.js
 var require_defaults = __commonJS({
-  'node_modules/xml2js/lib/defaults.js'(exports) {
+  'node_modules/xml2js/lib/defaults.js'(exports2) {
     (function () {
-      exports.defaults = {
+      exports2.defaults = {
         0.1: {
           explicitCharkey: false,
           trim: true,
@@ -12492,13 +13958,13 @@ var require_defaults = __commonJS({
           cdata: false,
         },
       };
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/Utility.js
 var require_Utility = __commonJS({
-  'node_modules/xmlbuilder/lib/Utility.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/Utility.js'(exports2, module2) {
     (function () {
       var assign,
         getValue,
@@ -12578,18 +14044,18 @@ var require_Utility = __commonJS({
       module2.exports.isEmpty = isEmpty;
       module2.exports.isPlainObject = isPlainObject;
       module2.exports.getValue = getValue;
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLDOMImplementation.js
 var require_XMLDOMImplementation = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLDOMImplementation.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLDOMImplementation.js'(exports2, module2) {
     (function () {
       var XMLDOMImplementation;
       module2.exports = XMLDOMImplementation = (function () {
         function XMLDOMImplementation2() {}
-        XMLDOMImplementation2.prototype.hasFeature = function (feature, version) {
+        XMLDOMImplementation2.prototype.hasFeature = function (feature, version2) {
           return true;
         };
         XMLDOMImplementation2.prototype.createDocumentType = function (qualifiedName, publicId, systemId) {
@@ -12601,18 +14067,18 @@ var require_XMLDOMImplementation = __commonJS({
         XMLDOMImplementation2.prototype.createHTMLDocument = function (title) {
           throw new Error('This DOM method is not implemented.');
         };
-        XMLDOMImplementation2.prototype.getFeature = function (feature, version) {
+        XMLDOMImplementation2.prototype.getFeature = function (feature, version2) {
           throw new Error('This DOM method is not implemented.');
         };
         return XMLDOMImplementation2;
       })();
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLDOMErrorHandler.js
 var require_XMLDOMErrorHandler = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLDOMErrorHandler.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLDOMErrorHandler.js'(exports2, module2) {
     (function () {
       var XMLDOMErrorHandler;
       module2.exports = XMLDOMErrorHandler = (function () {
@@ -12622,13 +14088,13 @@ var require_XMLDOMErrorHandler = __commonJS({
         };
         return XMLDOMErrorHandler2;
       })();
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLDOMStringList.js
 var require_XMLDOMStringList = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLDOMStringList.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLDOMStringList.js'(exports2, module2) {
     (function () {
       var XMLDOMStringList;
       module2.exports = XMLDOMStringList = (function () {
@@ -12648,13 +14114,13 @@ var require_XMLDOMStringList = __commonJS({
         };
         return XMLDOMStringList2;
       })();
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLDOMConfiguration.js
 var require_XMLDOMConfiguration = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLDOMConfiguration.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLDOMConfiguration.js'(exports2, module2) {
     (function () {
       var XMLDOMConfiguration, XMLDOMErrorHandler, XMLDOMStringList;
       XMLDOMErrorHandler = require_XMLDOMErrorHandler();
@@ -12707,13 +14173,13 @@ var require_XMLDOMConfiguration = __commonJS({
         };
         return XMLDOMConfiguration2;
       })();
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/NodeType.js
 var require_NodeType = __commonJS({
-  'node_modules/xmlbuilder/lib/NodeType.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/NodeType.js'(exports2, module2) {
     (function () {
       module2.exports = {
         Element: 1,
@@ -12734,13 +14200,13 @@ var require_NodeType = __commonJS({
         ElementDeclaration: 204,
         Dummy: 205,
       };
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLAttribute.js
 var require_XMLAttribute = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLAttribute.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLAttribute.js'(exports2, module2) {
     (function () {
       var NodeType, XMLAttribute, XMLNode;
       NodeType = require_NodeType();
@@ -12830,13 +14296,13 @@ var require_XMLAttribute = __commonJS({
         };
         return XMLAttribute2;
       })();
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLNamedNodeMap.js
 var require_XMLNamedNodeMap = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLNamedNodeMap.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLNamedNodeMap.js'(exports2, module2) {
     (function () {
       var XMLNamedNodeMap;
       module2.exports = XMLNamedNodeMap = (function () {
@@ -12880,13 +14346,13 @@ var require_XMLNamedNodeMap = __commonJS({
         };
         return XMLNamedNodeMap2;
       })();
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLElement.js
 var require_XMLElement = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLElement.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLElement.js'(exports2, module2) {
     (function () {
       var NodeType,
         XMLAttribute,
@@ -13161,13 +14627,13 @@ var require_XMLElement = __commonJS({
         };
         return XMLElement2;
       })(XMLNode);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLCharacterData.js
 var require_XMLCharacterData = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLCharacterData.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLCharacterData.js'(exports2, module2) {
     (function () {
       var XMLCharacterData,
         XMLNode,
@@ -13241,13 +14707,13 @@ var require_XMLCharacterData = __commonJS({
         };
         return XMLCharacterData2;
       })(XMLNode);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLCData.js
 var require_XMLCData = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLCData.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLCData.js'(exports2, module2) {
     (function () {
       var NodeType,
         XMLCData,
@@ -13286,13 +14752,13 @@ var require_XMLCData = __commonJS({
         };
         return XMLCData2;
       })(XMLCharacterData);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLComment.js
 var require_XMLComment = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLComment.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLComment.js'(exports2, module2) {
     (function () {
       var NodeType,
         XMLCharacterData,
@@ -13331,13 +14797,13 @@ var require_XMLComment = __commonJS({
         };
         return XMLComment2;
       })(XMLCharacterData);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLDeclaration.js
 var require_XMLDeclaration = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLDeclaration.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLDeclaration.js'(exports2, module2) {
     (function () {
       var NodeType,
         XMLDeclaration,
@@ -13361,17 +14827,17 @@ var require_XMLDeclaration = __commonJS({
       NodeType = require_NodeType();
       module2.exports = XMLDeclaration = (function (superClass) {
         extend(XMLDeclaration2, superClass);
-        function XMLDeclaration2(parent, version, encoding, standalone) {
+        function XMLDeclaration2(parent, version2, encoding, standalone) {
           var ref;
           XMLDeclaration2.__super__.constructor.call(this, parent);
-          if (isObject(version)) {
-            (ref = version), (version = ref.version), (encoding = ref.encoding), (standalone = ref.standalone);
+          if (isObject(version2)) {
+            (ref = version2), (version2 = ref.version), (encoding = ref.encoding), (standalone = ref.standalone);
           }
-          if (!version) {
-            version = '1.0';
+          if (!version2) {
+            version2 = '1.0';
           }
           this.type = NodeType.Declaration;
-          this.version = this.stringify.xmlVersion(version);
+          this.version = this.stringify.xmlVersion(version2);
           if (encoding != null) {
             this.encoding = this.stringify.xmlEncoding(encoding);
           }
@@ -13384,13 +14850,13 @@ var require_XMLDeclaration = __commonJS({
         };
         return XMLDeclaration2;
       })(XMLNode);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLDTDAttList.js
 var require_XMLDTDAttList = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLDTDAttList.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLDTDAttList.js'(exports2, module2) {
     (function () {
       var NodeType,
         XMLDTDAttList,
@@ -13452,13 +14918,13 @@ var require_XMLDTDAttList = __commonJS({
         };
         return XMLDTDAttList2;
       })(XMLNode);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLDTDEntity.js
 var require_XMLDTDEntity = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLDTDEntity.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLDTDEntity.js'(exports2, module2) {
     (function () {
       var NodeType,
         XMLDTDEntity,
@@ -13555,13 +15021,13 @@ var require_XMLDTDEntity = __commonJS({
         };
         return XMLDTDEntity2;
       })(XMLNode);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLDTDElement.js
 var require_XMLDTDElement = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLDTDElement.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLDTDElement.js'(exports2, module2) {
     (function () {
       var NodeType,
         XMLDTDElement,
@@ -13603,13 +15069,13 @@ var require_XMLDTDElement = __commonJS({
         };
         return XMLDTDElement2;
       })(XMLNode);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLDTDNotation.js
 var require_XMLDTDNotation = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLDTDNotation.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLDTDNotation.js'(exports2, module2) {
     (function () {
       var NodeType,
         XMLDTDNotation,
@@ -13665,13 +15131,13 @@ var require_XMLDTDNotation = __commonJS({
         };
         return XMLDTDNotation2;
       })(XMLNode);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLDocType.js
 var require_XMLDocType = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLDocType.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLDocType.js'(exports2, module2) {
     (function () {
       var NodeType,
         XMLDTDAttList,
@@ -13856,13 +15322,13 @@ var require_XMLDocType = __commonJS({
         };
         return XMLDocType2;
       })(XMLNode);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLRaw.js
 var require_XMLRaw = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLRaw.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLRaw.js'(exports2, module2) {
     (function () {
       var NodeType,
         XMLNode,
@@ -13900,13 +15366,13 @@ var require_XMLRaw = __commonJS({
         };
         return XMLRaw2;
       })(XMLNode);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLText.js
 var require_XMLText = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLText.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLText.js'(exports2, module2) {
     (function () {
       var NodeType,
         XMLCharacterData,
@@ -13974,13 +15440,13 @@ var require_XMLText = __commonJS({
         };
         return XMLText2;
       })(XMLCharacterData);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLProcessingInstruction.js
 var require_XMLProcessingInstruction = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLProcessingInstruction.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLProcessingInstruction.js'(exports2, module2) {
     (function () {
       var NodeType,
         XMLCharacterData,
@@ -14031,13 +15497,13 @@ var require_XMLProcessingInstruction = __commonJS({
         };
         return XMLProcessingInstruction2;
       })(XMLCharacterData);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLDummy.js
 var require_XMLDummy = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLDummy.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLDummy.js'(exports2, module2) {
     (function () {
       var NodeType,
         XMLDummy,
@@ -14071,13 +15537,13 @@ var require_XMLDummy = __commonJS({
         };
         return XMLDummy2;
       })(XMLNode);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLNodeList.js
 var require_XMLNodeList = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLNodeList.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLNodeList.js'(exports2, module2) {
     (function () {
       var XMLNodeList;
       module2.exports = XMLNodeList = (function () {
@@ -14097,13 +15563,13 @@ var require_XMLNodeList = __commonJS({
         };
         return XMLNodeList2;
       })();
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/DocumentPosition.js
 var require_DocumentPosition = __commonJS({
-  'node_modules/xmlbuilder/lib/DocumentPosition.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/DocumentPosition.js'(exports2, module2) {
     (function () {
       module2.exports = {
         Disconnected: 1,
@@ -14113,13 +15579,13 @@ var require_DocumentPosition = __commonJS({
         ContainedBy: 16,
         ImplementationSpecific: 32,
       };
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLNode.js
 var require_XMLNode = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLNode.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLNode.js'(exports2, module2) {
     (function () {
       var DocumentPosition,
         NodeType,
@@ -14539,10 +16005,10 @@ var require_XMLNode = __commonJS({
           Array.prototype.push.apply(this.parent.children, removed);
           return this;
         };
-        XMLNode2.prototype.declaration = function (version, encoding, standalone) {
+        XMLNode2.prototype.declaration = function (version2, encoding, standalone) {
           var doc, xmldec;
           doc = this.document();
-          xmldec = new XMLDeclaration(doc, version, encoding, standalone);
+          xmldec = new XMLDeclaration(doc, version2, encoding, standalone);
           if (doc.children.length === 0) {
             doc.children.unshift(xmldec);
           } else if (doc.children[0].type === NodeType.Declaration) {
@@ -14666,8 +16132,8 @@ var require_XMLNode = __commonJS({
         XMLNode2.prototype.doc = function () {
           return this.document();
         };
-        XMLNode2.prototype.dec = function (version, encoding, standalone) {
-          return this.declaration(version, encoding, standalone);
+        XMLNode2.prototype.dec = function (version2, encoding, standalone) {
+          return this.declaration(version2, encoding, standalone);
         };
         XMLNode2.prototype.e = function (name, attributes, text) {
           return this.element(name, attributes, text);
@@ -14714,7 +16180,7 @@ var require_XMLNode = __commonJS({
         XMLNode2.prototype.normalize = function () {
           throw new Error('This DOM method is not implemented.' + this.debugInfo());
         };
-        XMLNode2.prototype.isSupported = function (feature, version) {
+        XMLNode2.prototype.isSupported = function (feature, version2) {
           return true;
         };
         XMLNode2.prototype.hasAttributes = function () {
@@ -14774,7 +16240,7 @@ var require_XMLNode = __commonJS({
           }
           return true;
         };
-        XMLNode2.prototype.getFeature = function (feature, version) {
+        XMLNode2.prototype.getFeature = function (feature, version2) {
           throw new Error('This DOM method is not implemented.' + this.debugInfo());
         };
         XMLNode2.prototype.setUserData = function (key, data, handler) {
@@ -14861,13 +16327,13 @@ var require_XMLNode = __commonJS({
         };
         return XMLNode2;
       })();
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLStringifier.js
 var require_XMLStringifier = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLStringifier.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLStringifier.js'(exports2, module2) {
     (function () {
       var XMLStringifier,
         bind = function (fn, me) {
@@ -15086,13 +16552,13 @@ var require_XMLStringifier = __commonJS({
         };
         return XMLStringifier2;
       })();
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/WriterState.js
 var require_WriterState = __commonJS({
-  'node_modules/xmlbuilder/lib/WriterState.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/WriterState.js'(exports2, module2) {
     (function () {
       module2.exports = {
         None: 0,
@@ -15100,13 +16566,13 @@ var require_WriterState = __commonJS({
         InsideTag: 2,
         CloseTag: 3,
       };
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLWriterBase.js
 var require_XMLWriterBase = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLWriterBase.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLWriterBase.js'(exports2, module2) {
     (function () {
       var NodeType,
         WriterState,
@@ -15520,13 +16986,13 @@ var require_XMLWriterBase = __commonJS({
         XMLWriterBase2.prototype.closeAttribute = function (att, options, level) {};
         return XMLWriterBase2;
       })();
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLStringWriter.js
 var require_XMLStringWriter = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLStringWriter.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLStringWriter.js'(exports2, module2) {
     (function () {
       var XMLStringWriter,
         XMLWriterBase,
@@ -15565,13 +17031,13 @@ var require_XMLStringWriter = __commonJS({
         };
         return XMLStringWriter2;
       })(XMLWriterBase);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLDocument.js
 var require_XMLDocument = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLDocument.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLDocument.js'(exports2, module2) {
     (function () {
       var NodeType,
         XMLDOMConfiguration,
@@ -15781,13 +17247,13 @@ var require_XMLDocument = __commonJS({
         };
         return XMLDocument2;
       })(XMLNode);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLDocumentCB.js
 var require_XMLDocumentCB = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLDocumentCB.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLDocumentCB.js'(exports2, module2) {
     (function () {
       var NodeType,
         WriterState,
@@ -16049,13 +17515,13 @@ var require_XMLDocumentCB = __commonJS({
           }
           return this;
         };
-        XMLDocumentCB2.prototype.declaration = function (version, encoding, standalone) {
+        XMLDocumentCB2.prototype.declaration = function (version2, encoding, standalone) {
           var node;
           this.openCurrent();
           if (this.documentStarted) {
             throw new Error('declaration() must be the first node.');
           }
-          node = new XMLDeclaration(this, version, encoding, standalone);
+          node = new XMLDeclaration(this, version2, encoding, standalone);
           this.onData(this.writer.declaration(node, this.writerOptions, this.currentLevel + 1), this.currentLevel + 1);
           return this;
         };
@@ -16241,8 +17707,8 @@ var require_XMLDocumentCB = __commonJS({
         XMLDocumentCB2.prototype.ins = function (target, value) {
           return this.instruction(target, value);
         };
-        XMLDocumentCB2.prototype.dec = function (version, encoding, standalone) {
-          return this.declaration(version, encoding, standalone);
+        XMLDocumentCB2.prototype.dec = function (version2, encoding, standalone) {
+          return this.declaration(version2, encoding, standalone);
         };
         XMLDocumentCB2.prototype.dtd = function (root, pubID, sysID) {
           return this.doctype(root, pubID, sysID);
@@ -16293,13 +17759,13 @@ var require_XMLDocumentCB = __commonJS({
         };
         return XMLDocumentCB2;
       })();
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/XMLStreamWriter.js
 var require_XMLStreamWriter = __commonJS({
-  'node_modules/xmlbuilder/lib/XMLStreamWriter.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/XMLStreamWriter.js'(exports2, module2) {
     (function () {
       var NodeType,
         WriterState,
@@ -16473,13 +17939,13 @@ var require_XMLStreamWriter = __commonJS({
         };
         return XMLStreamWriter2;
       })(XMLWriterBase);
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xmlbuilder/lib/index.js
 var require_lib = __commonJS({
-  'node_modules/xmlbuilder/lib/index.js'(exports, module2) {
+  'node_modules/xmlbuilder/lib/index.js'(exports2, module2) {
     (function () {
       var NodeType,
         WriterState,
@@ -16536,13 +18002,13 @@ var require_lib = __commonJS({
       module2.exports.implementation = new XMLDOMImplementation();
       module2.exports.nodeType = NodeType;
       module2.exports.writerState = WriterState;
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xml2js/lib/builder.js
 var require_builder3 = __commonJS({
-  'node_modules/xml2js/lib/builder.js'(exports) {
+  'node_modules/xml2js/lib/builder.js'(exports2) {
     (function () {
       'use strict';
       var builder,
@@ -16564,7 +18030,7 @@ var require_builder3 = __commonJS({
       escapeCDATA = function (entry) {
         return entry.replace(']]>', ']]]]><![CDATA[>');
       };
-      exports.Builder = (function () {
+      exports2.Builder = (function () {
         function Builder(opts) {
           var key, ref, value;
           this.options = {};
@@ -16590,7 +18056,7 @@ var require_builder3 = __commonJS({
           } else {
             rootName = this.options.rootName;
           }
-          render = (function (_this) {
+          render = /* @__PURE__ */ (function (_this) {
             return function (element, obj) {
               var attr, child, entry, index, key, value;
               if (typeof obj !== 'object') {
@@ -16664,13 +18130,13 @@ var require_builder3 = __commonJS({
         };
         return Builder;
       })();
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/sax/lib/sax.js
 var require_sax = __commonJS({
-  'node_modules/sax/lib/sax.js'(exports) {
+  'node_modules/sax/lib/sax.js'(exports2) {
     (function (sax) {
       sax.parser = function (strict, opt) {
         return new SAXParser(strict, opt);
@@ -16933,41 +18399,77 @@ var require_sax = __commonJS({
       var S = 0;
       sax.STATE = {
         BEGIN: S++,
+        // leading byte order mark or whitespace
         BEGIN_WHITESPACE: S++,
+        // leading whitespace
         TEXT: S++,
+        // general stuff
         TEXT_ENTITY: S++,
+        // &amp and such.
         OPEN_WAKA: S++,
+        // <
         SGML_DECL: S++,
+        // <!BLARG
         SGML_DECL_QUOTED: S++,
+        // <!BLARG foo "bar
         DOCTYPE: S++,
+        // <!DOCTYPE
         DOCTYPE_QUOTED: S++,
+        // <!DOCTYPE "//blah
         DOCTYPE_DTD: S++,
+        // <!DOCTYPE "//blah" [ ...
         DOCTYPE_DTD_QUOTED: S++,
+        // <!DOCTYPE "//blah" [ "foo
         COMMENT_STARTING: S++,
+        // <!-
         COMMENT: S++,
+        // <!--
         COMMENT_ENDING: S++,
+        // <!-- blah -
         COMMENT_ENDED: S++,
+        // <!-- blah --
         CDATA: S++,
+        // <![CDATA[ something
         CDATA_ENDING: S++,
+        // ]
         CDATA_ENDING_2: S++,
+        // ]]
         PROC_INST: S++,
+        // <?hi
         PROC_INST_BODY: S++,
+        // <?hi there
         PROC_INST_ENDING: S++,
+        // <?hi "there" ?
         OPEN_TAG: S++,
+        // <strong
         OPEN_TAG_SLASH: S++,
+        // <strong /
         ATTRIB: S++,
+        // <a
         ATTRIB_NAME: S++,
+        // <a foo
         ATTRIB_NAME_SAW_WHITE: S++,
+        // <a foo _
         ATTRIB_VALUE: S++,
+        // <a foo=
         ATTRIB_VALUE_QUOTED: S++,
+        // <a foo="bar
         ATTRIB_VALUE_CLOSED: S++,
+        // <a foo="bar"
         ATTRIB_VALUE_UNQUOTED: S++,
+        // <a foo=bar
         ATTRIB_VALUE_ENTITY_Q: S++,
+        // <foo bar="&quot;"
         ATTRIB_VALUE_ENTITY_U: S++,
+        // <foo bar=&quot
         CLOSE_TAG: S++,
+        // </a
         CLOSE_TAG_SAW_WHITE: S++,
+        // </a   >
         SCRIPT: S++,
+        // <script> ...
         SCRIPT_ENDING: S++,
+        // <script> ... <
       };
       sax.XML_ENTITIES = {
         amp: '&',
@@ -18052,7 +19554,12 @@ var require_sax = __commonJS({
             var result = '';
             while (++index < length) {
               var codePoint = Number(arguments[index]);
-              if (!isFinite(codePoint) || codePoint < 0 || codePoint > 1114111 || floor(codePoint) !== codePoint) {
+              if (
+                !isFinite(codePoint) || // `NaN`, `+Infinity`, or `-Infinity`
+                codePoint < 0 || // not a valid Unicode code point
+                codePoint > 1114111 || // not a valid Unicode code point
+                floor(codePoint) !== codePoint
+              ) {
                 throw RangeError('Invalid code point: ' + codePoint);
               }
               if (codePoint <= 65535) {
@@ -18081,61 +19588,61 @@ var require_sax = __commonJS({
           }
         })();
       }
-    })(typeof exports === 'undefined' ? (exports.sax = {}) : exports);
+    })(typeof exports2 === 'undefined' ? (exports2.sax = {}) : exports2);
   },
 });
 
 // node_modules/xml2js/lib/bom.js
 var require_bom = __commonJS({
-  'node_modules/xml2js/lib/bom.js'(exports) {
+  'node_modules/xml2js/lib/bom.js'(exports2) {
     (function () {
       'use strict';
-      exports.stripBOM = function (str) {
+      exports2.stripBOM = function (str) {
         if (str[0] === '\uFEFF') {
           return str.substring(1);
         } else {
           return str;
         }
       };
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xml2js/lib/processors.js
 var require_processors = __commonJS({
-  'node_modules/xml2js/lib/processors.js'(exports) {
+  'node_modules/xml2js/lib/processors.js'(exports2) {
     (function () {
       'use strict';
       var prefixMatch;
       prefixMatch = new RegExp(/(?!xmlns)^.*:/);
-      exports.normalize = function (str) {
+      exports2.normalize = function (str) {
         return str.toLowerCase();
       };
-      exports.firstCharLowerCase = function (str) {
+      exports2.firstCharLowerCase = function (str) {
         return str.charAt(0).toLowerCase() + str.slice(1);
       };
-      exports.stripPrefix = function (str) {
+      exports2.stripPrefix = function (str) {
         return str.replace(prefixMatch, '');
       };
-      exports.parseNumbers = function (str) {
+      exports2.parseNumbers = function (str) {
         if (!isNaN(str)) {
           str = str % 1 === 0 ? parseInt(str, 10) : parseFloat(str);
         }
         return str;
       };
-      exports.parseBooleans = function (str) {
+      exports2.parseBooleans = function (str) {
         if (/^(?:true|false)$/i.test(str)) {
           str = str.toLowerCase() === 'true';
         }
         return str;
       };
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xml2js/lib/parser.js
 var require_parser2 = __commonJS({
-  'node_modules/xml2js/lib/parser.js'(exports) {
+  'node_modules/xml2js/lib/parser.js'(exports2) {
     (function () {
       'use strict';
       var bom,
@@ -18191,7 +19698,7 @@ var require_parser2 = __commonJS({
         descriptor.configurable = true;
         return Object.defineProperty(obj, key, descriptor);
       };
-      exports.Parser = (function (superClass) {
+      exports2.Parser = (function (superClass) {
         extend(Parser, superClass);
         function Parser(opts) {
           this.parseStringPromise = bind(this.parseStringPromise, this);
@@ -18200,8 +19707,8 @@ var require_parser2 = __commonJS({
           this.assignOrPush = bind(this.assignOrPush, this);
           this.processAsync = bind(this.processAsync, this);
           var key, ref, value;
-          if (!(this instanceof exports.Parser)) {
-            return new exports.Parser(opts);
+          if (!(this instanceof exports2.Parser)) {
+            return new exports2.Parser(opts);
           }
           this.options = {};
           ref = defaults['0.2'];
@@ -18271,7 +19778,7 @@ var require_parser2 = __commonJS({
             xmlns: this.options.xmlns,
           });
           this.saxParser.errThrown = false;
-          this.saxParser.onerror = (function (_this) {
+          this.saxParser.onerror = /* @__PURE__ */ (function (_this) {
             return function (error) {
               _this.saxParser.resume();
               if (!_this.saxParser.errThrown) {
@@ -18280,7 +19787,7 @@ var require_parser2 = __commonJS({
               }
             };
           })(this);
-          this.saxParser.onend = (function (_this) {
+          this.saxParser.onend = /* @__PURE__ */ (function (_this) {
             return function () {
               if (!_this.saxParser.ended) {
                 _this.saxParser.ended = true;
@@ -18294,7 +19801,7 @@ var require_parser2 = __commonJS({
           stack = [];
           attrkey = this.options.attrkey;
           charkey = this.options.charkey;
-          this.saxParser.onopentag = (function (_this) {
+          this.saxParser.onopentag = /* @__PURE__ */ (function (_this) {
             return function (node) {
               var key, newValue, obj, processedKey, ref;
               obj = {};
@@ -18331,7 +19838,7 @@ var require_parser2 = __commonJS({
               return stack.push(obj);
             };
           })(this);
-          this.saxParser.onclosetag = (function (_this) {
+          this.saxParser.onclosetag = /* @__PURE__ */ (function (_this) {
             return function () {
               var cdata, emptyStr, key, node, nodeName, obj, objClone, old, s, xpath;
               obj = stack.pop();
@@ -18435,7 +19942,7 @@ var require_parser2 = __commonJS({
               }
             };
           })(this);
-          ontext = (function (_this) {
+          ontext = /* @__PURE__ */ (function (_this) {
             return function (text) {
               var charChild, s;
               s = stack[stack.length - 1];
@@ -18462,7 +19969,7 @@ var require_parser2 = __commonJS({
             };
           })(this);
           this.saxParser.ontext = ontext;
-          return (this.saxParser.oncdata = (function (_this) {
+          return (this.saxParser.oncdata = /* @__PURE__ */ (function (_this) {
             return function (text) {
               var s;
               s = ontext(text);
@@ -18509,7 +20016,7 @@ var require_parser2 = __commonJS({
         };
         Parser.prototype.parseStringPromise = function (str) {
           return new Promise(
-            (function (_this) {
+            /* @__PURE__ */ (function (_this) {
               return function (resolve, reject) {
                 return _this.parseString(str, function (err, value) {
                   if (err) {
@@ -18524,7 +20031,7 @@ var require_parser2 = __commonJS({
         };
         return Parser;
       })(events);
-      exports.parseString = function (str, a, b) {
+      exports2.parseString = function (str, a, b) {
         var cb, options, parser;
         if (b != null) {
           if (typeof b === 'function') {
@@ -18539,24 +20046,24 @@ var require_parser2 = __commonJS({
           }
           options = {};
         }
-        parser = new exports.Parser(options);
+        parser = new exports2.Parser(options);
         return parser.parseString(str, cb);
       };
-      exports.parseStringPromise = function (str, a) {
+      exports2.parseStringPromise = function (str, a) {
         var options, parser;
         if (typeof a === 'object') {
           options = a;
         }
-        parser = new exports.Parser(options);
+        parser = new exports2.Parser(options);
         return parser.parseStringPromise(str);
       };
-    }.call(exports));
+    }.call(exports2));
   },
 });
 
 // node_modules/xml2js/lib/xml2js.js
 var require_xml2js = __commonJS({
-  'node_modules/xml2js/lib/xml2js.js'(exports) {
+  'node_modules/xml2js/lib/xml2js.js'(exports2) {
     (function () {
       'use strict';
       var builder,
@@ -18580,40 +20087,50 @@ var require_xml2js = __commonJS({
       builder = require_builder3();
       parser = require_parser2();
       processors = require_processors();
-      exports.defaults = defaults.defaults;
-      exports.processors = processors;
-      exports.ValidationError = (function (superClass) {
+      exports2.defaults = defaults.defaults;
+      exports2.processors = processors;
+      exports2.ValidationError = (function (superClass) {
         extend(ValidationError, superClass);
         function ValidationError(message) {
           this.message = message;
         }
         return ValidationError;
       })(Error);
-      exports.Builder = builder.Builder;
-      exports.Parser = parser.Parser;
-      exports.parseString = parser.parseString;
-      exports.parseStringPromise = parser.parseStringPromise;
-    }.call(exports));
+      exports2.Builder = builder.Builder;
+      exports2.Parser = parser.Parser;
+      exports2.parseString = parser.parseString;
+      exports2.parseStringPromise = parser.parseStringPromise;
+    }.call(exports2));
   },
 });
 
 // node_modules/aws-sdk/lib/xml/node_parser.js
 var require_node_parser = __commonJS({
-  'node_modules/aws-sdk/lib/xml/node_parser.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/xml/node_parser.js'(exports2, module2) {
     var AWS2 = require_core();
     var util = AWS2.util;
     var Shape = AWS2.Model.Shape;
     var xml2js = require_xml2js();
     var options = {
+      // options passed to xml2js parser
       explicitCharkey: false,
+      // undocumented
       trim: false,
+      // trim the leading/trailing whitespace from text nodes
       normalize: false,
+      // trim interior whitespace inside text nodes
       explicitRoot: false,
+      // return the root node in the resulting object?
       emptyTag: null,
+      // the default value for empty nodes
       explicitArray: true,
+      // always put child nodes in an array
       ignoreAttrs: false,
+      // ignore attributes, only create text nodes
       mergeAttrs: false,
+      // merge attributes and child elements
       validator: null,
+      // a callable validator
     };
     function NodeXmlParser() {}
     NodeXmlParser.prototype.parse = function (xml, shape) {
@@ -18820,7 +20337,7 @@ var require_node = __commonJS({
           }
           if (stream.didCallback) return;
           stream.didCallback = true;
-          if (err.code === 'ECONNRESET' || err.code === 'EPIPE' || err.code === 'ETIMEDOUT') {
+          if ('ECONNRESET' === err.code || 'EPIPE' === err.code || 'ETIMEDOUT' === err.code) {
             errCallback(AWS2.util.error(err, { code: 'TimeoutError' }));
           } else {
             errCallback(err);
@@ -18858,6 +20375,9 @@ var require_node = __commonJS({
           stream.end();
         }
       },
+      /**
+       * Create the https.Agent or http.Agent according to the request schema.
+       */
       getAgent: function getAgent(useSSL, agentOptions) {
         var http = useSSL ? require('https') : require('http');
         if (useSSL) {
@@ -18924,11 +20444,29 @@ var require_token_file_web_identity_credentials = __commonJS({
     var STS = require_sts2();
     var iniLoader = AWS2.util.iniLoader;
     AWS2.TokenFileWebIdentityCredentials = AWS2.util.inherit(AWS2.Credentials, {
+      /**
+       * @example Creating a new credentials object
+       *  AWS.config.credentials = new AWS.TokenFileWebIdentityCredentials(
+       *   // optionally provide configuration to apply to the underlying AWS.STS service client
+       *   // if configuration is not provided, then configuration will be pulled from AWS.config
+       *   {
+       *     // specify timeout options
+       *     httpOptions: {
+       *       timeout: 100
+       *     }
+       *   });
+       * @see AWS.Config
+       */
       constructor: function TokenFileWebIdentityCredentials(clientConfig) {
         AWS2.Credentials.call(this);
         this.data = null;
         this.clientConfig = AWS2.util.copy(clientConfig || {});
       },
+      /**
+       * Returns params from environment variables
+       *
+       * @api private
+       */
       getParamsFromEnv: function getParamsFromEnv() {
         var ENV_TOKEN_FILE = 'AWS_WEB_IDENTITY_TOKEN_FILE',
           ENV_ROLE_ARN = 'AWS_ROLE_ARN';
@@ -18942,6 +20480,11 @@ var require_token_file_web_identity_credentials = __commonJS({
           ];
         }
       },
+      /**
+       * Returns params from shared config variables
+       *
+       * @api private
+       */
       getParamsFromSharedConfig: function getParamsFromSharedConfig() {
         var profiles = AWS2.util.getProfilesFromSharedConfig(iniLoader);
         var profileName = process.env.AWS_PROFILE || AWS2.util.defaultProfile;
@@ -18967,9 +20510,23 @@ var require_token_file_web_identity_credentials = __commonJS({
         });
         return paramsArray;
       },
+      /**
+       * Refreshes credentials using {AWS.STS.assumeRoleWithWebIdentity}
+       *
+       * @callback callback function(err)
+       *   Called when the STS service responds (or fails). When
+       *   this callback is called with no error, it means that the credentials
+       *   information has been loaded into the object (as the `accessKeyId`,
+       *   `secretAccessKey`, and `sessionToken` properties).
+       *   @param err [Error] if an error occurred, this value will be filled
+       * @see AWS.Credentials.get
+       */
       refresh: function refresh(callback) {
         this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
+      /**
+       * @api private
+       */
       assumeRoleChaining: function assumeRoleChaining(paramsArray, callback) {
         var self = this;
         if (paramsArray.length === 0) {
@@ -18995,6 +20552,9 @@ var require_token_file_web_identity_credentials = __commonJS({
           );
         }
       },
+      /**
+       * @api private
+       */
       load: function load(callback) {
         var self = this;
         try {
@@ -19029,6 +20589,9 @@ var require_token_file_web_identity_credentials = __commonJS({
           callback(err);
         }
       },
+      /**
+       * @api private
+       */
       createClients: function () {
         if (!this.service) {
           var stsConfig = AWS2.util.merge({}, this.clientConfig);
@@ -19048,7 +20611,7 @@ var require_token_file_web_identity_credentials = __commonJS({
 
 // node_modules/aws-sdk/lib/metadata_service/get_endpoint.js
 var require_get_endpoint = __commonJS({
-  'node_modules/aws-sdk/lib/metadata_service/get_endpoint.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/metadata_service/get_endpoint.js'(exports2, module2) {
     var getEndpoint = function () {
       return {
         IPv4: 'http://169.254.169.254',
@@ -19061,7 +20624,7 @@ var require_get_endpoint = __commonJS({
 
 // node_modules/aws-sdk/lib/metadata_service/get_endpoint_mode.js
 var require_get_endpoint_mode = __commonJS({
-  'node_modules/aws-sdk/lib/metadata_service/get_endpoint_mode.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/metadata_service/get_endpoint_mode.js'(exports2, module2) {
     var getEndpointMode = function () {
       return {
         IPv4: 'IPv4',
@@ -19074,7 +20637,7 @@ var require_get_endpoint_mode = __commonJS({
 
 // node_modules/aws-sdk/lib/metadata_service/get_endpoint_config_options.js
 var require_get_endpoint_config_options = __commonJS({
-  'node_modules/aws-sdk/lib/metadata_service/get_endpoint_config_options.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/metadata_service/get_endpoint_config_options.js'(exports2, module2) {
     var ENV_ENDPOINT_NAME = 'AWS_EC2_METADATA_SERVICE_ENDPOINT';
     var CONFIG_ENDPOINT_NAME = 'ec2_metadata_service_endpoint';
     var getEndpointConfigOptions = function () {
@@ -19094,7 +20657,7 @@ var require_get_endpoint_config_options = __commonJS({
 
 // node_modules/aws-sdk/lib/metadata_service/get_endpoint_mode_config_options.js
 var require_get_endpoint_mode_config_options = __commonJS({
-  'node_modules/aws-sdk/lib/metadata_service/get_endpoint_mode_config_options.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/metadata_service/get_endpoint_mode_config_options.js'(exports2, module2) {
     var EndpointMode = require_get_endpoint_mode()();
     var ENV_ENDPOINT_MODE_NAME = 'AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE';
     var CONFIG_ENDPOINT_MODE_NAME = 'ec2_metadata_service_endpoint_mode';
@@ -19115,7 +20678,7 @@ var require_get_endpoint_mode_config_options = __commonJS({
 
 // node_modules/aws-sdk/lib/metadata_service/get_metadata_service_endpoint.js
 var require_get_metadata_service_endpoint = __commonJS({
-  'node_modules/aws-sdk/lib/metadata_service/get_metadata_service_endpoint.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/metadata_service/get_metadata_service_endpoint.js'(exports2, module2) {
     var AWS2 = require_core();
     var Endpoint = require_get_endpoint()();
     var EndpointMode = require_get_endpoint_mode()();
@@ -19140,16 +20703,50 @@ var require_get_metadata_service_endpoint = __commonJS({
 
 // node_modules/aws-sdk/lib/metadata_service.js
 var require_metadata_service = __commonJS({
-  'node_modules/aws-sdk/lib/metadata_service.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/metadata_service.js'(exports2, module2) {
     var AWS2 = require_core();
     require_http();
     var inherit = AWS2.util.inherit;
     var getMetadataServiceEndpoint = require_get_metadata_service_endpoint();
-    var URL2 = require('url').URL;
+    var URL3 = require('url').URL;
     AWS2.MetadataService = inherit({
+      /**
+       * @return [String] the endpoint of the instance metadata service
+       */
       endpoint: getMetadataServiceEndpoint(),
+      /**
+       * @!ignore
+       */
+      /**
+       * Default HTTP options. By default, the metadata service is set to not
+       * timeout on long requests. This means that on non-EC2 machines, this
+       * request will never return. If you are calling this operation from an
+       * environment that may not always run on EC2, set a `timeout` value so
+       * the SDK will abort the request after a given number of milliseconds.
+       */
       httpOptions: { timeout: 0 },
+      /**
+       * when enabled, metadata service will not fetch token
+       */
       disableFetchToken: false,
+      /**
+       * Creates a new MetadataService object with a given set of options.
+       *
+       * @option options host [String] the hostname of the instance metadata
+       *   service
+       * @option options httpOptions [map] a map of options to pass to the
+       *   underlying HTTP request:
+       *
+       *   * **timeout** (Number) &mdash; a timeout value in milliseconds to wait
+       *     before aborting the connection. Set to 0 for no timeout.
+       * @option options maxRetries [Integer] the maximum number of retries to
+       *   perform for timeout errors
+       * @option options retryDelayOptions [map] A set of options to configure the
+       *   retry delay on retryable errors. See AWS.Config for details.
+       * @option options ec2MetadataV1Disabled [boolean] Whether to block IMDS v1 fallback.
+       * @option options profile [string] A profile to check for IMDSv1 fallback settings.
+       * @option options filename [string] Optional filename for the config file.
+       */
       constructor: function MetadataService(options) {
         if (options && options.host) {
           options.endpoint = 'http://' + options.host;
@@ -19160,6 +20757,23 @@ var require_metadata_service = __commonJS({
         this.filename = options && options.filename;
         AWS2.util.update(this, options);
       },
+      /**
+       * Sends a request to the instance metadata service for a given resource.
+       *
+       * @param path [String] the path of the resource to get
+       *
+       * @param options [map] an optional map used to make request
+       *
+       *   * **method** (String) &mdash; HTTP request method
+       *
+       *   * **headers** (map<String,String>) &mdash; a map of response header keys and their respective values
+       *
+       * @callback callback function(err, data)
+       *   Called when a response is available from the service.
+       *   @param err [Error, null] if an error occurred, this value will be set
+       *   @param data [String, null] if the request was successful, the body of
+       *     the response
+       */
       request: function request(path, options, callback) {
         if (arguments.length === 2) {
           callback = options;
@@ -19170,8 +20784,8 @@ var require_metadata_service = __commonJS({
           return;
         }
         path = path || '/';
-        if (URL2) {
-          new URL2(this.endpoint);
+        if (URL3) {
+          new URL3(this.endpoint);
         }
         var httpRequest = new AWS2.HttpRequest(this.endpoint + path);
         httpRequest.method = options.method || 'GET';
@@ -19180,7 +20794,16 @@ var require_metadata_service = __commonJS({
         }
         AWS2.util.handleRequestWithRetries(httpRequest, this, callback);
       },
+      /**
+       * @api private
+       */
       loadCredentialsCallbacks: [],
+      /**
+       * Fetches metadata token used for authenticating against the instance metadata service.
+       *
+       * @callback callback function(err, token)
+       *   Called when token is loaded from the resource
+       */
       fetchMetadataToken: function fetchMetadataToken(callback) {
         var self = this;
         var tokenFetchPath = '/latest/api/token';
@@ -19195,6 +20818,13 @@ var require_metadata_service = __commonJS({
           callback
         );
       },
+      /**
+       * Fetches credentials
+       *
+       * @api private
+       * @callback cb function(err, creds)
+       *   Called when credentials are loaded from the resource
+       */
       fetchCredentials: function fetchCredentials(options, cb) {
         var self = this;
         var basePath = '/latest/meta-data/iam/security-credentials/';
@@ -19259,6 +20889,16 @@ var require_metadata_service = __commonJS({
           });
         });
       },
+      /**
+       * Loads a set of credentials stored in the instance metadata service
+       *
+       * @api private
+       * @callback callback function(err, credentials)
+       *   Called when credentials are loaded from the resource
+       *   @param err [Error] if an error occurred, this value will be set
+       *   @param credentials [Object] the raw JSON object containing all
+       *     metadata from the credentials resource
+       */
       loadCredentials: function loadCredentials(callback) {
         var self = this;
         self.loadCredentialsCallbacks.push(callback);
@@ -19330,13 +20970,42 @@ var require_ec2_metadata_credentials = __commonJS({
         this.metadataService = new AWS2.MetadataService(options);
         this.logger = options.logger || (AWS2.config && AWS2.config.logger);
       },
+      /**
+       * @api private
+       */
       defaultTimeout: 1e3,
+      /**
+       * @api private
+       */
       defaultConnectTimeout: 1e3,
+      /**
+       * @api private
+       */
       defaultMaxRetries: 3,
+      /**
+       * The original expiration of the current credential. In case of AWS
+       * outage, the EC2 metadata will extend expiration of the existing
+       * credential.
+       */
       originalExpiration: void 0,
+      /**
+       * Loads the credentials from the instance metadata service
+       *
+       * @callback callback function(err)
+       *   Called when the instance metadata service responds (or fails). When
+       *   this callback is called with no error, it means that the credentials
+       *   information has been loaded into the object (as the `accessKeyId`,
+       *   `secretAccessKey`, and `sessionToken` properties).
+       *   @param err [Error] if an error occurred, this value will be filled
+       * @see get
+       */
       refresh: function refresh(callback) {
         this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
+      /**
+       * @api private
+       * @param callback
+       */
       load: function load(callback) {
         var self = this;
         self.metadataService.loadCredentials(function (err, creds) {
@@ -19354,9 +21023,18 @@ var require_ec2_metadata_credentials = __commonJS({
           }
         });
       },
+      /**
+       * Whether this credential has been loaded.
+       * @api private
+       */
       hasLoadedCredentials: function hasLoadedCredentials() {
         return this.AccessKeyId && this.secretAccessKey;
       },
+      /**
+       * if expired, extend the expiration by 15 minutes base plus a jitter of 5
+       * minutes range.
+       * @api private
+       */
       extendExpirationIfExpired: function extendExpirationIfExpired() {
         if (this.needsRefresh()) {
           this.originalExpiration = this.originalExpiration || this.expireTime;
@@ -19371,6 +21049,11 @@ var require_ec2_metadata_credentials = __commonJS({
           );
         }
       },
+      /**
+       * Update the credential with new credential responded from EC2 metadata
+       * service.
+       * @api private
+       */
       setCredentials: function setCredentials(creds) {
         var currentTime = AWS2.util.date.getDate().getTime();
         var expireTime = new Date(creds.Expiration);
@@ -19406,11 +21089,23 @@ var require_remote_credentials = __commonJS({
         options.httpOptions = AWS2.util.merge(this.httpOptions, options.httpOptions);
         AWS2.util.update(this, options);
       },
+      /**
+       * @api private
+       */
       httpOptions: { timeout: 1e3 },
+      /**
+       * @api private
+       */
       maxRetries: 3,
+      /**
+       * @api private
+       */
       isConfiguredForEcsCredentials: function isConfiguredForEcsCredentials() {
         return Boolean(process && process.env && (process.env[ENV_RELATIVE_URI] || process.env[ENV_FULL_URI]));
       },
+      /**
+       * @api private
+       */
       getECSFullUri: function getECSFullUri() {
         if (process && process.env) {
           var relative = process.env[ENV_RELATIVE_URI],
@@ -19463,6 +21158,9 @@ var require_remote_credentials = __commonJS({
           throw AWS2.util.error(new Error('No process info available'), { code: 'ECSCredentialsProviderFailure' });
         }
       },
+      /**
+       * @api private
+       */
       getECSAuthToken: function getECSAuthToken() {
         if (process && process.env && (process.env[ENV_FULL_URI] || process.env[ENV_AUTH_TOKEN_FILE])) {
           if (!process.env[ENV_AUTH_TOKEN] && process.env[ENV_AUTH_TOKEN_FILE]) {
@@ -19477,9 +21175,15 @@ var require_remote_credentials = __commonJS({
           return process.env[ENV_AUTH_TOKEN];
         }
       },
+      /**
+       * @api private
+       */
       credsFormatIsValid: function credsFormatIsValid(credData) {
         return !!credData.accessKeyId && !!credData.secretAccessKey && !!credData.sessionToken && !!credData.expireTime;
       },
+      /**
+       * @api private
+       */
       formatCreds: function formatCreds(credData) {
         if (!!credData.credentials) {
           credData = credData.credentials;
@@ -19492,6 +21196,9 @@ var require_remote_credentials = __commonJS({
           expireTime: new Date(credData.expiration || credData.Expiration),
         };
       },
+      /**
+       * @api private
+       */
       request: function request(url, callback) {
         var httpRequest = new AWS2.HttpRequest(url);
         httpRequest.method = 'GET';
@@ -19502,9 +21209,23 @@ var require_remote_credentials = __commonJS({
         }
         AWS2.util.handleRequestWithRetries(httpRequest, this, callback);
       },
+      /**
+       * Loads the credentials from the relative URI specified by container
+       *
+       * @callback callback function(err)
+       *   Called when the request to the relative URI responds (or fails). When
+       *   this callback is called with no error, it means that the credentials
+       *   information has been loaded into the object (as the `accessKeyId`,
+       *   `secretAccessKey`, `sessionToken`, and `expireTime` properties).
+       *   @param err [Error] if an error occurred, this value will be filled
+       * @see get
+       */
       refresh: function refresh(callback) {
         this.coalesceRefresh(callback || AWS2.util.fn.callback);
       },
+      /**
+       * @api private
+       */
       load: function load(callback) {
         var self = this;
         var fullUri;
@@ -19549,11 +21270,37 @@ var require_environment_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials/environment_credentials.js'() {
     var AWS2 = require_core();
     AWS2.EnvironmentCredentials = AWS2.util.inherit(AWS2.Credentials, {
+      /**
+       * Creates a new EnvironmentCredentials class with a given variable
+       * prefix {envPrefix}. For example, to load credentials using the 'AWS'
+       * prefix:
+       *
+       * ```javascript
+       * var creds = new AWS.EnvironmentCredentials('AWS');
+       * creds.accessKeyId == 'AKID' // from AWS_ACCESS_KEY_ID env var
+       * ```
+       *
+       * @param envPrefix [String] the prefix to use (e.g., 'AWS') for environment
+       *   variables. Do not include the separating underscore.
+       */
       constructor: function EnvironmentCredentials(envPrefix) {
         AWS2.Credentials.call(this);
         this.envPrefix = envPrefix;
         this.get(function () {});
       },
+      /**
+       * Loads credentials from the environment using the prefixed
+       * environment variables.
+       *
+       * @callback callback function(err)
+       *   Called after the (prefixed) ACCESS_KEY_ID, SECRET_ACCESS_KEY, and
+       *   SESSION_TOKEN environment variables are read. When this callback is
+       *   called with no error, it means that the credentials information has
+       *   been loaded into the object (as the `accessKeyId`, `secretAccessKey`,
+       *   and `sessionToken` properties).
+       *   @param err [Error] if an error occurred, this value will be filled
+       * @see get
+       */
       refresh: function refresh(callback) {
         if (!callback) callback = AWS2.util.fn.callback;
         if (!process || !process.env) {
@@ -19592,11 +21339,28 @@ var require_file_system_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials/file_system_credentials.js'() {
     var AWS2 = require_core();
     AWS2.FileSystemCredentials = AWS2.util.inherit(AWS2.Credentials, {
+      /**
+       * @overload AWS.FileSystemCredentials(filename)
+       *   Creates a new FileSystemCredentials object from a filename
+       *
+       *   @param filename [String] the path on disk to the JSON file to load.
+       */
       constructor: function FileSystemCredentials(filename) {
         AWS2.Credentials.call(this);
         this.filename = filename;
         this.get(function () {});
       },
+      /**
+       * Loads the credentials from the {filename} on disk.
+       *
+       * @callback callback function(err)
+       *   Called after the JSON file on disk is read and parsed. When this callback
+       *   is called with no error, it means that the credentials information
+       *   has been loaded into the object (as the `accessKeyId`, `secretAccessKey`,
+       *   and `sessionToken` properties).
+       *   @param err [Error] if an error occurred, this value will be filled
+       * @see get
+       */
       refresh: function refresh(callback) {
         if (!callback) callback = AWS2.util.fn.callback;
         try {
@@ -19625,6 +21389,45 @@ var require_shared_ini_file_credentials = __commonJS({
     var iniLoader = AWS2.util.iniLoader;
     var ASSUME_ROLE_DEFAULT_REGION = 'us-east-1';
     AWS2.SharedIniFileCredentials = AWS2.util.inherit(AWS2.Credentials, {
+      /**
+       * Creates a new SharedIniFileCredentials object.
+       *
+       * @param options [map] a set of options
+       * @option options profile [String] (AWS_PROFILE env var or 'default')
+       *   the name of the profile to load.
+       * @option options filename [String] ('~/.aws/credentials' or defined by
+       *   AWS_SHARED_CREDENTIALS_FILE process env var)
+       *   the filename to use when loading credentials.
+       * @option options disableAssumeRole [Boolean] (false) True to disable
+       *   support for profiles that assume an IAM role. If true, and an assume
+       *   role profile is selected, an error is raised.
+       * @option options preferStaticCredentials [Boolean] (false) True to
+       *   prefer static credentials to role_arn if both are present.
+       * @option options tokenCodeFn [Function] (null) Function to provide
+       *   STS Assume Role TokenCode, if mfa_serial is provided for profile in ini
+       *   file. Function is called with value of mfa_serial and callback, and
+       *   should provide the TokenCode or an error to the callback in the format
+       *   callback(err, token)
+       * @option options callback [Function] (err) Credentials are eagerly loaded
+       *   by the constructor. When the callback is called with no error, the
+       *   credentials have been loaded successfully.
+       * @option options httpOptions [map] A set of options to pass to the low-level
+       *   HTTP request. Currently supported options are:
+       *   * **proxy** [String] &mdash; the URL to proxy requests through
+       *   * **agent** [http.Agent, https.Agent] &mdash; the Agent object to perform
+       *     HTTP requests with. Used for connection pooling. Defaults to the global
+       *     agent (`http.globalAgent`) for non-SSL connections. Note that for
+       *     SSL connections, a special Agent object is used in order to enable
+       *     peer certificate verification. This feature is only available in the
+       *     Node.js environment.
+       *   * **connectTimeout** [Integer] &mdash; Sets the socket to timeout after
+       *     failing to establish a connection with the server after
+       *     `connectTimeout` milliseconds. This timeout has no effect once a socket
+       *     connection has been established.
+       *   * **timeout** [Integer] &mdash; The number of milliseconds a request can
+       *     take before automatically being terminated.
+       *     Defaults to two minutes (120000).
+       */
       constructor: function SharedIniFileCredentials(options) {
         AWS2.Credentials.call(this);
         options = options || {};
@@ -19636,6 +21439,9 @@ var require_shared_ini_file_credentials = __commonJS({
         this.httpOptions = options.httpOptions || null;
         this.get(options.callback || AWS2.util.fn.noop);
       },
+      /**
+       * @api private
+       */
       load: function load(callback) {
         var self = this;
         try {
@@ -19678,10 +21484,24 @@ var require_shared_ini_file_credentials = __commonJS({
           callback(err);
         }
       },
+      /**
+       * Loads the credentials from the shared credentials file
+       *
+       * @callback callback function(err)
+       *   Called after the shared INI file on disk is read and parsed. When this
+       *   callback is called with no error, it means that the credentials
+       *   information has been loaded into the object (as the `accessKeyId`,
+       *   `secretAccessKey`, and `sessionToken` properties).
+       *   @param err [Error] if an error occurred, this value will be filled
+       * @see get
+       */
       refresh: function refresh(callback) {
         iniLoader.clearCachedFiles();
         this.coalesceRefresh(callback || AWS2.util.fn.callback, this.disableAssumeRole);
       },
+      /**
+       * @api private
+       */
       loadRoleProfile: function loadRoleProfile(creds, roleProfile, callback) {
         if (this.disableAssumeRole) {
           throw AWS2.util.error(
@@ -19767,9 +21587,22 @@ var require_sso_credentials = __commonJS({
   'node_modules/aws-sdk/lib/credentials/sso_credentials.js'() {
     var AWS2 = require_core();
     var path = require('path');
-    var crypto = require('crypto');
+    var crypto4 = require('crypto');
     var iniLoader = AWS2.util.iniLoader;
     AWS2.SsoCredentials = AWS2.util.inherit(AWS2.Credentials, {
+      /**
+       * Creates a new SsoCredentials object.
+       *
+       * @param options [map] a set of options
+       * @option options profile [String] (AWS_PROFILE env var or 'default')
+       *   the name of the profile to load.
+       * @option options filename [String] ('~/.aws/credentials' or defined by
+       *   AWS_SHARED_CREDENTIALS_FILE process env var)
+       *   the filename to use when loading credentials.
+       * @option options callback [Function] (err) Credentials are eagerly loaded
+       *   by the constructor. When the callback is called with no error, the
+       *   credentials have been loaded successfully.
+       */
       constructor: function SsoCredentials(options) {
         AWS2.Credentials.call(this);
         options = options || {};
@@ -19781,6 +21614,9 @@ var require_sso_credentials = __commonJS({
         this.httpOptions = options.httpOptions || null;
         this.get(options.callback || AWS2.util.fn.noop);
       },
+      /**
+       * @api private
+       */
       load: function load(callback) {
         var self = this;
         try {
@@ -19856,6 +21692,17 @@ var require_sso_credentials = __commonJS({
           callback(err);
         }
       },
+      /**
+       * @private
+       * Uses legacy file system retrieval or if sso-session is set,
+       * use the SSOTokenProvider.
+       *
+       * @param {string} profileName - name of the profile.
+       * @param {object} profile - profile data containing sso_session or sso_start_url etc.
+       * @param {function} callback - called with (err, (string) token).
+       *
+       * @returns {void}
+       */
       getToken: function getToken(profileName, profile, callback) {
         var self = this;
         if (profile.sso_session) {
@@ -19876,7 +21723,7 @@ var require_sso_credentials = __commonJS({
         }
         try {
           var EXPIRE_WINDOW_MS = 15 * 60 * 1e3;
-          var hasher = crypto.createHash('sha1');
+          var hasher = crypto4.createHash('sha1');
           var fileName = hasher.update(profile.sso_start_url).digest('hex') + '.json';
           var cachePath = path.join(iniLoader.getHomeDir(), '.aws', 'sso', 'cache', fileName);
           var cacheFile = AWS2.util.readFileSync(cachePath);
@@ -19911,6 +21758,17 @@ var require_sso_credentials = __commonJS({
           return callback(err, null);
         }
       },
+      /**
+       * Loads the credentials from the AWS SSO process
+       *
+       * @callback callback function(err)
+       *   Called after the AWS SSO process has been executed. When this
+       *   callback is called with no error, it means that the credentials
+       *   information has been loaded into the object (as the `accessKeyId`,
+       *   `secretAccessKey`, and `sessionToken` properties).
+       *   @param err [Error] if an error occurred, this value will be filled
+       * @see get
+       */
       refresh: function refresh(callback) {
         iniLoader.clearCachedFiles();
         this.coalesceRefresh(callback || AWS2.util.fn.callback);
@@ -19924,6 +21782,14 @@ var require_token = __commonJS({
   'node_modules/aws-sdk/lib/token.js'() {
     var AWS2 = require_core();
     AWS2.Token = AWS2.util.inherit({
+      /**
+       * Creates a Token object with a given set of information in options hash.
+       * @option options token [String] represents the literal token string.
+       * @option options expireTime [Date] field representing the time at which
+       *   the token expires.
+       * @example Create a token object
+       *   var token = new AWS.Token({ token: 'token' });
+       */
       constructor: function Token(options) {
         AWS2.util.hideProperties(this, ['token']);
         this.expired = false;
@@ -19935,13 +21801,34 @@ var require_token = __commonJS({
           this.expireTime = options.expireTime;
         }
       },
+      /**
+       * @return [Integer] the number of seconds before {expireTime} during which
+       *   the token will be considered expired.
+       */
       expiryWindow: 15,
+      /**
+       * @return [Boolean] whether the Token object should call {refresh}
+       * @note Subclasses should override this method to provide custom refresh
+       *   logic.
+       */
       needsRefresh: function needsRefresh() {
         var currentTime = AWS2.util.date.getDate().getTime();
         var adjustedTime = new Date(currentTime + this.expiryWindow * 1e3);
         if (this.expireTime && adjustedTime > this.expireTime) return true;
         return this.expired || !this.token;
       },
+      /**
+       * Gets the existing token, refreshing them if they are not yet loaded
+       * or have expired. Users should call this method before using {refresh},
+       * as this will not attempt to reload token when they are already
+       * loaded into the object.
+       *
+       * @callback callback function(err)
+       *   When this callback is called with no error, it means either token
+       *   do not need to be refreshed or refreshed token information has
+       *   been loaded into the object (as the `token` property).
+       *   @param err [Error] if an error occurred, this value will be filled
+       */
       get: function get(callback) {
         var self = this;
         if (this.needsRefresh()) {
@@ -19953,10 +21840,72 @@ var require_token = __commonJS({
           callback();
         }
       },
+      /**
+       * @!method  getPromise()
+       *   Returns a 'thenable' promise.
+       *   Gets the existing token, refreshing it if it's not yet loaded
+       *   or have expired. Users should call this method before using {refresh},
+       *   as this will not attempt to reload token when it's already
+       *   loaded into the object.
+       *
+       *   Two callbacks can be provided to the `then` method on the returned promise.
+       *   The first callback will be called if the promise is fulfilled, and the second
+       *   callback will be called if the promise is rejected.
+       *   @callback fulfilledCallback function()
+       *     Called if the promise is fulfilled. When this callback is called, it means
+       *     either token does not need to be refreshed or refreshed token information
+       *     has been loaded into the object (as the `token` property).
+       *   @callback rejectedCallback function(err)
+       *     Called if the promise is rejected.
+       *     @param err [Error] if an error occurred, this value will be filled.
+       *   @return [Promise] A promise that represents the state of the `get` call.
+       *   @example Calling the `getPromise` method.
+       *     var promise = tokenProvider.getPromise();
+       *     promise.then(function() { ... }, function(err) { ... });
+       */
+      /**
+       * @!method  refreshPromise()
+       *   Returns a 'thenable' promise.
+       *   Refreshes the token. Users should call {get} before attempting
+       *   to forcibly refresh token.
+       *
+       *   Two callbacks can be provided to the `then` method on the returned promise.
+       *   The first callback will be called if the promise is fulfilled, and the second
+       *   callback will be called if the promise is rejected.
+       *   @callback fulfilledCallback function()
+       *     Called if the promise is fulfilled. When this callback is called, it
+       *     means refreshed token information has been loaded into the object
+       *     (as the `token` property).
+       *   @callback rejectedCallback function(err)
+       *     Called if the promise is rejected.
+       *     @param err [Error] if an error occurred, this value will be filled.
+       *   @return [Promise] A promise that represents the state of the `refresh` call.
+       *   @example Calling the `refreshPromise` method.
+       *     var promise = tokenProvider.refreshPromise();
+       *     promise.then(function() { ... }, function(err) { ... });
+       */
+      /**
+       * Refreshes the token. Users should call {get} before attempting
+       * to forcibly refresh token.
+       *
+       * @callback callback function(err)
+       *   When this callback is called with no error, it means refreshed
+       *   token information has been loaded into the object (as the
+       *   `token` property).
+       *   @param err [Error] if an error occurred, this value will be filled
+       * @note Subclasses should override this class to reset the
+       *   {token} on the token object and then call the callback with
+       *   any error information.
+       * @see get
+       */
       refresh: function refresh(callback) {
         this.expired = false;
         callback();
       },
+      /**
+       * @api private
+       * @param callback
+       */
       coalesceRefresh: function coalesceRefresh(callback, sync) {
         var self = this;
         if (self.refreshCallbacks.push(callback) === 1) {
@@ -19974,6 +21923,10 @@ var require_token = __commonJS({
           });
         }
       },
+      /**
+       * @api private
+       * @param callback
+       */
       load: function load(callback) {
         callback();
       },
@@ -19995,6 +21948,10 @@ var require_token_provider_chain = __commonJS({
   'node_modules/aws-sdk/lib/token/token_provider_chain.js'() {
     var AWS2 = require_core();
     AWS2.TokenProviderChain = AWS2.util.inherit(AWS2.Token, {
+      /**
+       * Creates a new TokenProviderChain with a default set of providers
+       * specified by {defaultProviders}.
+       */
       constructor: function TokenProviderChain(providers) {
         if (providers) {
           this.providers = providers;
@@ -20003,6 +21960,37 @@ var require_token_provider_chain = __commonJS({
         }
         this.resolveCallbacks = [];
       },
+      /**
+       * @!method  resolvePromise()
+       *   Returns a 'thenable' promise.
+       *   Resolves the provider chain by searching for the first token in {providers}.
+       *
+       *   Two callbacks can be provided to the `then` method on the returned promise.
+       *   The first callback will be called if the promise is fulfilled, and the second
+       *   callback will be called if the promise is rejected.
+       *   @callback fulfilledCallback function(token)
+       *     Called if the promise is fulfilled and the provider resolves the chain
+       *     to a token object
+       *     @param token [AWS.Token] the token object resolved by the provider chain.
+       *   @callback rejectedCallback function(error)
+       *     Called if the promise is rejected.
+       *     @param err [Error] the error object returned if no token is found.
+       *   @return [Promise] A promise that represents the state of the `resolve` method call.
+       *   @example Calling the `resolvePromise` method.
+       *     var promise = chain.resolvePromise();
+       *     promise.then(function(token) { ... }, function(err) { ... });
+       */
+      /**
+       * Resolves the provider chain by searching for the first token in {providers}.
+       *
+       * @callback callback function(err, token)
+       *   Called when the provider resolves the chain to a token object
+       *   or null if no token can be found.
+       *
+       *   @param err [Error] the error object returned if no token is found.
+       *   @param token [AWS.Token] the token object resolved by the provider chain.
+       * @return [AWS.TokenProviderChain] the provider, for chaining.
+       */
       resolve: function resolve(callback) {
         var self = this;
         if (self.providers.length === 0) {
@@ -20055,7 +22043,7 @@ var require_token_provider_chain = __commonJS({
 var require_sso_token_provider = __commonJS({
   'node_modules/aws-sdk/lib/token/sso_token_provider.js'() {
     var AWS2 = require_core();
-    var crypto = require('crypto');
+    var crypto4 = require('crypto');
     var fs = require('fs');
     var path = require('path');
     var iniLoader = AWS2.util.iniLoader;
@@ -20077,7 +22065,20 @@ var require_sso_token_provider = __commonJS({
       }
     };
     AWS2.SSOTokenProvider = AWS2.util.inherit(AWS2.Token, {
+      /**
+       * Expiry window of five minutes.
+       */
       expiryWindow: 5 * 60,
+      /**
+       * Creates a new token object from cached access token.
+       *
+       * @param options [map] a set of options
+       * @option options profile [String] (AWS_PROFILE env var or 'default')
+       *   the name of the profile to load.
+       * @option options callback [Function] (err) Token is eagerly loaded
+       *   by the constructor. When the callback is called with no error, the
+       *   token has been loaded successfully.
+       */
       constructor: function SSOTokenProvider(options) {
         AWS2.Token.call(this);
         options = options || {};
@@ -20085,6 +22086,17 @@ var require_sso_token_provider = __commonJS({
         this.profile = options.profile || process.env.AWS_PROFILE || AWS2.util.defaultProfile;
         this.get(options.callback || AWS2.util.fn.noop);
       },
+      /**
+       * Reads sso_start_url from provided profile, and reads token from
+       * ~/.aws/sso/cache/<sha1-of-utf8-encoded-value-from-sso_start_url>.json
+       *
+       * Throws an error if required fields token and expiresAt are missing.
+       * Throws an error if token has expired and metadata to perform refresh is
+       * not available.
+       * Attempts to refresh the token if it's within 5 minutes before expiry time.
+       *
+       * @api private
+       */
       load: function load(callback) {
         var self = this;
         var profiles = iniLoader.loadFrom({ isConfig: true });
@@ -20117,7 +22129,7 @@ var require_sso_token_provider = __commonJS({
             { code: 'SSOTokenProviderFailure' }
           );
         }
-        var hasher = crypto.createHash('sha1');
+        var hasher = crypto4.createHash('sha1');
         var fileName = hasher.update(ssoSessionName).digest('hex') + '.json';
         var cachePath = path.join(iniLoader.getHomeDir(), '.aws', 'sso', 'cache', fileName);
         var tokenFromCache = JSON.parse(fs.readFileSync(cachePath));
@@ -20181,6 +22193,16 @@ var require_sso_token_provider = __commonJS({
           }
         });
       },
+      /**
+       * Loads the cached access token from disk.
+       *
+       * @callback callback function(err)
+       *   Called after the AWS SSO process has been executed. When this
+       *   callback is called with no error, it means that the token information
+       *   has been loaded into the object (as the `token` property).
+       *   @param err [Error] if an error occurred, this value will be filled.
+       * @see get
+       */
       refresh: function refresh(callback) {
         iniLoader.clearCachedFiles();
         this.coalesceRefresh(callback || AWS2.util.fn.callback);
@@ -20191,7 +22213,7 @@ var require_sso_token_provider = __commonJS({
 
 // node_modules/aws-sdk/lib/node_loader.js
 var require_node_loader = __commonJS({
-  'node_modules/aws-sdk/lib/node_loader.js'(exports, module2) {
+  'node_modules/aws-sdk/lib/node_loader.js'(exports2, module2) {
     var util = require_util();
     var region_utils = require_utils();
     var isFipsRegion = region_utils.isFipsRegion;
@@ -20388,7 +22410,7 @@ var require_node_loader = __commonJS({
 
 // node_modules/aws-sdk/global.js
 var require_global = __commonJS({
-  'node_modules/aws-sdk/global.js'(exports, module2) {
+  'node_modules/aws-sdk/global.js'(exports2, module2) {
     require_node_loader();
     module2.exports = require_core();
   },
@@ -20399,6 +22421,9 @@ var require_lambda = __commonJS({
   'node_modules/aws-sdk/lib/services/lambda.js'() {
     var AWS2 = require_core();
     AWS2.util.update(AWS2.Lambda.prototype, {
+      /**
+       * @api private
+       */
       setupRequestListeners: function setupRequestListeners(request) {
         if (request.operation === 'invoke') {
           request.addListener('extractData', AWS2.util.convertPayloadToString);
@@ -20410,7 +22435,7 @@ var require_lambda = __commonJS({
 
 // node_modules/aws-sdk/apis/lambda-2014-11-11.min.json
 var require_lambda_2014_11_11_min = __commonJS({
-  'node_modules/aws-sdk/apis/lambda-2014-11-11.min.json'(exports, module2) {
+  'node_modules/aws-sdk/apis/lambda-2014-11-11.min.json'(exports2, module2) {
     module2.exports = {
       metadata: {
         apiVersion: '2014-11-11',
@@ -20814,7 +22839,7 @@ var require_lambda_2014_11_11_min = __commonJS({
 
 // node_modules/aws-sdk/apis/lambda-2014-11-11.paginators.json
 var require_lambda_2014_11_11_paginators = __commonJS({
-  'node_modules/aws-sdk/apis/lambda-2014-11-11.paginators.json'(exports, module2) {
+  'node_modules/aws-sdk/apis/lambda-2014-11-11.paginators.json'(exports2, module2) {
     module2.exports = {
       pagination: {
         ListEventSources: {
@@ -20836,7 +22861,7 @@ var require_lambda_2014_11_11_paginators = __commonJS({
 
 // node_modules/aws-sdk/apis/lambda-2015-03-31.min.json
 var require_lambda_2015_03_31_min = __commonJS({
-  'node_modules/aws-sdk/apis/lambda-2015-03-31.min.json'(exports, module2) {
+  'node_modules/aws-sdk/apis/lambda-2015-03-31.min.json'(exports2, module2) {
     module2.exports = {
       version: '2.0',
       metadata: {
@@ -23751,7 +25776,7 @@ var require_lambda_2015_03_31_min = __commonJS({
 
 // node_modules/aws-sdk/apis/lambda-2015-03-31.paginators.json
 var require_lambda_2015_03_31_paginators = __commonJS({
-  'node_modules/aws-sdk/apis/lambda-2015-03-31.paginators.json'(exports, module2) {
+  'node_modules/aws-sdk/apis/lambda-2015-03-31.paginators.json'(exports2, module2) {
     module2.exports = {
       pagination: {
         ListAliases: {
@@ -23827,7 +25852,7 @@ var require_lambda_2015_03_31_paginators = __commonJS({
 
 // node_modules/aws-sdk/apis/lambda-2015-03-31.waiters2.json
 var require_lambda_2015_03_31_waiters2 = __commonJS({
-  'node_modules/aws-sdk/apis/lambda-2015-03-31.waiters2.json'(exports, module2) {
+  'node_modules/aws-sdk/apis/lambda-2015-03-31.waiters2.json'(exports2, module2) {
     module2.exports = {
       version: 2,
       waiters: {
@@ -23990,7 +26015,7 @@ var require_lambda_2015_03_31_waiters2 = __commonJS({
 
 // node_modules/aws-sdk/clients/lambda.js
 var require_lambda2 = __commonJS({
-  'node_modules/aws-sdk/clients/lambda.js'(exports, module2) {
+  'node_modules/aws-sdk/clients/lambda.js'(exports2, module2) {
     require_node_loader();
     var AWS2 = require_core();
     var Service = AWS2.Service;
@@ -24023,10 +26048,10 @@ var require_lambda2 = __commonJS({
 
 // node_modules/@actions/core/lib/utils.js
 var require_utils2 = __commonJS({
-  'node_modules/@actions/core/lib/utils.js'(exports) {
+  'node_modules/@actions/core/lib/utils.js'(exports2) {
     'use strict';
-    Object.defineProperty(exports, '__esModule', { value: true });
-    exports.toCommandProperties = exports.toCommandValue = void 0;
+    Object.defineProperty(exports2, '__esModule', { value: true });
+    exports2.toCommandProperties = exports2.toCommandValue = void 0;
     function toCommandValue(input) {
       if (input === null || input === void 0) {
         return '';
@@ -24035,7 +26060,7 @@ var require_utils2 = __commonJS({
       }
       return JSON.stringify(input);
     }
-    exports.toCommandValue = toCommandValue;
+    exports2.toCommandValue = toCommandValue;
     function toCommandProperties(annotationProperties) {
       if (!Object.keys(annotationProperties).length) {
         return {};
@@ -24049,16 +26074,16 @@ var require_utils2 = __commonJS({
         endColumn: annotationProperties.endColumn,
       };
     }
-    exports.toCommandProperties = toCommandProperties;
+    exports2.toCommandProperties = toCommandProperties;
   },
 });
 
 // node_modules/@actions/core/lib/command.js
 var require_command = __commonJS({
-  'node_modules/@actions/core/lib/command.js'(exports) {
+  'node_modules/@actions/core/lib/command.js'(exports2) {
     'use strict';
     var __createBinding =
-      (exports && exports.__createBinding) ||
+      (exports2 && exports2.__createBinding) ||
       (Object.create
         ? function (o, m, k, k2) {
             if (k2 === void 0) k2 = k;
@@ -24074,7 +26099,7 @@ var require_command = __commonJS({
             o[k2] = m[k];
           });
     var __setModuleDefault =
-      (exports && exports.__setModuleDefault) ||
+      (exports2 && exports2.__setModuleDefault) ||
       (Object.create
         ? function (o, v) {
             Object.defineProperty(o, 'default', { enumerable: true, value: v });
@@ -24083,7 +26108,7 @@ var require_command = __commonJS({
             o['default'] = v;
           });
     var __importStar =
-      (exports && exports.__importStar) ||
+      (exports2 && exports2.__importStar) ||
       function (mod) {
         if (mod && mod.__esModule) return mod;
         var result = {};
@@ -24093,19 +26118,19 @@ var require_command = __commonJS({
         __setModuleDefault(result, mod);
         return result;
       };
-    Object.defineProperty(exports, '__esModule', { value: true });
-    exports.issue = exports.issueCommand = void 0;
+    Object.defineProperty(exports2, '__esModule', { value: true });
+    exports2.issue = exports2.issueCommand = void 0;
     var os = __importStar(require('os'));
     var utils_1 = require_utils2();
     function issueCommand(command, properties, message) {
       const cmd = new Command(command, properties, message);
       process.stdout.write(cmd.toString() + os.EOL);
     }
-    exports.issueCommand = issueCommand;
+    exports2.issueCommand = issueCommand;
     function issue(name, message = '') {
       issueCommand(name, {}, message);
     }
-    exports.issue = issue;
+    exports2.issue = issue;
     var CMD_STRING = '::';
     var Command = class {
       constructor(command, properties, message) {
@@ -24154,12 +26179,366 @@ var require_command = __commonJS({
   },
 });
 
+// node_modules/uuid/dist/esm-node/rng.js
+function rng() {
+  if (poolPtr > rnds8Pool.length - 16) {
+    import_crypto.default.randomFillSync(rnds8Pool);
+    poolPtr = 0;
+  }
+  return rnds8Pool.slice(poolPtr, (poolPtr += 16));
+}
+var import_crypto, rnds8Pool, poolPtr;
+var init_rng = __esm({
+  'node_modules/uuid/dist/esm-node/rng.js'() {
+    import_crypto = __toESM(require('crypto'));
+    rnds8Pool = new Uint8Array(256);
+    poolPtr = rnds8Pool.length;
+  },
+});
+
+// node_modules/uuid/dist/esm-node/regex.js
+var regex_default;
+var init_regex = __esm({
+  'node_modules/uuid/dist/esm-node/regex.js'() {
+    regex_default =
+      /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000)$/i;
+  },
+});
+
+// node_modules/uuid/dist/esm-node/validate.js
+function validate(uuid) {
+  return typeof uuid === 'string' && regex_default.test(uuid);
+}
+var validate_default;
+var init_validate = __esm({
+  'node_modules/uuid/dist/esm-node/validate.js'() {
+    init_regex();
+    validate_default = validate;
+  },
+});
+
+// node_modules/uuid/dist/esm-node/stringify.js
+function stringify(arr, offset = 0) {
+  const uuid = (
+    byteToHex[arr[offset + 0]] +
+    byteToHex[arr[offset + 1]] +
+    byteToHex[arr[offset + 2]] +
+    byteToHex[arr[offset + 3]] +
+    '-' +
+    byteToHex[arr[offset + 4]] +
+    byteToHex[arr[offset + 5]] +
+    '-' +
+    byteToHex[arr[offset + 6]] +
+    byteToHex[arr[offset + 7]] +
+    '-' +
+    byteToHex[arr[offset + 8]] +
+    byteToHex[arr[offset + 9]] +
+    '-' +
+    byteToHex[arr[offset + 10]] +
+    byteToHex[arr[offset + 11]] +
+    byteToHex[arr[offset + 12]] +
+    byteToHex[arr[offset + 13]] +
+    byteToHex[arr[offset + 14]] +
+    byteToHex[arr[offset + 15]]
+  ).toLowerCase();
+  if (!validate_default(uuid)) {
+    throw TypeError('Stringified UUID is invalid');
+  }
+  return uuid;
+}
+var byteToHex, stringify_default;
+var init_stringify = __esm({
+  'node_modules/uuid/dist/esm-node/stringify.js'() {
+    init_validate();
+    byteToHex = [];
+    for (let i = 0; i < 256; ++i) {
+      byteToHex.push((i + 256).toString(16).substr(1));
+    }
+    stringify_default = stringify;
+  },
+});
+
+// node_modules/uuid/dist/esm-node/v1.js
+function v1(options, buf, offset) {
+  let i = (buf && offset) || 0;
+  const b = buf || new Array(16);
+  options = options || {};
+  let node = options.node || _nodeId;
+  let clockseq = options.clockseq !== void 0 ? options.clockseq : _clockseq;
+  if (node == null || clockseq == null) {
+    const seedBytes = options.random || (options.rng || rng)();
+    if (node == null) {
+      node = _nodeId = [seedBytes[0] | 1, seedBytes[1], seedBytes[2], seedBytes[3], seedBytes[4], seedBytes[5]];
+    }
+    if (clockseq == null) {
+      clockseq = _clockseq = ((seedBytes[6] << 8) | seedBytes[7]) & 16383;
+    }
+  }
+  let msecs = options.msecs !== void 0 ? options.msecs : Date.now();
+  let nsecs = options.nsecs !== void 0 ? options.nsecs : _lastNSecs + 1;
+  const dt = msecs - _lastMSecs + (nsecs - _lastNSecs) / 1e4;
+  if (dt < 0 && options.clockseq === void 0) {
+    clockseq = (clockseq + 1) & 16383;
+  }
+  if ((dt < 0 || msecs > _lastMSecs) && options.nsecs === void 0) {
+    nsecs = 0;
+  }
+  if (nsecs >= 1e4) {
+    throw new Error("uuid.v1(): Can't create more than 10M uuids/sec");
+  }
+  _lastMSecs = msecs;
+  _lastNSecs = nsecs;
+  _clockseq = clockseq;
+  msecs += 122192928e5;
+  const tl = ((msecs & 268435455) * 1e4 + nsecs) % 4294967296;
+  b[i++] = (tl >>> 24) & 255;
+  b[i++] = (tl >>> 16) & 255;
+  b[i++] = (tl >>> 8) & 255;
+  b[i++] = tl & 255;
+  const tmh = ((msecs / 4294967296) * 1e4) & 268435455;
+  b[i++] = (tmh >>> 8) & 255;
+  b[i++] = tmh & 255;
+  b[i++] = ((tmh >>> 24) & 15) | 16;
+  b[i++] = (tmh >>> 16) & 255;
+  b[i++] = (clockseq >>> 8) | 128;
+  b[i++] = clockseq & 255;
+  for (let n = 0; n < 6; ++n) {
+    b[i + n] = node[n];
+  }
+  return buf || stringify_default(b);
+}
+var _nodeId, _clockseq, _lastMSecs, _lastNSecs, v1_default;
+var init_v1 = __esm({
+  'node_modules/uuid/dist/esm-node/v1.js'() {
+    init_rng();
+    init_stringify();
+    _lastMSecs = 0;
+    _lastNSecs = 0;
+    v1_default = v1;
+  },
+});
+
+// node_modules/uuid/dist/esm-node/parse.js
+function parse(uuid) {
+  if (!validate_default(uuid)) {
+    throw TypeError('Invalid UUID');
+  }
+  let v;
+  const arr = new Uint8Array(16);
+  arr[0] = (v = parseInt(uuid.slice(0, 8), 16)) >>> 24;
+  arr[1] = (v >>> 16) & 255;
+  arr[2] = (v >>> 8) & 255;
+  arr[3] = v & 255;
+  arr[4] = (v = parseInt(uuid.slice(9, 13), 16)) >>> 8;
+  arr[5] = v & 255;
+  arr[6] = (v = parseInt(uuid.slice(14, 18), 16)) >>> 8;
+  arr[7] = v & 255;
+  arr[8] = (v = parseInt(uuid.slice(19, 23), 16)) >>> 8;
+  arr[9] = v & 255;
+  arr[10] = ((v = parseInt(uuid.slice(24, 36), 16)) / 1099511627776) & 255;
+  arr[11] = (v / 4294967296) & 255;
+  arr[12] = (v >>> 24) & 255;
+  arr[13] = (v >>> 16) & 255;
+  arr[14] = (v >>> 8) & 255;
+  arr[15] = v & 255;
+  return arr;
+}
+var parse_default;
+var init_parse = __esm({
+  'node_modules/uuid/dist/esm-node/parse.js'() {
+    init_validate();
+    parse_default = parse;
+  },
+});
+
+// node_modules/uuid/dist/esm-node/v35.js
+function stringToBytes(str) {
+  str = unescape(encodeURIComponent(str));
+  const bytes = [];
+  for (let i = 0; i < str.length; ++i) {
+    bytes.push(str.charCodeAt(i));
+  }
+  return bytes;
+}
+function v35_default(name, version2, hashfunc) {
+  function generateUUID(value, namespace, buf, offset) {
+    if (typeof value === 'string') {
+      value = stringToBytes(value);
+    }
+    if (typeof namespace === 'string') {
+      namespace = parse_default(namespace);
+    }
+    if (namespace.length !== 16) {
+      throw TypeError('Namespace must be array-like (16 iterable integer values, 0-255)');
+    }
+    let bytes = new Uint8Array(16 + value.length);
+    bytes.set(namespace);
+    bytes.set(value, namespace.length);
+    bytes = hashfunc(bytes);
+    bytes[6] = (bytes[6] & 15) | version2;
+    bytes[8] = (bytes[8] & 63) | 128;
+    if (buf) {
+      offset = offset || 0;
+      for (let i = 0; i < 16; ++i) {
+        buf[offset + i] = bytes[i];
+      }
+      return buf;
+    }
+    return stringify_default(bytes);
+  }
+  try {
+    generateUUID.name = name;
+  } catch (err) {}
+  generateUUID.DNS = DNS;
+  generateUUID.URL = URL2;
+  return generateUUID;
+}
+var DNS, URL2;
+var init_v35 = __esm({
+  'node_modules/uuid/dist/esm-node/v35.js'() {
+    init_stringify();
+    init_parse();
+    DNS = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+    URL2 = '6ba7b811-9dad-11d1-80b4-00c04fd430c8';
+  },
+});
+
+// node_modules/uuid/dist/esm-node/md5.js
+function md5(bytes) {
+  if (Array.isArray(bytes)) {
+    bytes = Buffer.from(bytes);
+  } else if (typeof bytes === 'string') {
+    bytes = Buffer.from(bytes, 'utf8');
+  }
+  return import_crypto2.default.createHash('md5').update(bytes).digest();
+}
+var import_crypto2, md5_default;
+var init_md5 = __esm({
+  'node_modules/uuid/dist/esm-node/md5.js'() {
+    import_crypto2 = __toESM(require('crypto'));
+    md5_default = md5;
+  },
+});
+
+// node_modules/uuid/dist/esm-node/v3.js
+var v3, v3_default;
+var init_v3 = __esm({
+  'node_modules/uuid/dist/esm-node/v3.js'() {
+    init_v35();
+    init_md5();
+    v3 = v35_default('v3', 48, md5_default);
+    v3_default = v3;
+  },
+});
+
+// node_modules/uuid/dist/esm-node/v4.js
+function v4(options, buf, offset) {
+  options = options || {};
+  const rnds = options.random || (options.rng || rng)();
+  rnds[6] = (rnds[6] & 15) | 64;
+  rnds[8] = (rnds[8] & 63) | 128;
+  if (buf) {
+    offset = offset || 0;
+    for (let i = 0; i < 16; ++i) {
+      buf[offset + i] = rnds[i];
+    }
+    return buf;
+  }
+  return stringify_default(rnds);
+}
+var v4_default;
+var init_v4 = __esm({
+  'node_modules/uuid/dist/esm-node/v4.js'() {
+    init_rng();
+    init_stringify();
+    v4_default = v4;
+  },
+});
+
+// node_modules/uuid/dist/esm-node/sha1.js
+function sha1(bytes) {
+  if (Array.isArray(bytes)) {
+    bytes = Buffer.from(bytes);
+  } else if (typeof bytes === 'string') {
+    bytes = Buffer.from(bytes, 'utf8');
+  }
+  return import_crypto3.default.createHash('sha1').update(bytes).digest();
+}
+var import_crypto3, sha1_default;
+var init_sha1 = __esm({
+  'node_modules/uuid/dist/esm-node/sha1.js'() {
+    import_crypto3 = __toESM(require('crypto'));
+    sha1_default = sha1;
+  },
+});
+
+// node_modules/uuid/dist/esm-node/v5.js
+var v5, v5_default;
+var init_v5 = __esm({
+  'node_modules/uuid/dist/esm-node/v5.js'() {
+    init_v35();
+    init_sha1();
+    v5 = v35_default('v5', 80, sha1_default);
+    v5_default = v5;
+  },
+});
+
+// node_modules/uuid/dist/esm-node/nil.js
+var nil_default;
+var init_nil = __esm({
+  'node_modules/uuid/dist/esm-node/nil.js'() {
+    nil_default = '00000000-0000-0000-0000-000000000000';
+  },
+});
+
+// node_modules/uuid/dist/esm-node/version.js
+function version(uuid) {
+  if (!validate_default(uuid)) {
+    throw TypeError('Invalid UUID');
+  }
+  return parseInt(uuid.substr(14, 1), 16);
+}
+var version_default;
+var init_version = __esm({
+  'node_modules/uuid/dist/esm-node/version.js'() {
+    init_validate();
+    version_default = version;
+  },
+});
+
+// node_modules/uuid/dist/esm-node/index.js
+var esm_node_exports = {};
+__export(esm_node_exports, {
+  NIL: () => nil_default,
+  parse: () => parse_default,
+  stringify: () => stringify_default,
+  v1: () => v1_default,
+  v3: () => v3_default,
+  v4: () => v4_default,
+  v5: () => v5_default,
+  validate: () => validate_default,
+  version: () => version_default,
+});
+var init_esm_node = __esm({
+  'node_modules/uuid/dist/esm-node/index.js'() {
+    init_v1();
+    init_v3();
+    init_v4();
+    init_v5();
+    init_nil();
+    init_version();
+    init_validate();
+    init_stringify();
+    init_parse();
+  },
+});
+
 // node_modules/@actions/core/lib/file-command.js
 var require_file_command = __commonJS({
-  'node_modules/@actions/core/lib/file-command.js'(exports) {
+  'node_modules/@actions/core/lib/file-command.js'(exports2) {
     'use strict';
     var __createBinding =
-      (exports && exports.__createBinding) ||
+      (exports2 && exports2.__createBinding) ||
       (Object.create
         ? function (o, m, k, k2) {
             if (k2 === void 0) k2 = k;
@@ -24175,7 +26554,7 @@ var require_file_command = __commonJS({
             o[k2] = m[k];
           });
     var __setModuleDefault =
-      (exports && exports.__setModuleDefault) ||
+      (exports2 && exports2.__setModuleDefault) ||
       (Object.create
         ? function (o, v) {
             Object.defineProperty(o, 'default', { enumerable: true, value: v });
@@ -24184,7 +26563,7 @@ var require_file_command = __commonJS({
             o['default'] = v;
           });
     var __importStar =
-      (exports && exports.__importStar) ||
+      (exports2 && exports2.__importStar) ||
       function (mod) {
         if (mod && mod.__esModule) return mod;
         var result = {};
@@ -24194,11 +26573,11 @@ var require_file_command = __commonJS({
         __setModuleDefault(result, mod);
         return result;
       };
-    Object.defineProperty(exports, '__esModule', { value: true });
-    exports.prepareKeyValueMessage = exports.issueFileCommand = void 0;
+    Object.defineProperty(exports2, '__esModule', { value: true });
+    exports2.prepareKeyValueMessage = exports2.issueFileCommand = void 0;
     var fs = __importStar(require('fs'));
     var os = __importStar(require('os'));
-    var uuid_1 = require_dist();
+    var uuid_1 = (init_esm_node(), __toCommonJS(esm_node_exports));
     var utils_1 = require_utils2();
     function issueFileCommand(command, message) {
       const filePath = process.env[`GITHUB_${command}`];
@@ -24212,7 +26591,7 @@ var require_file_command = __commonJS({
         encoding: 'utf8',
       });
     }
-    exports.issueFileCommand = issueFileCommand;
+    exports2.issueFileCommand = issueFileCommand;
     function prepareKeyValueMessage(key, value) {
       const delimiter = `ghadelimiter_${uuid_1.v4()}`;
       const convertedValue = utils_1.toCommandValue(value);
@@ -24224,16 +26603,16 @@ var require_file_command = __commonJS({
       }
       return `${key}<<${delimiter}${os.EOL}${convertedValue}${os.EOL}${delimiter}`;
     }
-    exports.prepareKeyValueMessage = prepareKeyValueMessage;
+    exports2.prepareKeyValueMessage = prepareKeyValueMessage;
   },
 });
 
 // node_modules/@actions/http-client/lib/proxy.js
 var require_proxy = __commonJS({
-  'node_modules/@actions/http-client/lib/proxy.js'(exports) {
+  'node_modules/@actions/http-client/lib/proxy.js'(exports2) {
     'use strict';
-    Object.defineProperty(exports, '__esModule', { value: true });
-    exports.checkBypass = exports.getProxyUrl = void 0;
+    Object.defineProperty(exports2, '__esModule', { value: true });
+    exports2.checkBypass = exports2.getProxyUrl = void 0;
     function getProxyUrl(reqUrl) {
       const usingSsl = reqUrl.protocol === 'https:';
       if (checkBypass(reqUrl)) {
@@ -24252,7 +26631,7 @@ var require_proxy = __commonJS({
         return void 0;
       }
     }
-    exports.getProxyUrl = getProxyUrl;
+    exports2.getProxyUrl = getProxyUrl;
     function checkBypass(reqUrl) {
       if (!reqUrl.hostname) {
         return false;
@@ -24283,13 +26662,13 @@ var require_proxy = __commonJS({
       }
       return false;
     }
-    exports.checkBypass = checkBypass;
+    exports2.checkBypass = checkBypass;
   },
 });
 
 // node_modules/tunnel/lib/tunnel.js
 var require_tunnel = __commonJS({
-  'node_modules/tunnel/lib/tunnel.js'(exports) {
+  'node_modules/tunnel/lib/tunnel.js'(exports2) {
     'use strict';
     var net = require('net');
     var tls = require('tls');
@@ -24298,10 +26677,10 @@ var require_tunnel = __commonJS({
     var events = require('events');
     var assert = require('assert');
     var util = require('util');
-    exports.httpOverHttp = httpOverHttp;
-    exports.httpsOverHttp = httpsOverHttp;
-    exports.httpOverHttps = httpOverHttps;
-    exports.httpsOverHttps = httpsOverHttps;
+    exports2.httpOverHttp = httpOverHttp;
+    exports2.httpsOverHttp = httpsOverHttp;
+    exports2.httpOverHttps = httpOverHttps;
+    exports2.httpsOverHttps = httpsOverHttps;
     function httpOverHttp(options) {
       var agent = new TunnelingAgent(options);
       agent.request = http.request;
@@ -24506,23 +26885,23 @@ var require_tunnel = __commonJS({
     } else {
       debug = function () {};
     }
-    exports.debug = debug;
+    exports2.debug = debug;
   },
 });
 
 // node_modules/tunnel/index.js
 var require_tunnel2 = __commonJS({
-  'node_modules/tunnel/index.js'(exports, module2) {
+  'node_modules/tunnel/index.js'(exports2, module2) {
     module2.exports = require_tunnel();
   },
 });
 
 // node_modules/@actions/http-client/lib/index.js
 var require_lib2 = __commonJS({
-  'node_modules/@actions/http-client/lib/index.js'(exports) {
+  'node_modules/@actions/http-client/lib/index.js'(exports2) {
     'use strict';
     var __createBinding =
-      (exports && exports.__createBinding) ||
+      (exports2 && exports2.__createBinding) ||
       (Object.create
         ? function (o, m, k, k2) {
             if (k2 === void 0) k2 = k;
@@ -24538,7 +26917,7 @@ var require_lib2 = __commonJS({
             o[k2] = m[k];
           });
     var __setModuleDefault =
-      (exports && exports.__setModuleDefault) ||
+      (exports2 && exports2.__setModuleDefault) ||
       (Object.create
         ? function (o, v) {
             Object.defineProperty(o, 'default', { enumerable: true, value: v });
@@ -24547,7 +26926,7 @@ var require_lib2 = __commonJS({
             o['default'] = v;
           });
     var __importStar =
-      (exports && exports.__importStar) ||
+      (exports2 && exports2.__importStar) ||
       function (mod) {
         if (mod && mod.__esModule) return mod;
         var result = {};
@@ -24558,7 +26937,7 @@ var require_lib2 = __commonJS({
         return result;
       };
     var __awaiter =
-      (exports && exports.__awaiter) ||
+      (exports2 && exports2.__awaiter) ||
       function (thisArg, _arguments, P, generator) {
         function adopt(value) {
           return value instanceof P
@@ -24588,15 +26967,15 @@ var require_lib2 = __commonJS({
           step((generator = generator.apply(thisArg, _arguments || [])).next());
         });
       };
-    Object.defineProperty(exports, '__esModule', { value: true });
-    exports.HttpClient =
-      exports.isHttps =
-      exports.HttpClientResponse =
-      exports.HttpClientError =
-      exports.getProxyUrl =
-      exports.MediaTypes =
-      exports.Headers =
-      exports.HttpCodes =
+    Object.defineProperty(exports2, '__esModule', { value: true });
+    exports2.HttpClient =
+      exports2.isHttps =
+      exports2.HttpClientResponse =
+      exports2.HttpClientError =
+      exports2.getProxyUrl =
+      exports2.MediaTypes =
+      exports2.Headers =
+      exports2.HttpCodes =
         void 0;
     var http = __importStar(require('http'));
     var https = __importStar(require('https'));
@@ -24631,21 +27010,21 @@ var require_lib2 = __commonJS({
       HttpCodes2[(HttpCodes2['BadGateway'] = 502)] = 'BadGateway';
       HttpCodes2[(HttpCodes2['ServiceUnavailable'] = 503)] = 'ServiceUnavailable';
       HttpCodes2[(HttpCodes2['GatewayTimeout'] = 504)] = 'GatewayTimeout';
-    })((HttpCodes = exports.HttpCodes || (exports.HttpCodes = {})));
+    })((HttpCodes = exports2.HttpCodes || (exports2.HttpCodes = {})));
     var Headers;
     (function (Headers2) {
       Headers2['Accept'] = 'accept';
       Headers2['ContentType'] = 'content-type';
-    })((Headers = exports.Headers || (exports.Headers = {})));
+    })((Headers = exports2.Headers || (exports2.Headers = {})));
     var MediaTypes;
     (function (MediaTypes2) {
       MediaTypes2['ApplicationJson'] = 'application/json';
-    })((MediaTypes = exports.MediaTypes || (exports.MediaTypes = {})));
+    })((MediaTypes = exports2.MediaTypes || (exports2.MediaTypes = {})));
     function getProxyUrl(serverUrl) {
       const proxyUrl = pm.getProxyUrl(new URL(serverUrl));
       return proxyUrl ? proxyUrl.href : '';
     }
-    exports.getProxyUrl = getProxyUrl;
+    exports2.getProxyUrl = getProxyUrl;
     var HttpRedirectCodes = [
       HttpCodes.MovedPermanently,
       HttpCodes.ResourceMoved,
@@ -24657,15 +27036,15 @@ var require_lib2 = __commonJS({
     var RetryableHttpVerbs = ['OPTIONS', 'GET', 'DELETE', 'HEAD'];
     var ExponentialBackoffCeiling = 10;
     var ExponentialBackoffTimeSlice = 5;
-    var HttpClientError = class extends Error {
+    var HttpClientError = class _HttpClientError extends Error {
       constructor(message, statusCode) {
         super(message);
         this.name = 'HttpClientError';
         this.statusCode = statusCode;
-        Object.setPrototypeOf(this, HttpClientError.prototype);
+        Object.setPrototypeOf(this, _HttpClientError.prototype);
       }
     };
-    exports.HttpClientError = HttpClientError;
+    exports2.HttpClientError = HttpClientError;
     var HttpClientResponse = class {
       constructor(message) {
         this.message = message;
@@ -24686,12 +27065,12 @@ var require_lib2 = __commonJS({
         });
       }
     };
-    exports.HttpClientResponse = HttpClientResponse;
+    exports2.HttpClientResponse = HttpClientResponse;
     function isHttps(requestUrl) {
       const parsedUrl = new URL(requestUrl);
       return parsedUrl.protocol === 'https:';
     }
-    exports.isHttps = isHttps;
+    exports2.isHttps = isHttps;
     var HttpClient = class {
       constructor(userAgent, handlers, requestOptions) {
         this._ignoreSslError = false;
@@ -24770,6 +27149,10 @@ var require_lib2 = __commonJS({
           return this.request(verb, requestUrl, stream, additionalHeaders);
         });
       }
+      /**
+       * Gets a typed object from an endpoint
+       * Be aware that not found returns a null.  Other errors (4xx, 5xx) reject the promise
+       */
       getJson(requestUrl, additionalHeaders = {}) {
         return __awaiter(this, void 0, void 0, function* () {
           additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(
@@ -24832,6 +27215,11 @@ var require_lib2 = __commonJS({
           return this._processResponse(res, this.requestOptions);
         });
       }
+      /**
+       * Makes a raw http request.
+       * All other methods such as get, post, patch, and request ultimately call this.
+       * Prefer get, del, post and patch
+       */
       request(verb, requestUrl, data, headers) {
         return __awaiter(this, void 0, void 0, function* () {
           if (this._disposed) {
@@ -24903,12 +27291,20 @@ var require_lib2 = __commonJS({
           return response;
         });
       }
+      /**
+       * Needs to be called if keepAlive is set to true in request options.
+       */
       dispose() {
         if (this._agent) {
           this._agent.destroy();
         }
         this._disposed = true;
       }
+      /**
+       * Raw request.
+       * @param info
+       * @param data
+       */
       requestRaw(info, data) {
         return __awaiter(this, void 0, void 0, function* () {
           return new Promise((resolve, reject) => {
@@ -24925,6 +27321,12 @@ var require_lib2 = __commonJS({
           });
         });
       }
+      /**
+       * Raw request with callback.
+       * @param info
+       * @param data
+       * @param onResult
+       */
       requestRawWithCallback(info, data, onResult) {
         if (typeof data === 'string') {
           if (!info.options.headers) {
@@ -24968,6 +27370,11 @@ var require_lib2 = __commonJS({
           req.end();
         }
       }
+      /**
+       * Gets an http agent. This function is useful when you need an http agent that handles
+       * routing through a proxy server - depending upon the url and proxy environment variables.
+       * @param serverUrl  The server URL where the request will be sent. For example, https://api.github.com
+       */
       getAgent(serverUrl) {
         const parsedUrl = new URL(serverUrl);
         return this._getAgent(parsedUrl);
@@ -25128,17 +27535,17 @@ var require_lib2 = __commonJS({
         });
       }
     };
-    exports.HttpClient = HttpClient;
+    exports2.HttpClient = HttpClient;
     var lowercaseKeys = (obj) => Object.keys(obj).reduce((c, k) => ((c[k.toLowerCase()] = obj[k]), c), {});
   },
 });
 
 // node_modules/@actions/http-client/lib/auth.js
 var require_auth = __commonJS({
-  'node_modules/@actions/http-client/lib/auth.js'(exports) {
+  'node_modules/@actions/http-client/lib/auth.js'(exports2) {
     'use strict';
     var __awaiter =
-      (exports && exports.__awaiter) ||
+      (exports2 && exports2.__awaiter) ||
       function (thisArg, _arguments, P, generator) {
         function adopt(value) {
           return value instanceof P
@@ -25168,10 +27575,10 @@ var require_auth = __commonJS({
           step((generator = generator.apply(thisArg, _arguments || [])).next());
         });
       };
-    Object.defineProperty(exports, '__esModule', { value: true });
-    exports.PersonalAccessTokenCredentialHandler =
-      exports.BearerCredentialHandler =
-      exports.BasicCredentialHandler =
+    Object.defineProperty(exports2, '__esModule', { value: true });
+    exports2.PersonalAccessTokenCredentialHandler =
+      exports2.BearerCredentialHandler =
+      exports2.BasicCredentialHandler =
         void 0;
     var BasicCredentialHandler = class {
       constructor(username, password) {
@@ -25186,6 +27593,7 @@ var require_auth = __commonJS({
           'base64'
         )}`;
       }
+      // This handler cannot handle 401
       canHandleAuthentication() {
         return false;
       }
@@ -25195,17 +27603,20 @@ var require_auth = __commonJS({
         });
       }
     };
-    exports.BasicCredentialHandler = BasicCredentialHandler;
+    exports2.BasicCredentialHandler = BasicCredentialHandler;
     var BearerCredentialHandler = class {
       constructor(token) {
         this.token = token;
       }
+      // currently implements pre-authorization
+      // TODO: support preAuth = false where it hooks on 401
       prepareRequest(options) {
         if (!options.headers) {
           throw Error('The request has no headers');
         }
         options.headers['Authorization'] = `Bearer ${this.token}`;
       }
+      // This handler cannot handle 401
       canHandleAuthentication() {
         return false;
       }
@@ -25215,17 +27626,20 @@ var require_auth = __commonJS({
         });
       }
     };
-    exports.BearerCredentialHandler = BearerCredentialHandler;
+    exports2.BearerCredentialHandler = BearerCredentialHandler;
     var PersonalAccessTokenCredentialHandler = class {
       constructor(token) {
         this.token = token;
       }
+      // currently implements pre-authorization
+      // TODO: support preAuth = false where it hooks on 401
       prepareRequest(options) {
         if (!options.headers) {
           throw Error('The request has no headers');
         }
         options.headers['Authorization'] = `Basic ${Buffer.from(`PAT:${this.token}`).toString('base64')}`;
       }
+      // This handler cannot handle 401
       canHandleAuthentication() {
         return false;
       }
@@ -25235,16 +27649,16 @@ var require_auth = __commonJS({
         });
       }
     };
-    exports.PersonalAccessTokenCredentialHandler = PersonalAccessTokenCredentialHandler;
+    exports2.PersonalAccessTokenCredentialHandler = PersonalAccessTokenCredentialHandler;
   },
 });
 
 // node_modules/@actions/core/lib/oidc-utils.js
 var require_oidc_utils = __commonJS({
-  'node_modules/@actions/core/lib/oidc-utils.js'(exports) {
+  'node_modules/@actions/core/lib/oidc-utils.js'(exports2) {
     'use strict';
     var __awaiter =
-      (exports && exports.__awaiter) ||
+      (exports2 && exports2.__awaiter) ||
       function (thisArg, _arguments, P, generator) {
         function adopt(value) {
           return value instanceof P
@@ -25274,12 +27688,12 @@ var require_oidc_utils = __commonJS({
           step((generator = generator.apply(thisArg, _arguments || [])).next());
         });
       };
-    Object.defineProperty(exports, '__esModule', { value: true });
-    exports.OidcClient = void 0;
+    Object.defineProperty(exports2, '__esModule', { value: true });
+    exports2.OidcClient = void 0;
     var http_client_1 = require_lib2();
     var auth_1 = require_auth();
     var core_1 = require_core2();
-    var OidcClient = class {
+    var OidcClient = class _OidcClient {
       static createHttpClient(allowRetry = true, maxRetry = 10) {
         const requestOptions = {
           allowRetries: allowRetry,
@@ -25287,7 +27701,7 @@ var require_oidc_utils = __commonJS({
         };
         return new http_client_1.HttpClient(
           'actions/oidc-client',
-          [new auth_1.BearerCredentialHandler(OidcClient.getRequestToken())],
+          [new auth_1.BearerCredentialHandler(_OidcClient.getRequestToken())],
           requestOptions
         );
       }
@@ -25308,7 +27722,7 @@ var require_oidc_utils = __commonJS({
       static getCall(id_token_url) {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
-          const httpclient = OidcClient.createHttpClient();
+          const httpclient = _OidcClient.createHttpClient();
           const res = yield httpclient.getJson(id_token_url).catch((error) => {
             throw new Error(`Failed to get ID Token. 
  
@@ -25326,13 +27740,13 @@ var require_oidc_utils = __commonJS({
       static getIDToken(audience) {
         return __awaiter(this, void 0, void 0, function* () {
           try {
-            let id_token_url = OidcClient.getIDTokenUrl();
+            let id_token_url = _OidcClient.getIDTokenUrl();
             if (audience) {
               const encodedAudience = encodeURIComponent(audience);
               id_token_url = `${id_token_url}&audience=${encodedAudience}`;
             }
             core_1.debug(`ID token url is ${id_token_url}`);
-            const id_token = yield OidcClient.getCall(id_token_url);
+            const id_token = yield _OidcClient.getCall(id_token_url);
             core_1.setSecret(id_token);
             return id_token;
           } catch (error) {
@@ -25341,16 +27755,16 @@ var require_oidc_utils = __commonJS({
         });
       }
     };
-    exports.OidcClient = OidcClient;
+    exports2.OidcClient = OidcClient;
   },
 });
 
 // node_modules/@actions/core/lib/summary.js
 var require_summary = __commonJS({
-  'node_modules/@actions/core/lib/summary.js'(exports) {
+  'node_modules/@actions/core/lib/summary.js'(exports2) {
     'use strict';
     var __awaiter =
-      (exports && exports.__awaiter) ||
+      (exports2 && exports2.__awaiter) ||
       function (thisArg, _arguments, P, generator) {
         function adopt(value) {
           return value instanceof P
@@ -25380,27 +27794,33 @@ var require_summary = __commonJS({
           step((generator = generator.apply(thisArg, _arguments || [])).next());
         });
       };
-    Object.defineProperty(exports, '__esModule', { value: true });
-    exports.summary = exports.markdownSummary = exports.SUMMARY_DOCS_URL = exports.SUMMARY_ENV_VAR = void 0;
+    Object.defineProperty(exports2, '__esModule', { value: true });
+    exports2.summary = exports2.markdownSummary = exports2.SUMMARY_DOCS_URL = exports2.SUMMARY_ENV_VAR = void 0;
     var os_1 = require('os');
     var fs_1 = require('fs');
     var { access, appendFile, writeFile } = fs_1.promises;
-    exports.SUMMARY_ENV_VAR = 'GITHUB_STEP_SUMMARY';
-    exports.SUMMARY_DOCS_URL =
+    exports2.SUMMARY_ENV_VAR = 'GITHUB_STEP_SUMMARY';
+    exports2.SUMMARY_DOCS_URL =
       'https://docs.github.com/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary';
     var Summary = class {
       constructor() {
         this._buffer = '';
       }
+      /**
+       * Finds the summary file path from the environment, rejects if env var is not found or file does not exist
+       * Also checks r/w permissions.
+       *
+       * @returns step summary file path
+       */
       filePath() {
         return __awaiter(this, void 0, void 0, function* () {
           if (this._filePath) {
             return this._filePath;
           }
-          const pathFromEnv = process.env[exports.SUMMARY_ENV_VAR];
+          const pathFromEnv = process.env[exports2.SUMMARY_ENV_VAR];
           if (!pathFromEnv) {
             throw new Error(
-              `Unable to find environment variable for $${exports.SUMMARY_ENV_VAR}. Check if your runtime environment supports job summaries.`
+              `Unable to find environment variable for $${exports2.SUMMARY_ENV_VAR}. Check if your runtime environment supports job summaries.`
             );
           }
           try {
@@ -25414,6 +27834,15 @@ var require_summary = __commonJS({
           return this._filePath;
         });
       }
+      /**
+       * Wraps content in an HTML tag, adding any HTML attributes
+       *
+       * @param {string} tag HTML tag to wrap
+       * @param {string | null} content content within the tag
+       * @param {[attribute: string]: string} attrs key-value list of HTML attributes to add
+       *
+       * @returns {string} content wrapped in HTML element
+       */
       wrap(tag, content, attrs = {}) {
         const htmlAttrs = Object.entries(attrs)
           .map(([key, value]) => ` ${key}="${value}"`)
@@ -25423,6 +27852,13 @@ var require_summary = __commonJS({
         }
         return `<${tag}${htmlAttrs}>${content}</${tag}>`;
       }
+      /**
+       * Writes text in the buffer to the summary buffer file and empties buffer. Will append by default.
+       *
+       * @param {SummaryWriteOptions} [options] (optional) options for write operation
+       *
+       * @returns {Promise<Summary>} summary instance
+       */
       write(options) {
         return __awaiter(this, void 0, void 0, function* () {
           const overwrite = !!(options === null || options === void 0 ? void 0 : options.overwrite);
@@ -25432,39 +27868,95 @@ var require_summary = __commonJS({
           return this.emptyBuffer();
         });
       }
+      /**
+       * Clears the summary buffer and wipes the summary file
+       *
+       * @returns {Summary} summary instance
+       */
       clear() {
         return __awaiter(this, void 0, void 0, function* () {
           return this.emptyBuffer().write({ overwrite: true });
         });
       }
+      /**
+       * Returns the current summary buffer as a string
+       *
+       * @returns {string} string of summary buffer
+       */
       stringify() {
         return this._buffer;
       }
+      /**
+       * If the summary buffer is empty
+       *
+       * @returns {boolen} true if the buffer is empty
+       */
       isEmptyBuffer() {
         return this._buffer.length === 0;
       }
+      /**
+       * Resets the summary buffer without writing to summary file
+       *
+       * @returns {Summary} summary instance
+       */
       emptyBuffer() {
         this._buffer = '';
         return this;
       }
+      /**
+       * Adds raw text to the summary buffer
+       *
+       * @param {string} text content to add
+       * @param {boolean} [addEOL=false] (optional) append an EOL to the raw text (default: false)
+       *
+       * @returns {Summary} summary instance
+       */
       addRaw(text, addEOL = false) {
         this._buffer += text;
         return addEOL ? this.addEOL() : this;
       }
+      /**
+       * Adds the operating system-specific end-of-line marker to the buffer
+       *
+       * @returns {Summary} summary instance
+       */
       addEOL() {
         return this.addRaw(os_1.EOL);
       }
+      /**
+       * Adds an HTML codeblock to the summary buffer
+       *
+       * @param {string} code content to render within fenced code block
+       * @param {string} lang (optional) language to syntax highlight code
+       *
+       * @returns {Summary} summary instance
+       */
       addCodeBlock(code, lang) {
         const attrs = Object.assign({}, lang && { lang });
         const element = this.wrap('pre', this.wrap('code', code), attrs);
         return this.addRaw(element).addEOL();
       }
+      /**
+       * Adds an HTML list to the summary buffer
+       *
+       * @param {string[]} items list of items to render
+       * @param {boolean} [ordered=false] (optional) if the rendered list should be ordered or not (default: false)
+       *
+       * @returns {Summary} summary instance
+       */
       addList(items, ordered = false) {
         const tag = ordered ? 'ol' : 'ul';
         const listItems = items.map((item) => this.wrap('li', item)).join('');
         const element = this.wrap(tag, listItems);
         return this.addRaw(element).addEOL();
       }
+      /**
+       * Adds an HTML table to the summary buffer
+       *
+       * @param {SummaryTableCell[]} rows table rows
+       *
+       * @returns {Summary} summary instance
+       */
       addTable(rows) {
         const tableBody = rows
           .map((row) => {
@@ -25485,52 +27977,103 @@ var require_summary = __commonJS({
         const element = this.wrap('table', tableBody);
         return this.addRaw(element).addEOL();
       }
+      /**
+       * Adds a collapsable HTML details element to the summary buffer
+       *
+       * @param {string} label text for the closed state
+       * @param {string} content collapsable content
+       *
+       * @returns {Summary} summary instance
+       */
       addDetails(label, content) {
         const element = this.wrap('details', this.wrap('summary', label) + content);
         return this.addRaw(element).addEOL();
       }
+      /**
+       * Adds an HTML image tag to the summary buffer
+       *
+       * @param {string} src path to the image you to embed
+       * @param {string} alt text description of the image
+       * @param {SummaryImageOptions} options (optional) addition image attributes
+       *
+       * @returns {Summary} summary instance
+       */
       addImage(src, alt, options) {
         const { width, height } = options || {};
         const attrs = Object.assign(Object.assign({}, width && { width }), height && { height });
         const element = this.wrap('img', null, Object.assign({ src, alt }, attrs));
         return this.addRaw(element).addEOL();
       }
+      /**
+       * Adds an HTML section heading element
+       *
+       * @param {string} text heading text
+       * @param {number | string} [level=1] (optional) the heading level, default: 1
+       *
+       * @returns {Summary} summary instance
+       */
       addHeading(text, level) {
         const tag = `h${level}`;
         const allowedTag = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tag) ? tag : 'h1';
         const element = this.wrap(allowedTag, text);
         return this.addRaw(element).addEOL();
       }
+      /**
+       * Adds an HTML thematic break (<hr>) to the summary buffer
+       *
+       * @returns {Summary} summary instance
+       */
       addSeparator() {
         const element = this.wrap('hr', null);
         return this.addRaw(element).addEOL();
       }
+      /**
+       * Adds an HTML line break (<br>) to the summary buffer
+       *
+       * @returns {Summary} summary instance
+       */
       addBreak() {
         const element = this.wrap('br', null);
         return this.addRaw(element).addEOL();
       }
+      /**
+       * Adds an HTML blockquote to the summary buffer
+       *
+       * @param {string} text quote text
+       * @param {string} cite (optional) citation url
+       *
+       * @returns {Summary} summary instance
+       */
       addQuote(text, cite) {
         const attrs = Object.assign({}, cite && { cite });
         const element = this.wrap('blockquote', text, attrs);
         return this.addRaw(element).addEOL();
       }
+      /**
+       * Adds an HTML anchor tag to the summary buffer
+       *
+       * @param {string} text link text/content
+       * @param {string} href hyperlink
+       *
+       * @returns {Summary} summary instance
+       */
       addLink(text, href) {
         const element = this.wrap('a', text, { href });
         return this.addRaw(element).addEOL();
       }
     };
     var _summary = new Summary();
-    exports.markdownSummary = _summary;
-    exports.summary = _summary;
+    exports2.markdownSummary = _summary;
+    exports2.summary = _summary;
   },
 });
 
 // node_modules/@actions/core/lib/path-utils.js
 var require_path_utils = __commonJS({
-  'node_modules/@actions/core/lib/path-utils.js'(exports) {
+  'node_modules/@actions/core/lib/path-utils.js'(exports2) {
     'use strict';
     var __createBinding =
-      (exports && exports.__createBinding) ||
+      (exports2 && exports2.__createBinding) ||
       (Object.create
         ? function (o, m, k, k2) {
             if (k2 === void 0) k2 = k;
@@ -25546,7 +28089,7 @@ var require_path_utils = __commonJS({
             o[k2] = m[k];
           });
     var __setModuleDefault =
-      (exports && exports.__setModuleDefault) ||
+      (exports2 && exports2.__setModuleDefault) ||
       (Object.create
         ? function (o, v) {
             Object.defineProperty(o, 'default', { enumerable: true, value: v });
@@ -25555,7 +28098,7 @@ var require_path_utils = __commonJS({
             o['default'] = v;
           });
     var __importStar =
-      (exports && exports.__importStar) ||
+      (exports2 && exports2.__importStar) ||
       function (mod) {
         if (mod && mod.__esModule) return mod;
         var result = {};
@@ -25565,30 +28108,30 @@ var require_path_utils = __commonJS({
         __setModuleDefault(result, mod);
         return result;
       };
-    Object.defineProperty(exports, '__esModule', { value: true });
-    exports.toPlatformPath = exports.toWin32Path = exports.toPosixPath = void 0;
+    Object.defineProperty(exports2, '__esModule', { value: true });
+    exports2.toPlatformPath = exports2.toWin32Path = exports2.toPosixPath = void 0;
     var path = __importStar(require('path'));
     function toPosixPath(pth) {
       return pth.replace(/[\\]/g, '/');
     }
-    exports.toPosixPath = toPosixPath;
+    exports2.toPosixPath = toPosixPath;
     function toWin32Path(pth) {
       return pth.replace(/[/]/g, '\\');
     }
-    exports.toWin32Path = toWin32Path;
+    exports2.toWin32Path = toWin32Path;
     function toPlatformPath(pth) {
       return pth.replace(/[/\\]/g, path.sep);
     }
-    exports.toPlatformPath = toPlatformPath;
+    exports2.toPlatformPath = toPlatformPath;
   },
 });
 
 // node_modules/@actions/core/lib/core.js
 var require_core2 = __commonJS({
-  'node_modules/@actions/core/lib/core.js'(exports) {
+  'node_modules/@actions/core/lib/core.js'(exports2) {
     'use strict';
     var __createBinding =
-      (exports && exports.__createBinding) ||
+      (exports2 && exports2.__createBinding) ||
       (Object.create
         ? function (o, m, k, k2) {
             if (k2 === void 0) k2 = k;
@@ -25604,7 +28147,7 @@ var require_core2 = __commonJS({
             o[k2] = m[k];
           });
     var __setModuleDefault =
-      (exports && exports.__setModuleDefault) ||
+      (exports2 && exports2.__setModuleDefault) ||
       (Object.create
         ? function (o, v) {
             Object.defineProperty(o, 'default', { enumerable: true, value: v });
@@ -25613,7 +28156,7 @@ var require_core2 = __commonJS({
             o['default'] = v;
           });
     var __importStar =
-      (exports && exports.__importStar) ||
+      (exports2 && exports2.__importStar) ||
       function (mod) {
         if (mod && mod.__esModule) return mod;
         var result = {};
@@ -25624,7 +28167,7 @@ var require_core2 = __commonJS({
         return result;
       };
     var __awaiter =
-      (exports && exports.__awaiter) ||
+      (exports2 && exports2.__awaiter) ||
       function (thisArg, _arguments, P, generator) {
         function adopt(value) {
           return value instanceof P
@@ -25654,29 +28197,29 @@ var require_core2 = __commonJS({
           step((generator = generator.apply(thisArg, _arguments || [])).next());
         });
       };
-    Object.defineProperty(exports, '__esModule', { value: true });
-    exports.getIDToken =
-      exports.getState =
-      exports.saveState =
-      exports.group =
-      exports.endGroup =
-      exports.startGroup =
-      exports.info =
-      exports.notice =
-      exports.warning =
-      exports.error =
-      exports.debug =
-      exports.isDebug =
-      exports.setFailed =
-      exports.setCommandEcho =
-      exports.setOutput =
-      exports.getBooleanInput =
-      exports.getMultilineInput =
-      exports.getInput =
-      exports.addPath =
-      exports.setSecret =
-      exports.exportVariable =
-      exports.ExitCode =
+    Object.defineProperty(exports2, '__esModule', { value: true });
+    exports2.getIDToken =
+      exports2.getState =
+      exports2.saveState =
+      exports2.group =
+      exports2.endGroup =
+      exports2.startGroup =
+      exports2.info =
+      exports2.notice =
+      exports2.warning =
+      exports2.error =
+      exports2.debug =
+      exports2.isDebug =
+      exports2.setFailed =
+      exports2.setCommandEcho =
+      exports2.setOutput =
+      exports2.getBooleanInput =
+      exports2.getMultilineInput =
+      exports2.getInput =
+      exports2.addPath =
+      exports2.setSecret =
+      exports2.exportVariable =
+      exports2.ExitCode =
         void 0;
     var command_1 = require_command();
     var file_command_1 = require_file_command();
@@ -25688,7 +28231,7 @@ var require_core2 = __commonJS({
     (function (ExitCode2) {
       ExitCode2[(ExitCode2['Success'] = 0)] = 'Success';
       ExitCode2[(ExitCode2['Failure'] = 1)] = 'Failure';
-    })((ExitCode = exports.ExitCode || (exports.ExitCode = {})));
+    })((ExitCode = exports2.ExitCode || (exports2.ExitCode = {})));
     function exportVariable(name, val) {
       const convertedVal = utils_1.toCommandValue(val);
       process.env[name] = convertedVal;
@@ -25698,11 +28241,11 @@ var require_core2 = __commonJS({
       }
       command_1.issueCommand('set-env', { name }, convertedVal);
     }
-    exports.exportVariable = exportVariable;
+    exports2.exportVariable = exportVariable;
     function setSecret2(secret) {
       command_1.issueCommand('add-mask', {}, secret);
     }
-    exports.setSecret = setSecret2;
+    exports2.setSecret = setSecret2;
     function addPath(inputPath) {
       const filePath = process.env['GITHUB_PATH'] || '';
       if (filePath) {
@@ -25712,7 +28255,7 @@ var require_core2 = __commonJS({
       }
       process.env['PATH'] = `${inputPath}${path.delimiter}${process.env['PATH']}`;
     }
-    exports.addPath = addPath;
+    exports2.addPath = addPath;
     function getInput2(name, options) {
       const val = process.env[`INPUT_${name.replace(/ /g, '_').toUpperCase()}`] || '';
       if (options && options.required && !val) {
@@ -25723,7 +28266,7 @@ var require_core2 = __commonJS({
       }
       return val.trim();
     }
-    exports.getInput = getInput2;
+    exports2.getInput = getInput2;
     function getMultilineInput(name, options) {
       const inputs = getInput2(name, options)
         .split('\n')
@@ -25733,7 +28276,7 @@ var require_core2 = __commonJS({
       }
       return inputs.map((input) => input.trim());
     }
-    exports.getMultilineInput = getMultilineInput;
+    exports2.getMultilineInput = getMultilineInput;
     function getBooleanInput(name, options) {
       const trueValue = ['true', 'True', 'TRUE'];
       const falseValue = ['false', 'False', 'FALSE'];
@@ -25743,7 +28286,7 @@ var require_core2 = __commonJS({
       throw new TypeError(`Input does not meet YAML 1.2 "Core Schema" specification: ${name}
 Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
     }
-    exports.getBooleanInput = getBooleanInput;
+    exports2.getBooleanInput = getBooleanInput;
     function setOutput2(name, value) {
       const filePath = process.env['GITHUB_OUTPUT'] || '';
       if (filePath) {
@@ -25752,24 +28295,24 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
       process.stdout.write(os.EOL);
       command_1.issueCommand('set-output', { name }, utils_1.toCommandValue(value));
     }
-    exports.setOutput = setOutput2;
+    exports2.setOutput = setOutput2;
     function setCommandEcho(enabled) {
       command_1.issue('echo', enabled ? 'on' : 'off');
     }
-    exports.setCommandEcho = setCommandEcho;
+    exports2.setCommandEcho = setCommandEcho;
     function setFailed2(message) {
       process.exitCode = ExitCode.Failure;
       error(message);
     }
-    exports.setFailed = setFailed2;
+    exports2.setFailed = setFailed2;
     function isDebug() {
       return process.env['RUNNER_DEBUG'] === '1';
     }
-    exports.isDebug = isDebug;
+    exports2.isDebug = isDebug;
     function debug(message) {
       command_1.issueCommand('debug', {}, message);
     }
-    exports.debug = debug;
+    exports2.debug = debug;
     function error(message, properties = {}) {
       command_1.issueCommand(
         'error',
@@ -25777,7 +28320,7 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
         message instanceof Error ? message.toString() : message
       );
     }
-    exports.error = error;
+    exports2.error = error;
     function warning(message, properties = {}) {
       command_1.issueCommand(
         'warning',
@@ -25785,7 +28328,7 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
         message instanceof Error ? message.toString() : message
       );
     }
-    exports.warning = warning;
+    exports2.warning = warning;
     function notice(message, properties = {}) {
       command_1.issueCommand(
         'notice',
@@ -25793,19 +28336,19 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
         message instanceof Error ? message.toString() : message
       );
     }
-    exports.notice = notice;
+    exports2.notice = notice;
     function info(message) {
       process.stdout.write(message + os.EOL);
     }
-    exports.info = info;
+    exports2.info = info;
     function startGroup(name) {
       command_1.issue('group', name);
     }
-    exports.startGroup = startGroup;
+    exports2.startGroup = startGroup;
     function endGroup() {
       command_1.issue('endgroup');
     }
-    exports.endGroup = endGroup;
+    exports2.endGroup = endGroup;
     function group(name, fn) {
       return __awaiter(this, void 0, void 0, function* () {
         startGroup(name);
@@ -25818,7 +28361,7 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
         return result;
       });
     }
-    exports.group = group;
+    exports2.group = group;
     function saveState(name, value) {
       const filePath = process.env['GITHUB_STATE'] || '';
       if (filePath) {
@@ -25826,45 +28369,45 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
       }
       command_1.issueCommand('save-state', { name }, utils_1.toCommandValue(value));
     }
-    exports.saveState = saveState;
+    exports2.saveState = saveState;
     function getState(name) {
       return process.env[`STATE_${name}`] || '';
     }
-    exports.getState = getState;
+    exports2.getState = getState;
     function getIDToken(aud) {
       return __awaiter(this, void 0, void 0, function* () {
         return yield oidc_utils_1.OidcClient.getIDToken(aud);
       });
     }
-    exports.getIDToken = getIDToken;
+    exports2.getIDToken = getIDToken;
     var summary_1 = require_summary();
-    Object.defineProperty(exports, 'summary', {
+    Object.defineProperty(exports2, 'summary', {
       enumerable: true,
       get: function () {
         return summary_1.summary;
       },
     });
     var summary_2 = require_summary();
-    Object.defineProperty(exports, 'markdownSummary', {
+    Object.defineProperty(exports2, 'markdownSummary', {
       enumerable: true,
       get: function () {
         return summary_2.markdownSummary;
       },
     });
     var path_utils_1 = require_path_utils();
-    Object.defineProperty(exports, 'toPosixPath', {
+    Object.defineProperty(exports2, 'toPosixPath', {
       enumerable: true,
       get: function () {
         return path_utils_1.toPosixPath;
       },
     });
-    Object.defineProperty(exports, 'toWin32Path', {
+    Object.defineProperty(exports2, 'toWin32Path', {
       enumerable: true,
       get: function () {
         return path_utils_1.toWin32Path;
       },
     });
-    Object.defineProperty(exports, 'toPlatformPath', {
+    Object.defineProperty(exports2, 'toPlatformPath', {
       enumerable: true,
       get: function () {
         return path_utils_1.toPlatformPath;
@@ -25905,7 +28448,7 @@ var setAWSCredentials = () => {
 var getParams = () => {
   return Object.keys(Props).reduce((memo, prop) => {
     const value = (0, import_core.getInput)(prop);
-    return value ? __spreadProps(__spreadValues({}, memo), { [prop]: value }) : memo;
+    return value ? { ...memo, [prop]: value } : memo;
   }, {});
 };
 var setAWSConfigOptions = () => {
@@ -25939,4 +28482,8 @@ var main = async () => {
 
 // index.ts
 main();
-/*! http://mths.be/fromcodepoint v0.1.0 by @mathias */
+/*! Bundled license information:
+
+sax/lib/sax.js:
+  (*! http://mths.be/fromcodepoint v0.1.0 by @mathias *)
+*/
