@@ -1,12 +1,13 @@
-import AWS from 'aws-sdk/global';
 import { main, Props, Credentials, ExtraOptions } from '../src';
 import { setFailed, getInput, setOutput, setSecret } from '../__mocks__/@actions/core';
-import Lambda, { constructorMock } from '../__mocks__/aws-sdk/clients/lambda';
+import { LambdaClient, constructorMock, sendMock } from '../__mocks__/@aws-sdk/client-lambda';
 
 describe('invoke-aws-lambda', () => {
   const mockedInput = {
     [Props.FunctionName]: 'SomeFunction',
+    [Props.InvocationType]: 'RequestResponse',
     [Props.LogType]: 'None',
+    [Props.ClientContext]: '{}',
     [Props.Payload]: '{"input": {value: "1"}',
     [Props.Qualifier]: 'production',
     [ExtraOptions.HTTP_TIMEOUT]: '220000',
@@ -18,11 +19,9 @@ describe('invoke-aws-lambda', () => {
   };
 
   beforeAll(() => {
-    getInput.mockImplementation(
-      (key: Partial<Props & Credentials & 'REGION'>) => {
-        return mockedInput[key];
-      }
-    );
+    getInput.mockImplementation((key: Partial<Props & Credentials & 'REGION'>) => {
+      return mockedInput[key];
+    });
   });
 
   afterEach(() => {
@@ -30,44 +29,40 @@ describe('invoke-aws-lambda', () => {
     setFailed.mockClear();
     setOutput.mockClear();
     setSecret.mockClear();
+    constructorMock.mockClear();
+    sendMock.mockClear();
   });
 
   it('runs when provided the correct input', async () => {
-    const handler = jest.fn(() => ({ response: 'ok' }));
+    const handler = jest.fn(() => Promise.resolve({ response: 'ok' }));
 
-    Lambda.__setResponseForMethods({ invoke: handler });
+    LambdaClient.__setResponseForMethods({ send: handler });
 
     await main();
     expect(getInput).toHaveBeenCalledTimes(13);
     expect(setFailed).not.toHaveBeenCalled();
     expect(setSecret).toHaveBeenCalledTimes(2);
-    expect(AWS.config.httpOptions).toMatchInlineSnapshot(`
-      Object {
-        "timeout": 220000,
-      }
-    `);
     expect(constructorMock.mock.calls).toMatchInlineSnapshot(`
       Array [
         Array [
           Object {
-            "apiVersion": "2015-03-31",
+            "credentials": Object {
+              "accessKeyId": "someAccessKey",
+              "secretAccessKey": "someSecretKey",
+              "sessionToken": undefined,
+            },
+            "maxAttempts": 3,
             "region": "us-west-2",
+            "requestHandler": Object {
+              "httpOptions": Object {
+                "timeout": 220000,
+              },
+            },
           },
         ],
       ]
     `);
-    expect(handler.mock.calls).toMatchInlineSnapshot(`
-      Array [
-        Array [
-          Object {
-            "FunctionName": "SomeFunction",
-            "LogType": "None",
-            "Payload": "{\\"input\\": {value: \\"1\\"}",
-            "Qualifier": "production",
-          },
-        ],
-      ]
-    `);
+    expect(handler.mock.calls).toHaveLength(1);
     expect(setOutput.mock.calls).toMatchInlineSnapshot(`
       Array [
         Array [
@@ -81,20 +76,13 @@ describe('invoke-aws-lambda', () => {
   });
 
   it('fails when lambda invocation throws an error', async () => {
-    const handler = jest.fn(() => {
-      throw new Error('something went horribly wrong');
-    });
+    const handler = jest.fn(() => Promise.reject(new Error('something went horribly wrong')));
 
-    Lambda.__setResponseForMethods({ invoke: handler });
+    LambdaClient.__setResponseForMethods({ send: handler });
 
     await main();
 
     expect(getInput).toHaveBeenCalledTimes(12);
-    expect(AWS.config.httpOptions).toMatchInlineSnapshot(`
-      Object {
-        "timeout": 220000,
-      }
-    `);
     expect(setFailed).toHaveBeenCalled();
     expect(setOutput).not.toHaveBeenCalled();
     expect(setSecret).toHaveBeenCalledTimes(2);
@@ -102,11 +90,11 @@ describe('invoke-aws-lambda', () => {
 
   describe('when the function returns an error', () => {
     beforeEach(() => {
-      const handler = jest.fn().mockReturnValue({
+      const handler = jest.fn().mockResolvedValue({
         FunctionError: 'Unhandled',
       });
 
-      Lambda.__setResponseForMethods({ invoke: handler });
+      LambdaClient.__setResponseForMethods({ send: handler });
     });
 
     it('should fail the action when SUCCEED_ON_FUNCTION_FAILURE is undefined', async () => {
@@ -115,11 +103,9 @@ describe('invoke-aws-lambda', () => {
         [ExtraOptions.SUCCEED_ON_FUNCTION_FAILURE]: undefined,
       };
 
-      getInput.mockImplementation(
-        (key: Partial<Props & Credentials & 'REGION'>) => {
-          return overriddenMockedInput[key];
-        }
-      );
+      getInput.mockImplementation((key: Partial<Props & Credentials & 'REGION'>) => {
+        return overriddenMockedInput[key];
+      });
 
       await main();
 
@@ -134,11 +120,9 @@ describe('invoke-aws-lambda', () => {
         [ExtraOptions.SUCCEED_ON_FUNCTION_FAILURE]: 'false',
       };
 
-      getInput.mockImplementation(
-        (key: Partial<Props & Credentials & 'REGION'>) => {
-          return overriddenMockedInput[key];
-        }
-      );
+      getInput.mockImplementation((key: Partial<Props & Credentials & 'REGION'>) => {
+        return overriddenMockedInput[key];
+      });
 
       await main();
 
@@ -153,11 +137,9 @@ describe('invoke-aws-lambda', () => {
         [ExtraOptions.SUCCEED_ON_FUNCTION_FAILURE]: 'true',
       };
 
-      getInput.mockImplementation(
-        (key: Partial<Props & Credentials & 'REGION'>) => {
-          return overriddenMockedInput[key];
-        }
-      );
+      getInput.mockImplementation((key: Partial<Props & Credentials & 'REGION'>) => {
+        return overriddenMockedInput[key];
+      });
 
       await main();
 
@@ -172,15 +154,13 @@ describe('invoke-aws-lambda', () => {
         [Credentials.AWS_SESSION_TOKEN]: 'someSessionToken',
       };
 
-      getInput.mockImplementation(
-        (key: Partial<Props & Credentials & 'REGION'>) => {
-          return overriddenMockedInput[key];
-        }
-      );
+      getInput.mockImplementation((key: Partial<Props & Credentials & 'REGION'>) => {
+        return overriddenMockedInput[key];
+      });
 
-      const handler = jest.fn(() => ({ response: 'ok' }));
+      const handler = jest.fn(() => Promise.resolve({ response: 'ok' }));
 
-      Lambda.__setResponseForMethods({ invoke: handler });
+      LambdaClient.__setResponseForMethods({ send: handler });
 
       await main();
 

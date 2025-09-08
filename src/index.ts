@@ -1,8 +1,5 @@
-import AWS from 'aws-sdk/global';
-import Lambda from 'aws-sdk/clients/lambda';
+import { LambdaClient, InvokeCommand, InvokeCommandInput } from '@aws-sdk/client-lambda';
 import { getInput, setOutput, setFailed, setSecret } from '@actions/core';
-
-const apiVersion = '2015-03-31';
 
 export enum ExtraOptions {
   HTTP_TIMEOUT = 'HTTP_TIMEOUT',
@@ -25,7 +22,7 @@ export enum Props {
   Qualifier = 'Qualifier',
 }
 
-const setAWSCredentials = () => {
+const getAWSCredentials = () => {
   const accessKeyId = getInput(Credentials.AWS_ACCESS_KEY_ID);
   setSecret(accessKeyId);
 
@@ -38,45 +35,53 @@ const setAWSCredentials = () => {
     setSecret(sessionToken);
   }
 
-  AWS.config.credentials = {
+  return {
     accessKeyId,
     secretAccessKey,
     sessionToken,
   };
 };
 
-const getParams = () => {
+const getParams = (): InvokeCommandInput => {
   return Object.keys(Props).reduce((memo, prop) => {
     const value = getInput(prop);
     return value ? { ...memo, [prop]: value } : memo;
-  }, {} as Lambda.InvocationRequest);
+  }, {} as InvokeCommandInput);
 };
 
-const setAWSConfigOptions = () => {
+const getAWSConfigOptions = () => {
   const httpTimeout = getInput(ExtraOptions.HTTP_TIMEOUT);
-
-  if (httpTimeout) {
-    AWS.config.httpOptions = { timeout: parseInt(httpTimeout, 10) };
-  }
-
   const maxRetries = getInput(ExtraOptions.MAX_RETRIES);
 
-  if (maxRetries) {
-    AWS.config.maxRetries = parseInt(maxRetries, 10);
+  const config: any = {};
+
+  if (httpTimeout) {
+    config.requestHandler = {
+      httpOptions: { timeout: parseInt(httpTimeout, 10) },
+    };
   }
+
+  if (maxRetries) {
+    config.maxAttempts = parseInt(maxRetries, 10);
+  }
+
+  return config;
 };
 
 export const main = async () => {
   try {
-    setAWSCredentials();
-
-    setAWSConfigOptions();
-
+    const credentials = getAWSCredentials();
+    const configOptions = getAWSConfigOptions();
     const params = getParams();
 
-    const lambda = new Lambda({ apiVersion, region: getInput('REGION') });
+    const lambda = new LambdaClient({
+      region: getInput('REGION'),
+      credentials,
+      ...configOptions,
+    });
 
-    const response = await lambda.invoke(params).promise();
+    const command = new InvokeCommand(params);
+    const response = await lambda.send(command);
 
     setOutput('response', response);
 
